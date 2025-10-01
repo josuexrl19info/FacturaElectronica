@@ -79,7 +79,7 @@ export function Sidebar({ company }: SidebarProps) {
         {!collapsed && (
           <div className="flex-1 min-w-0 relative z-10">
             <h2 className="font-bold truncate text-gradient">{company.name}</h2>
-            <p className="text-xs text-muted-foreground">Sistema de Facturación</p>
+            <p className="text-xs text-muted-foreground">InvoSell por InnovaSellCR</p>
           </div>
         )}
       </div>
@@ -88,7 +88,7 @@ export function Sidebar({ company }: SidebarProps) {
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
 
             return (
               <li key={item.href}>
@@ -160,8 +160,21 @@ export function Sidebar({ company }: SidebarProps) {
         {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
 
-      <button className="fixed bottom-6 right-6 w-14 h-14 gradient-primary rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 animate-pulse-slow border-2 border-background">
-        <MessageSquare className="w-6 h-6 text-white" />
+      {/* AI Chat Assistant - Fixed position */}
+      <button className="fixed bottom-6 right-6 w-16 h-16 gradient-primary rounded-2xl shadow-2xl flex flex-col items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-primary/25 group border-2 border-background/50 backdrop-blur-sm">
+        <MessageSquare className="w-6 h-6 text-white mb-0.5 group-hover:scale-110 transition-transform duration-300" />
+        <span className="text-[10px] font-medium text-white/90 group-hover:text-white transition-colors duration-300">IA</span>
+        
+        {/* Notification dot */}
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full flex items-center justify-center">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+        </div>
+        
+        {/* Tooltip */}
+        <div className="absolute right-full mr-3 px-3 py-2 bg-popover text-popover-foreground rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 shadow-xl border scale-95 group-hover:scale-100">
+          Asistente IA - ¡Pregúntame lo que necesites!
+          <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-popover" />
+        </div>
       </button>
     </aside>
   )

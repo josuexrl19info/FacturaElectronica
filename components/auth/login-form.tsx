@@ -32,10 +32,11 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md space-y-8">
-      <div className="text-center">
+      {/* Mobile header - only visible on small screens */}
+      <div className="text-center lg:hidden">
         <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <svg className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+            <svg className="w-7 h-7 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -44,9 +45,19 @@ export function LoginForm() {
               />
             </svg>
           </div>
+          <div className="text-left">
+            <h1 className="text-2xl font-bold">InvoSell</h1>
+            <p className="text-sm text-muted-foreground">por InnovaSellCR</p>
+          </div>
         </div>
-        <h1 className="text-4xl font-bold tracking-tight text-balance">Sistema de Facturación</h1>
-        <p className="mt-3 text-lg text-muted-foreground">Ingrese sus credenciales para continuar</p>
+        <h2 className="text-2xl font-bold mb-2">Bienvenido de vuelta</h2>
+        <p className="text-muted-foreground">Ingresa tus credenciales para acceder</p>
+      </div>
+
+      {/* Desktop header - only visible on large screens */}
+      <div className="text-center hidden lg:block">
+        <h2 className="text-3xl font-bold mb-2">¡Hola de nuevo!</h2>
+        <p className="text-lg text-muted-foreground">Ingresa tus credenciales para continuar</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
