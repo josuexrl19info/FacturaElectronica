@@ -1,4 +1,5 @@
 "use client"
+
 import { Building2, Settings, User, LogOut, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,7 +41,7 @@ export function UserMenu({ currentCompany }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="gap-2 h-auto py-2 px-3">
+        <button className="gap-2 h-auto py-2 px-3 hover:bg-accent/50 transition-colors flex items-center gap-2 bg-transparent border-none outline-none cursor-pointer">
           <div className="flex items-center gap-2">
             {currentCompany?.logo ? (
               <img
@@ -59,9 +60,9 @@ export function UserMenu({ currentCompany }: UserMenuProps) {
             </div>
             <ChevronDown className="w-4 h-4 text-muted-foreground" />
           </div>
-        </Button>
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
         <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleChangeCompany} className="gap-2 cursor-pointer">
