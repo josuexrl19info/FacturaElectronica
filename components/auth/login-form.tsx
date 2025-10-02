@@ -6,6 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/firebase-client"
 import { useRouter } from "next/navigation"
 
@@ -13,18 +14,45 @@ export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
   const { signIn } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError("")
+
+    // Validaciones básicas
+    if (!email.trim()) {
+      setError("Por favor ingresa tu correo electrónico")
+      setLoading(false)
+      return
+    }
+
+    if (!password.trim()) {
+      setError("Por favor ingresa tu contraseña")
+      setLoading(false)
+      return
+    }
+
+    // Validación básica de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError("Por favor ingresa un correo electrónico válido")
+      setLoading(false)
+      return
+    }
 
     try {
       await signIn(email, password)
       router.push("/select-company")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error)
+      
+      // Mostrar el mensaje de error específico o un mensaje genérico
+      const errorMessage = error.message || "Error al iniciar sesión"
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -61,6 +89,12 @@ export function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">Correo electrónico</Label>
           <Input

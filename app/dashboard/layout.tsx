@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { useRouter } from "next/navigation"
+import { MessageSquare } from "lucide-react"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -42,6 +43,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <Sidebar company={company} />
       <main className="ml-64 transition-all duration-300">{children}</main>
+      
+      {/* AI Chat Assistant - Fixed position in bottom right corner */}
+      <button className="fixed bottom-6 right-6 w-12 h-12 gradient-primary rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-primary/25 group border-2 border-background/50 backdrop-blur-sm z-50">
+        <MessageSquare className="w-5 h-5 text-white group-hover:scale-110 transition-transform duration-300" />
+        
+        {/* Notification dot */}
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full flex items-center justify-center">
+          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+        </div>
+        
+        {/* Tooltip */}
+        <div className="absolute right-full mr-3 px-3 py-2 bg-popover text-popover-foreground rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 shadow-xl border scale-95 group-hover:scale-100">
+          Asistente IA - ¡Pregúntame lo que necesites!
+          <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-popover" />
+        </div>
+      </button>
     </div>
   )
 }

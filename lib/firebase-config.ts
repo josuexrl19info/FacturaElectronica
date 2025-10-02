@@ -6,17 +6,35 @@ export const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-// Types for the multi-tenant system
+// Types for the multi-tenant system based on actual Firestore structure
 export interface User {
   id: string
   email: string
   name: string
+  status: 'active' | 'inactive' | 'suspended'
+  roleId: string
+  tenantId: string
+  lastLoginAt?: Date
   createdAt: Date
+  updatedAt: Date
+  profileImage?: string
+  role: {
+    name: string
+    permissions: string[]
+  }
+  profile: {
+    preferences: {
+      notifications: boolean
+      language: string
+      timezone: string
+    }
+  }
 }
 
-export interface Company {
+export interface Tenant {
   id: string
   name: string
   logo?: string
@@ -38,8 +56,8 @@ export interface Company {
   updatedAt: Date
 }
 
-export interface UserCompanyRole {
+export interface UserTenantRole {
   userId: string
-  companyId: string
+  tenantId: string
   role: "owner" | "admin" | "collaborator"
 }

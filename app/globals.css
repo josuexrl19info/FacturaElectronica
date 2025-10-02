@@ -120,9 +120,19 @@
   @apply bg-muted-foreground;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions - excluding Radix portals */
+*:not([data-radix-portal]):not([data-radix-popper-content-wrapper]) {
   @apply transition-colors duration-200;
+}
+
+/* Ensure Radix portals work correctly */
+[data-radix-portal] {
+  pointer-events: auto !important;
+}
+
+[data-radix-popper-content-wrapper] {
+  pointer-events: auto !important;
+  z-index: 9999 !important;
 }
 
 /* Netflix-style card hover effect */

@@ -5,6 +5,8 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import type React from "react"
 import { Suspense } from "react"
+import { AuthProvider, CompaniesProvider } from "@/lib/firebase-client"
+import { ToastProvider } from "@/components/providers/toast-provider"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,13 +26,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es">
-      <body className={`font-sans ${inter.variable} ${GeistMono.variable}`}>
-        <Suspense fallback={<div>Loading...</div>}>
-          {children}
-          <Analytics />
-        </Suspense>
-      </body>
-    </html>
+        <html lang="es">
+          <body className={`font-sans ${inter.variable} ${GeistMono.variable}`}>
+            <AuthProvider>
+              <CompaniesProvider>
+                <ToastProvider>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    {children}
+                    <Analytics />
+                  </Suspense>
+                </ToastProvider>
+              </CompaniesProvider>
+            </AuthProvider>
+          </body>
+        </html>
   )
 }
