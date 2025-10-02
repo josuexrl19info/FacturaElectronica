@@ -17,6 +17,7 @@ import {
   Building2,
   LogOut,
   MessageSquare,
+  Mail,
 } from "lucide-react"
 
 const menuItems = [
@@ -44,6 +45,11 @@ const menuItems = [
     title: "Reportes",
     icon: BarChart3,
     href: "/dashboard/reports",
+  },
+  {
+    title: "Pruebas de Correo",
+    icon: Mail,
+    href: "/dashboard/email-test",
   },
   {
     title: "Configuración",
