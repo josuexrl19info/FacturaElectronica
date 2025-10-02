@@ -1,168 +1,190 @@
-# InvoSell 💼
+# InvoSell - Sistema de Facturación Electrónica
 
-**Sistema de Facturación Electrónica para Costa Rica**
+Sistema moderno de facturación electrónica para Costa Rica, desarrollado con Next.js 14, Firebase y TypeScript.
 
-Desarrollado por **InnovaSell** - Soluciones tecnológicas innovadoras para el comercio electrónico y la gestión empresarial.
+## 🚀 Características
 
-## 🚀 Descripción
+- **Autenticación segura** con Firebase Auth
+- **Base de datos en tiempo real** con Firestore
+- **Multi-tenant** para múltiples empresas
+- **Gestión de usuarios y roles**
+- **Interfaz moderna y responsive**
+- **Facturación electrónica** compatible con Costa Rica
+- **API REST** para integraciones
 
-InvoSell es una aplicación web moderna y completa para la gestión de facturación electrónica, diseñada específicamente para cumplir con las regulaciones de facturación electrónica de Costa Rica (v4.4). El sistema permite a las empresas gestionar sus documentos fiscales, clientes, productos y reportes de manera eficiente.
+## 🛠️ Tecnologías
 
-## ✨ Características Principales
-
-### 📄 Gestión de Documentos
-- **Facturas Electrónicas** - Cumplimiento con normativas CR
-- **Notas de Crédito** - Gestión de devoluciones y ajustes
-- **Notas de Débito** - Cargos adicionales y correcciones
-- **Tickets** - Comprobantes de venta simplificados
-- **Vista Previa PDF** - Generación de documentos en PDF
-
-### 👥 Gestión de Clientes
-- Registro completo de clientes
-- Información fiscal y de contacto
-- Historial de transacciones
-- Asignación de múltiples empresas
-
-### 📦 Gestión de Productos
-- Catálogo de productos y servicios
-- Control de inventario
-- Precios y descuentos
-- Categorización
-
-### 🏢 Sistema Multi-Empresa
-- Gestión de múltiples empresas desde una cuenta
-- Roles y permisos (Propietario, Admin, Colaborador)
-- Configuración personalizada por empresa
-- Logo y colores corporativos
-
-### 📊 Reportes y Analytics
-- Dashboard con métricas clave
-- Reportes de ventas
-- Análisis de tendencias
-- Exportación de datos
-
-## 🛠️ Tecnologías Utilizadas
-
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **UI/UX**: Tailwind CSS, Radix UI, Lucide Icons
-- **Backend**: Firebase (Firestore, Authentication, Storage)
-- **Formularios**: React Hook Form + Zod
+- **Frontend**: Next.js 14, React, TypeScript
+- **Backend**: Firebase (Auth, Firestore, Hosting)
+- **UI**: Tailwind CSS, shadcn/ui
+- **Deployment**: Firebase Hosting
 - **Estado**: React Context API
-- **PDF**: Generación de documentos PDF
-- **Deployment**: Vercel (recomendado)
 
-## 📋 Requisitos Previos
+## 📋 Requisitos
 
-- Node.js 18+ 
+- Node.js 18+
 - npm o pnpm
 - Cuenta de Firebase
-- Git
 
-## 🚀 Instalación y Configuración
+## 🔧 Instalación
 
-### 1. Clonar el Repositorio
+1. **Clonar el repositorio**
 ```bash
-git clone <url-del-repositorio>
+git clone <repository-url>
 cd facturacion-cr
 ```
 
-### 2. Instalar Dependencias
+2. **Instalar dependencias**
 ```bash
 npm install
 # o
 pnpm install
 ```
 
-### 3. Configurar Variables de Entorno
+3. **Configurar variables de entorno**
 ```bash
-# Copiar el archivo de ejemplo
 cp env.example .env.local
-
-# Editar .env.local con tu configuración de Firebase
 ```
 
-### 4. Configurar Firebase
-1. Crear un proyecto en [Firebase Console](https://console.firebase.google.com)
-2. Habilitar Authentication (Email/Password)
-3. Crear una base de datos Firestore
-4. Configurar Storage (opcional)
-5. Copiar las credenciales a `.env.local`
+Editar `.env.local` con tus credenciales de Firebase:
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=tu_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=tu_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=tu_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=tu_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=tu_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=tu_app_id
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=tu_measurement_id
+```
 
-### 5. Ejecutar en Desarrollo
+4. **Ejecutar en desarrollo**
 ```bash
 npm run dev
 # o
 pnpm dev
 ```
 
-La aplicación estará disponible en [http://localhost:3000](http://localhost:3000)
+5. **Abrir en el navegador**
+```
+http://localhost:3000
+```
 
 ## 📁 Estructura del Proyecto
 
 ```
 facturacion-cr/
-├── app/                    # Páginas de Next.js (App Router)
-│   ├── dashboard/         # Panel principal
-│   ├── onboarding/        # Configuración inicial
-│   └── select-company/    # Selección de empresa
-├── components/            # Componentes reutilizables
+├── app/                    # Next.js App Router
+│   ├── api/               # API Routes
+│   ├── dashboard/         # Páginas del dashboard
+│   └── ...
+├── components/            # Componentes React
 │   ├── auth/             # Autenticación
-│   ├── clients/          # Gestión de clientes
-│   ├── company/          # Gestión de empresas
-│   ├── dashboard/        # Componentes del dashboard
-│   ├── documents/        # Formularios de documentos
-│   ├── layout/           # Layout y navegación
-│   ├── pdf/              # Generación de PDFs
-│   ├── products/         # Gestión de productos
-│   ├── ui/               # Componentes UI base
-│   └── wizard/           # Asistentes paso a paso
+│   ├── ui/               # Componentes base
+│   └── ...
+├── lib/                  # Servicios y utilidades
+│   ├── firebase-*.ts     # Servicios Firebase
+│   ├── api-client.ts     # Cliente API
+│   └── ...
 ├── hooks/                # Custom hooks
-├── lib/                  # Utilidades y configuración
-│   ├── firebase-config.ts
-│   ├── firebase-client.ts
-│   └── utils.ts
-├── public/               # Archivos estáticos
-└── styles/               # Estilos globales
+├── styles/               # Estilos globales
+└── docs/                 # Documentación
 ```
 
-## 🔧 Scripts Disponibles
+## 🔐 Autenticación
+
+El sistema utiliza Firebase Auth para la autenticación. Los usuarios se almacenan en Firestore con la siguiente estructura:
+
+```typescript
+interface User {
+  id: string
+  email: string
+  name: string
+  status: 'active' | 'inactive' | 'suspended'
+  roleId: string
+  tenantId: string
+  role: {
+    name: string
+    permissions: string[]
+  }
+  profile: {
+    preferences: {
+      notifications: boolean
+      language: string
+      timezone: string
+    }
+  }
+}
+```
+
+## 🏢 Multi-tenancy
+
+El sistema soporta múltiples empresas (tenants) con:
+- Aislamiento de datos por tenant
+- Gestión independiente de usuarios
+- Configuraciones personalizadas
+
+## 📊 API Endpoints
+
+### Usuarios
+- `GET /api/users?tenantId=xxx` - Listar usuarios
+- `POST /api/users` - Crear usuario
+- `GET /api/users/[id]` - Obtener usuario
+- `PUT /api/users/[id]` - Actualizar usuario
+- `DELETE /api/users/[id]` - Eliminar usuario
+
+### Perfil
+- `GET /api/profile?userId=xxx` - Obtener perfil
+- `PUT /api/profile?userId=xxx` - Actualizar perfil
+
+## 🚀 Deployment
+
+### Firebase Hosting
+
+1. **Instalar Firebase CLI**
+```bash
+npm install -g firebase-tools
+```
+
+2. **Login en Firebase**
+```bash
+firebase login
+```
+
+3. **Inicializar proyecto**
+```bash
+firebase init hosting
+```
+
+4. **Build y deploy**
+```bash
+npm run build
+firebase deploy
+```
+
+## 🧪 Testing
 
 ```bash
-# Desarrollo
-npm run dev
+# Tests unitarios
+npm run test
 
-# Construcción para producción
-npm run build
+# Tests E2E
+npm run test:e2e
 
-# Iniciar servidor de producción
-npm run start
-
-# Linting
-npm run lint
+# Coverage
+npm run test:coverage
 ```
 
-## 🚀 Despliegue
+## 📝 Scripts Disponibles
 
-### Vercel (Recomendado)
-1. Conectar repositorio a Vercel
-2. Configurar variables de entorno
-3. Desplegar automáticamente
+```bash
+npm run dev          # Desarrollo
+npm run build        # Build para producción
+npm run start        # Servidor de producción
+npm run lint         # Linter
+npm run type-check   # Verificación de tipos
+```
 
-### Otras Plataformas
-- Netlify
-- Railway
-- Heroku
-- AWS Amplify
-
-## 📝 Regulaciones Costa Rica
-
-InvoSell está diseñado para cumplir con:
-- **Normativa de Facturación Electrónica v4.4**
-- **Ministerio de Hacienda de Costa Rica**
-- **Formato XML requerido por el MH**
-- **Validaciones fiscales necesarias**
-
-## 🤝 Contribuir
+## 🤝 Contribución
 
 1. Fork el proyecto
 2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
@@ -172,21 +194,23 @@ InvoSell está diseñado para cumplir con:
 
 ## 📄 Licencia
 
-Este proyecto es propiedad de **InnovaSell** y está protegido por derechos de autor.
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
-## 📞 Contacto
+## 📞 Soporte
 
-**InnovaSell**
-- Email: info@innovasell.com
-- Website: [www.innovasell.com](https://www.innovasell.com)
+Para soporte técnico o preguntas:
+- Email: soporte@invosell.cr
+- Documentación: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
-## 🙏 Agradecimientos
+## 🗺️ Roadmap
 
-- Comunidad de Next.js
-- Radix UI por los componentes accesibles
-- Firebase por la infraestructura
-- Costa Rica por las regulaciones claras de facturación electrónica
+- [ ] Gestión avanzada de roles
+- [ ] Reportes avanzados
+- [ ] Integración con APIs gubernamentales
+- [ ] App móvil
+- [ ] Multi-idioma completo
+- [ ] Backup automático
 
 ---
 
-**Desarrollado con ❤️ por InnovaSell**
+Desarrollado con ❤️ por InnovaSellCR
