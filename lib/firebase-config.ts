@@ -42,13 +42,30 @@ export interface Tenant {
   // Costa Rica e-invoicing v4.4 fields
   legalName: string
   taxId: string // Cédula Jurídica
+  taxIdType: 'fisica' | 'juridica' // Tipo de cédula
   commercialActivity: string
   province: string
   canton: string
   district: string
+  barrio?: string // Barrio (opcional)
   address: string
   phone: string
   email: string
+  // Credenciales ATV (Hacienda)
+  atvCredentials: {
+    username: string // Usuario ATV
+    password: string // Password encriptada
+    clientId: string // Client ID para API
+    receptionUrl: string // URL de recepción
+    loginUrl: string // URL de login
+  }
+  // Certificado digital .p12
+  certificate: {
+    fileName: string // Nombre del archivo .p12
+    password: string // Clave del certificado (encriptada)
+    isValidated: boolean // Si el certificado fue validado
+    validationDate?: Date // Fecha de validación
+  }
   // System fields
   ownerId: string
   collaborators: string[]
