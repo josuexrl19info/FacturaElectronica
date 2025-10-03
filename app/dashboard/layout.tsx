@@ -6,27 +6,49 @@ import { useEffect, useState } from "react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { useRouter } from "next/navigation"
 import { MessageSquare } from "lucide-react"
+import { useAuthGuard } from "@/hooks/use-auth-redirect"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const { user, loading } = useAuthGuard()
   const [company, setCompany] = useState<any>(null)
 
   useEffect(() => {
-    // Get selected company from localStorage
-    const companyId = localStorage.getItem("selectedCompanyId")
-    if (!companyId) {
-      router.push("/select-company")
-      return
-    }
+    // Solo ejecutar si el usuario está autenticado
+    if (!loading && user) {
+      // Get selected company from localStorage
+      const companyId = localStorage.getItem("selectedCompanyId")
+      if (!companyId) {
+        router.push("/select-company")
+        return
+      }
 
-    const mockCompany = {
-      id: companyId,
-      name: "TechCorp CR",
-      logo: "/placeholder.svg?key=p4zn6",
-      primaryColor: "#14b8a6", // Turquoise color
+      const mockCompany = {
+        id: companyId,
+        name: "TechCorp CR",
+        logo: "/placeholder.svg?key=p4zn6",
+        primaryColor: "#14b8a6", // Turquoise color
+      }
+      setCompany(mockCompany)
     }
-    setCompany(mockCompany)
-  }, [router])
+  }, [router, user, loading])
+
+  // Mostrar pantalla de carga mientras se verifica la autenticación
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no hay usuario autenticado, el hook ya redirigió al login
+  if (!user) {
+    return null
+  }
 
   if (!company) {
     return (

@@ -1,18 +1,46 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { WizardStep } from "@/components/wizard/wizard-step"
-import { WizardNavigation } from "@/components/wizard/wizard-navigation"
 import { Button } from "@/components/ui/button"
-import { X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ProgressBar } from "@/components/wizard/progress-bar"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { useToastNotification } from "@/components/providers/toast-provider"
+import { useAuthGuard } from "@/hooks/use-auth-redirect"
+import { CompanyWizardData } from "@/lib/company-wizard-types"
+import { ATVValidator } from "@/lib/atv-validator"
+import { CertificateValidator } from "@/lib/certificate-validator"
+import { CompanySummary } from "@/components/company/company-summary"
+import { GeoDropdowns } from "@/components/ui/geo-dropdowns"
+import { TaxIdInputClean } from "@/components/ui/tax-id-input-clean"
+import { EconomicActivitySelector } from "@/components/ui/economic-activity-selector"
+import { PhoneInputWithFlags } from "@/components/ui/phone-input-with-flags"
+import { Provincia, Canton, Distrito } from "@/lib/costa-rica-geo"
+import { HaciendaCompanyInfo } from "@/lib/company-wizard-types"
+import { 
+  X, 
+  CheckCircle, 
+  AlertCircle, 
+  Upload, 
+  Eye, 
+  EyeOff,
+  Building2,
+  Key,
+  FileText,
+  Loader2,
+  ArrowLeft,
+  ArrowRight,
+  Shield,
+  AlertTriangle
+} from "lucide-react"
 
-const PROVINCES = ["San José", "Alajuela", "Cartago", "Heredia", "Guanacaste", "Puntarenas", "Limón"]
-
+// Removed hardcoded provinces - now using GeoDropdowns component
 const COLORS = [
   { name: "Esmeralda", value: "#10b981" },
   { name: "Azul", value: "#3b82f6" },
@@ -22,53 +50,184 @@ const COLORS = [
   { name: "Rojo", value: "#ef4444" },
 ]
 
+// Función helper para convertir archivos a base64 en el cliente
+const convertFileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      // Extraer solo la parte base64 (sin el prefijo data:image/...)
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function CompanyOnboardingPage() {
   const router = useRouter()
+  const toast = useToastNotification()
+  const { user, loading } = useAuthGuard()
   const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState({
-    // Step 1: Basic Info
-    name: "",
-    legalName: "",
-    taxId: "",
-    // Step 2: Location
-    province: "",
-    canton: "",
-    district: "",
-    address: "",
-    // Step 3: Contact
-    phone: "",
-    email: "",
-    commercialActivity: "",
-    // Step 4: Branding
-    primaryColor: COLORS[0].value,
-    logo: null as File | null,
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationResults, setValidationResults] = useState<{
+    atv?: any
+    certificate?: any
+  }>({})
+  
+  const [selectedLocation, setSelectedLocation] = useState<{
+    provincia: Provincia | null
+    canton: Canton | null
+    distrito: Distrito | null
+  }>({
+    provincia: null,
+    canton: null,
+    distrito: null
+  })
+  
+  const [formData, setFormData] = useState<CompanyWizardData>({
+    personalInfo: {
+      legalName: "",
+      name: "",
+      taxIdType: "juridica",
+      taxId: "",
+      email: "",
+      phone: "",
+      phoneCountryCode: "+506",
+      province: "",
+      canton: "",
+      district: "",
+      barrio: "",
+      logo: null,
+      economicActivity: undefined,
+    },
+    atvCredentials: {
+      username: "",
+      password: "",
+      clientId: "api-stag",
+      receptionUrl: "https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion",
+      loginUrl: "https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token",
+    },
+    certificate: {
+      p12File: null,
+      password: "",
+      certificateInfo: undefined
+    },
   })
 
-  const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  const [showPasswords, setShowPasswords] = useState({
+    atv: false,
+    certificate: false,
+  })
+  const [haciendaCompanyInfo, setHaciendaCompanyInfo] = useState<HaciendaCompanyInfo | null>(null)
+
+  // TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETURN CONDICIONAL
+  const updateField = useCallback((section: keyof CompanyWizardData, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
+    }))
+  }, [])
+
+  const handleLocationChange = useCallback((location: {
+    provincia: Provincia | null
+    canton: Canton | null
+    distrito: Distrito | null
+  }) => {
+    setSelectedLocation(location)
+    // Guardar los códigos en lugar de los nombres para que se mapeen correctamente
+    updateField('personalInfo', 'province', location.provincia?.codigo?.toString() || '')
+    updateField('personalInfo', 'canton', location.canton?.codigo?.toString() || '')
+    updateField('personalInfo', 'district', location.distrito?.codigo?.toString() || '')
+    
+    console.log('🗺️ Ubicación seleccionada:', {
+      provincia: { nombre: location.provincia?.nombre, codigo: location.provincia?.codigo },
+      canton: { nombre: location.canton?.nombre, codigo: location.canton?.codigo },
+      distrito: { nombre: location.distrito?.nombre, codigo: location.distrito?.codigo }
+    })
+  }, [updateField])
+
+  // RETURNS CONDICIONALES DESPUÉS DE TODOS LOS HOOKS
+  // Mostrar pantalla de carga mientras se verifica la autenticación
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verificando autenticación...</p>
+        </div>
+      </div>
+    )
   }
 
-  const canProceedStep1 = formData.name && formData.legalName && formData.taxId
-  const canProceedStep2 = formData.province && formData.canton && formData.district && formData.address
-  const canProceedStep3 = formData.phone && formData.email && formData.commercialActivity
-  const canProceedStep4 = formData.primaryColor
+  // Si no hay usuario autenticado, el hook ya redirigió al login
+  if (!user) {
+    return null
+  }
+
+  // Validaciones para cada paso
+  const canProceedStep1 = () => {
+    const { personalInfo } = formData
+    return !!(
+      personalInfo.legalName &&
+      personalInfo.name &&
+      personalInfo.taxId &&
+      personalInfo.email &&
+      personalInfo.phone &&
+      personalInfo.phoneCountryCode &&
+      selectedLocation.provincia &&
+      selectedLocation.canton &&
+      selectedLocation.distrito &&
+      personalInfo.economicActivity
+    )
+  }
+
+  const canProceedStep2 = () => {
+    const { atvCredentials } = formData
+    return !!(
+      atvCredentials.username &&
+      atvCredentials.password &&
+      atvCredentials.clientId &&
+      atvCredentials.receptionUrl &&
+      atvCredentials.loginUrl &&
+      validationResults.atv?.isValid
+    )
+  }
+
+  const canProceedStep3 = () => {
+    const { certificate } = formData
+    return !!(
+      certificate.p12File &&
+      certificate.password &&
+      validationResults.certificate?.isValid
+    )
+  }
 
   const canProceed = () => {
     switch (currentStep) {
-      case 1:
-        return canProceedStep1
-      case 2:
-        return canProceedStep2
-      case 3:
-        return canProceedStep3
-      case 4:
-        return canProceedStep4
-      default:
-        return false
+      case 1: return canProceedStep1()
+      case 2: return canProceedStep2()
+      case 3: return canProceedStep3()
+      case 4: return true // Paso de resumen siempre se puede proceder
+      default: return false
     }
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (currentStep === 2 && !validationResults.atv) {
+      await validateATVCredentials()
+      return
+    }
+    
+    if (currentStep === 3 && !validationResults.certificate) {
+      await validateCertificate()
+      return
+    }
+
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1)
     }
@@ -80,310 +239,683 @@ export default function CompanyOnboardingPage() {
     }
   }
 
-  const handleSubmit = () => {
-    // Save company data
-    console.log("Creating company:", formData)
-    // Redirect to company selection
-    router.push("/select-company")
+  const validateATVCredentials = async () => {
+    setIsValidating(true)
+    try {
+      const { username, password, clientId } = formData.atvCredentials
+      
+      const response = await fetch('/api/company/validate-atv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, clientId })
+      })
+
+      const result = await response.json()
+      setValidationResults(prev => ({ ...prev, atv: result }))
+
+      if (result.isValid) {
+        toast.success('Credenciales válidas', 'Conexión exitosa con Hacienda')
+      } else {
+        toast.error('Credenciales inválidas', result.message)
+      }
+    } catch (error) {
+      toast.error('Error de validación', 'No se pudo validar las credenciales')
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const validateCertificate = async () => {
+    setIsValidating(true)
+    try {
+      const { p12File, password } = formData.certificate
+      const { taxId } = formData.personalInfo
+
+      const formDataToSend = new FormData()
+      formDataToSend.append('p12File', p12File!)
+      formDataToSend.append('password', password)
+      formDataToSend.append('taxId', taxId)
+
+      const response = await fetch('/api/company/validate-certificate', {
+        method: 'POST',
+        body: formDataToSend
+      })
+
+      const result = await response.json()
+      setValidationResults(prev => ({ ...prev, certificate: result }))
+
+      if (result.isValid) {
+        // Guardar información del certificado validado en el wizard
+        if (result.certificate && result.certificate.certificateInfo) {
+          const certInfo = result.certificate.certificateInfo
+          console.log('🔍 Guardando certificateInfo:', certInfo)
+          
+          // Actualizar directamente con setFormData para asegurar que se guarde
+          setFormData(prev => ({
+            ...prev,
+            certificate: {
+              ...prev.certificate,
+              certificateInfo: {
+                subject: certInfo.subject,
+                issuer: certInfo.issuer,
+                serialNumber: certInfo.serialNumber,
+                validFrom: certInfo.validFrom,
+                validTo: certInfo.validTo
+              }
+            }
+          }))
+          console.log('✅ certificateInfo guardado en formData')
+        }
+        toast.success('Certificado válido', 'El certificado corresponde a la razón social')
+      } else {
+        toast.error('Certificado inválido', result.message)
+      }
+    } catch (error) {
+      toast.error('Error de validación', 'No se pudo validar el certificado')
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    // Verificar autenticación directamente
+    if (!user) {
+      console.error('❌ Usuario no autenticado')
+      toast.error('Error', 'Debe estar autenticado para crear una empresa')
+      return
+    }
+
+    try {
+      setIsValidating(true)
+      
+      // Convertir archivos a base64 antes de enviar
+      let logoBase64 = ''
+      let certificateBase64 = ''
+      
+      if (formData.personalInfo.logo) {
+        logoBase64 = await convertFileToBase64(formData.personalInfo.logo)
+      }
+      
+      if (formData.certificate.p12File) {
+        certificateBase64 = await convertFileToBase64(formData.certificate.p12File)
+      }
+
+      // Preparar datos para envío
+      const companyData = {
+        personalInfo: {
+          ...formData.personalInfo,
+          logoBase64: logoBase64
+        },
+        atvCredentials: formData.atvCredentials,
+        certificate: {
+          p12File: formData.certificate.p12File?.name,
+          p12FileData: certificateBase64,
+          password: formData.certificate.password,
+          certificateInfo: formData.certificate.certificateInfo
+        },
+        primaryColor: '#10b981',
+        userId: user.uid
+      }
+
+      console.log('✅ Usuario autenticado:', user.uid)
+      console.log('🔍 Debug certificateInfo:', formData.certificate.certificateInfo)
+      console.log('📦 Datos enviados:', companyData)
+
+      // Crear empresa via API
+      const response = await fetch('/api/company/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(companyData)
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al crear la empresa')
+      }
+
+      toast.success('Empresa creada', 'La empresa se ha registrado exitosamente')
+      router.push("/select-company")
+    } catch (error: any) {
+      console.error('Error creating company:', error)
+      toast.error('Error', error.message || 'No se pudo crear la empresa')
+    } finally {
+      setIsValidating(false)
+    }
   }
 
   const handleCancel = () => {
     router.push("/select-company")
   }
 
+  const formatTaxId = (value: string, type: 'fisica' | 'juridica' = 'juridica') => {
+    const numbers = value.replace(/[^\d]/g, '')
+    
+    if (type === 'fisica') {
+      // Cédula física: 9 dígitos - formato 1-1234-5678
+      if (numbers.length <= 1) return numbers
+      if (numbers.length <= 5) return `${numbers.slice(0, 1)}-${numbers.slice(1)}`
+      return `${numbers.slice(0, 1)}-${numbers.slice(1, 5)}-${numbers.slice(5, 9)}`
+    } else {
+      // Cédula jurídica: 10 dígitos - formato 3-101-123456
+      if (numbers.length <= 3) return numbers
+      if (numbers.length <= 6) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`
+    }
+  }
+
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-8 bg-gradient-to-br from-background to-muted/20">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Crear Nueva Empresa</h1>
-            <p className="text-lg text-muted-foreground">Complete la información para registrar su empresa</p>
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Crear Nueva Empresa
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Complete la información para registrar su empresa en el sistema de facturación
+            </p>
           </div>
           <Button variant="ghost" size="icon" onClick={handleCancel}>
             <X className="w-5 h-5" />
           </Button>
         </div>
 
-        {/* Progress Steps */}
+        {/* Progress Bar */}
         <Card className="p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <WizardStep step={1} currentStep={currentStep} title="Información Básica" description="Datos generales" />
-            <WizardStep step={2} currentStep={currentStep} title="Ubicación" description="Dirección fiscal" />
-            <WizardStep step={3} currentStep={currentStep} title="Contacto" description="Información de contacto" />
-            <WizardStep step={4} currentStep={currentStep} title="Personalización" description="Marca y colores" />
-          </div>
+          <ProgressBar currentStep={currentStep} totalSteps={4} />
         </Card>
 
         {/* Form Content */}
-        <Card className="p-8">
-          {/* Step 1: Basic Info */}
+        <Card className="p-8 shadow-lg">
+          {/* Step 1: Información Personal */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Información Básica</h2>
-                <p className="text-muted-foreground">Ingrese los datos generales de su empresa</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre Comercial *</Label>
-                  <Input
-                    id="name"
-                    placeholder="Ej: TechCorp CR"
-                    value={formData.name}
-                    onChange={(e) => updateField("name", e.target.value)}
-                    className="h-12"
-                  />
-                  <p className="text-sm text-muted-foreground">Nombre con el que se conoce su empresa</p>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-primary" />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="legalName">Razón Social *</Label>
-                  <Input
-                    id="legalName"
-                    placeholder="Ej: TechCorp Costa Rica S.A."
-                    value={formData.legalName}
-                    onChange={(e) => updateField("legalName", e.target.value)}
-                    className="h-12"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Nombre legal registrado ante el Ministerio de Hacienda
-                  </p>
+                <div>
+                  <h2 className="text-2xl font-bold">Información Personal</h2>
+                  <p className="text-muted-foreground">Datos básicos de la empresa</p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="taxId">Cédula Jurídica *</Label>
-                  <Input
-                    id="taxId"
-                    placeholder="Ej: 3-101-123456"
-                    value={formData.taxId}
-                    onChange={(e) => updateField("taxId", e.target.value)}
-                    className="h-12"
-                  />
-                  <p className="text-sm text-muted-foreground">Número de identificación tributaria</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Location */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Ubicación</h2>
-                <p className="text-muted-foreground">Dirección fiscal de su empresa según Hacienda</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="province">Provincia *</Label>
-                  <select
-                    id="province"
-                    value={formData.province}
-                    onChange={(e) => updateField("province", e.target.value)}
-                    className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="">Seleccione una provincia</option>
-                    {PROVINCES.map((province) => (
-                      <option key={province} value={province}>
-                        {province}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="canton">Cantón *</Label>
-                    <Input
-                      id="canton"
-                      placeholder="Ej: Central"
-                      value={formData.canton}
-                      onChange={(e) => updateField("canton", e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="district">Distrito *</Label>
-                    <Input
-                      id="district"
-                      placeholder="Ej: Carmen"
-                      value={formData.district}
-                      onChange={(e) => updateField("district", e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="address">Dirección Exacta *</Label>
-                  <Textarea
-                    id="address"
-                    placeholder="Ej: De la Iglesia Católica, 200 metros norte, 50 metros este"
-                    value={formData.address}
-                    onChange={(e) => updateField("address", e.target.value)}
-                    rows={4}
-                    className="resize-none"
-                  />
-                  <p className="text-sm text-muted-foreground">Dirección completa con señas exactas</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Contact */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Información de Contacto</h2>
-                <p className="text-muted-foreground">Datos de contacto para facturación electrónica</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Teléfono *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="Ej: 2222-3333"
-                    value={formData.phone}
-                    onChange={(e) => updateField("phone", e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Correo Electrónico *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Ej: facturacion@empresa.cr"
-                    value={formData.email}
-                    onChange={(e) => updateField("email", e.target.value)}
-                    className="h-12"
-                  />
-                  <p className="text-sm text-muted-foreground">Correo para recibir notificaciones de Hacienda</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="commercialActivity">Actividad Comercial *</Label>
-                  <Textarea
-                    id="commercialActivity"
-                    placeholder="Ej: Desarrollo de software y consultoría tecnológica"
-                    value={formData.commercialActivity}
-                    onChange={(e) => updateField("commercialActivity", e.target.value)}
-                    rows={3}
-                    className="resize-none"
-                  />
-                  <p className="text-sm text-muted-foreground">Descripción de la actividad económica principal</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Branding */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Personalización</h2>
-                <p className="text-muted-foreground">Configure la apariencia de su espacio de trabajo</p>
               </div>
 
               <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="legalName">Razón Social *</Label>
+                    <Input
+                      id="legalName"
+                      placeholder="Ej: TechCorp Costa Rica S.A."
+                      value={formData.personalInfo.legalName}
+                      onChange={(e) => updateField('personalInfo', 'legalName', e.target.value)}
+                      className="h-12"
+                    />
+                    <p className="text-sm text-muted-foreground">Nombre legal registrado ante Hacienda</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nombre Comercial *</Label>
+                    <Input
+                      id="name"
+                      placeholder="Ej: TechCorp CR"
+                      value={formData.personalInfo.name}
+                      onChange={(e) => updateField('personalInfo', 'name', e.target.value)}
+                      className="h-12"
+                    />
+                    <p className="text-sm text-muted-foreground">Nombre con el que se conoce su empresa</p>
+                  </div>
+                </div>
+
+                {/* Identificación Tributaria */}
+                <TaxIdInputClean
+                  value={{
+                    type: formData.personalInfo.taxIdType,
+                    number: formData.personalInfo.taxId
+                  }}
+                  onChange={(taxIdData) => {
+                    updateField('personalInfo', 'taxIdType', taxIdData.type)
+                    updateField('personalInfo', 'taxId', taxIdData.number)
+                  }}
+                  onFormatTaxId={formatTaxId}
+                  className="mb-6"
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Correo Electrónico *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="facturacion@empresa.cr"
+                      value={formData.personalInfo.email}
+                      onChange={(e) => updateField('personalInfo', 'email', e.target.value)}
+                      className="h-12"
+                    />
+                    <p className="text-sm text-muted-foreground">Para notificaciones de Hacienda</p>
+                  </div>
+
+                  <PhoneInputWithFlags
+                    value={{
+                      countryCode: formData.personalInfo.phoneCountryCode,
+                      phoneNumber: formData.personalInfo.phone
+                    }}
+                    onChange={(phoneData) => {
+                      updateField('personalInfo', 'phoneCountryCode', phoneData.countryCode)
+                      updateField('personalInfo', 'phone', phoneData.phoneNumber)
+                    }}
+                    label="Teléfono *"
+                    description="Seleccione el país y ingrese el número de teléfono"
+                  />
+                </div>
+
+                {/* Ubicación con dropdowns dependientes */}
+                <GeoDropdowns
+                  onLocationChange={handleLocationChange}
+                  className="mb-6"
+                />
+
+                {/* Barrio (opcional) */}
                 <div className="space-y-2">
-                  <Label>Color Principal *</Label>
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-                    {COLORS.map((color) => (
-                      <button
-                        key={color.value}
+                  <Label htmlFor="barrio">Barrio (Opcional)</Label>
+                  <Input
+                    id="barrio"
+                    placeholder="Ej: Centro"
+                    value={formData.personalInfo.barrio}
+                    onChange={(e) => updateField('personalInfo', 'barrio', e.target.value)}
+                    className="h-12"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Especificar el barrio o sector si es necesario
+                  </p>
+                </div>
+
+                {/* Actividad Económica */}
+                <div className="space-y-4">
+                  <Label>Actividad Económica</Label>
+                  <EconomicActivitySelector
+                    taxId={formData.personalInfo.taxId}
+                    value={formData.personalInfo.economicActivity}
+                    onChange={(activity) => updateField('personalInfo', 'economicActivity', activity)}
+                    onCompanyInfo={setHaciendaCompanyInfo}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Se consultará automáticamente la información desde Hacienda basada en la cédula ingresada
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <Label htmlFor="logo">Logo de la Empresa</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Cargar Imagen */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Cargar Imagen</Label>
+                      <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer h-32 flex flex-col items-center justify-center">
+                        <input
+                          id="logo"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) updateField('personalInfo', 'logo', file)
+                          }}
+                        />
+                        <label htmlFor="logo" className="cursor-pointer w-full h-full flex flex-col items-center justify-center">
+                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Upload className="w-6 h-6 text-primary" />
+                          </div>
+                          <p className="font-medium mb-1 text-sm">
+                            {formData.personalInfo.logo ? "Cambiar logo" : "Subir logo"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG o SVG (máx. 2MB)</p>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Vista Previa */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Vista Previa</Label>
+                      <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-6 h-32 flex items-center justify-center bg-muted/10">
+                        {formData.personalInfo.logo ? (
+                          <img
+                            src={URL.createObjectURL(formData.personalInfo.logo)}
+                            alt="Logo preview"
+                            className="max-w-full max-h-full object-contain rounded"
+                          />
+                        ) : (
+                          <div className="text-center text-muted-foreground">
+                            <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-2">
+                              <Upload className="w-6 h-6" />
+                            </div>
+                            <p className="text-sm">Sin logo</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Credenciales ATV */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Key className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Credenciales ATV</h2>
+                  <p className="text-muted-foreground">Credenciales de Administración Tributaria Virtual</p>
+                </div>
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Estas credenciales se validarán automáticamente contra el sistema de Hacienda.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Usuario ATV *</Label>
+                    <Input
+                      id="username"
+                      placeholder="cpf-03-0447-0021@stag.comprobanteselectronicos.go.cr"
+                      value={formData.atvCredentials.username}
+                      onChange={(e) => updateField('atvCredentials', 'username', e.target.value)}
+                      className="h-12"
+                    />
+                    <p className="text-sm text-muted-foreground">Email de usuario en ATV</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Contraseña ATV *</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPasswords.atv ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={formData.atvCredentials.password}
+                        onChange={(e) => updateField('atvCredentials', 'password', e.target.value)}
+                        className="h-12 pr-10"
+                      />
+                      <Button
                         type="button"
-                        onClick={() => updateField("primaryColor", color.value)}
-                        className="flex flex-col items-center gap-2 p-3 rounded-lg border-2 hover:border-primary transition-colors"
-                        style={{
-                          borderColor: formData.primaryColor === color.value ? color.value : "transparent",
-                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-12 px-3"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, atv: !prev.atv }))}
                       >
-                        <div className="w-12 h-12 rounded-full" style={{ backgroundColor: color.value }} />
-                        <span className="text-sm font-medium">{color.name}</span>
-                      </button>
-                    ))}
+                        {showPasswords.atv ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Contraseña de acceso a ATV</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="logo">Logo (Opcional)</Label>
+                  <Label htmlFor="clientId">Client ID *</Label>
+                  <Input
+                    id="clientId"
+                    placeholder="api-stag"
+                    value={formData.atvCredentials.clientId}
+                    onChange={(e) => updateField('atvCredentials', 'clientId', e.target.value)}
+                    className="h-12"
+                  />
+                  <p className="text-sm text-muted-foreground">Identificador del cliente para la API</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="receptionUrl">URL de Recepción *</Label>
+                    <Input
+                      id="receptionUrl"
+                      placeholder="https://api.comprobanteselectronicos.go.cr/..."
+                      value={formData.atvCredentials.receptionUrl}
+                      onChange={(e) => updateField('atvCredentials', 'receptionUrl', e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="loginUrl">URL de Login *</Label>
+                    <Input
+                      id="loginUrl"
+                      placeholder="https://idp.comprobanteselectronicos.go.cr/..."
+                      value={formData.atvCredentials.loginUrl}
+                      onChange={(e) => updateField('atvCredentials', 'loginUrl', e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+
+                {/* Validation Result */}
+                {validationResults.atv && (
+                  <Alert variant={validationResults.atv.isValid ? "default" : "destructive"}>
+                    {validationResults.atv.isValid ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4" />
+                    )}
+                    <AlertDescription>
+                      {validationResults.atv.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Certificado Digital */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Certificado Digital</h2>
+                  <p className="text-muted-foreground">Certificado .p12 para firma digital</p>
+                </div>
+              </div>
+
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  El certificado se validará automáticamente para verificar que corresponda a la razón social ingresada.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="p12File">Archivo .p12 *</Label>
                   <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
                     <input
-                      id="logo"
+                      id="p12File"
                       type="file"
-                      accept="image/*"
+                      accept=".p12,.pfx"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0]
-                        if (file) updateField("logo", file)
+                        if (file) updateField('certificate', 'p12File', file)
                       }}
                     />
-                    <label htmlFor="logo" className="cursor-pointer">
+                    <label htmlFor="p12File" className="cursor-pointer">
                       <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg
-                          className="w-8 h-8 text-muted-foreground"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
+                        <FileText className="w-8 h-8 text-muted-foreground" />
                       </div>
-                      <p className="font-medium mb-1">{formData.logo ? formData.logo.name : "Subir logo"}</p>
-                      <p className="text-sm text-muted-foreground">PNG, JPG o SVG (máx. 2MB)</p>
+                      <p className="font-medium mb-1">
+                        {formData.certificate.p12File ? formData.certificate.p12File.name : "Subir certificado .p12"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Certificado digital .p12 o .pfx (máx. 5MB)</p>
                     </label>
                   </div>
                 </div>
 
-                {/* Preview */}
                 <div className="space-y-2">
-                  <Label>Vista Previa</Label>
-                  <Card
-                    className="p-6"
-                    style={{
-                      background: `linear-gradient(135deg, ${formData.primaryColor}15 0%, transparent 100%)`,
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
-                        style={{ backgroundColor: formData.primaryColor }}
-                      >
-                        {formData.name.charAt(0) || "E"}
+                  <Label htmlFor="certPassword">Clave del Certificado *</Label>
+                  <div className="relative">
+                    <Input
+                      id="certPassword"
+                      type={showPasswords.certificate ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={formData.certificate.password}
+                      onChange={(e) => updateField('certificate', 'password', e.target.value)}
+                      className="h-12 pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-12 px-3"
+                      onClick={() => setShowPasswords(prev => ({ ...prev, certificate: !prev.certificate }))}
+                    >
+                      {showPasswords.certificate ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Clave para acceder al certificado digital</p>
+                </div>
+
+                {/* Validation Result */}
+                {validationResults.certificate && (
+                  <Alert variant={validationResults.certificate.isValid ? "default" : "destructive"}>
+                    {validationResults.certificate.isValid ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4" />
+                    )}
+                    <AlertDescription>
+                      {validationResults.certificate.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Certificate Info */}
+                {validationResults.certificate?.isValid && validationResults.certificate.certificateInfo && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Información del Certificado:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Sujeto:</span>
+                        <p className="text-muted-foreground">{validationResults.certificate.certificateInfo.subject}</p>
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold">{formData.name || "Nombre de Empresa"}</h3>
-                        <p className="text-sm text-muted-foreground">{formData.legalName || "Razón Social"}</p>
+                        <span className="font-medium">Emisor:</span>
+                        <p className="text-muted-foreground">{validationResults.certificate.certificateInfo.issuer}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Válido desde:</span>
+                        <p className="text-muted-foreground">
+                          {new Date(validationResults.certificate.certificateInfo.validFrom).toLocaleDateString('es-CR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Válido hasta:</span>
+                        <p className="text-muted-foreground">
+                          {new Date(validationResults.certificate.certificateInfo.validTo).toLocaleDateString('es-CR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-medium">Número de Serie:</span>
+                        <p className="text-muted-foreground font-mono text-xs">
+                          {validationResults.certificate.certificateInfo.serialNumber}
+                        </p>
                       </div>
                     </div>
-                  </Card>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
+          {/* Step 4: Resumen */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <CompanySummary data={formData} />
+            </div>
+          )}
+
           {/* Navigation */}
-          <WizardNavigation
-            currentStep={currentStep}
-            totalSteps={4}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            onSubmit={handleSubmit}
-            isLastStep={currentStep === 4}
-            canProceed={canProceed()}
-          />
+          <div className="flex items-center justify-between pt-8 border-t">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Anterior
+            </Button>
+
+            <div className="flex items-center gap-4">
+              {currentStep === 2 && (
+                <Button
+                  variant="secondary"
+                  onClick={validateATVCredentials}
+                  disabled={isValidating}
+                  className="flex items-center gap-2"
+                >
+                  {isValidating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  Validar Credenciales
+                </Button>
+              )}
+
+              {currentStep === 3 && (
+                <Button
+                  variant="secondary"
+                  onClick={validateCertificate}
+                  disabled={isValidating}
+                  className="flex items-center gap-2"
+                >
+                  {isValidating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Shield className="w-4 h-4" />
+                  )}
+                  Validar Certificado
+                </Button>
+              )}
+
+              <Button
+                onClick={currentStep === 4 ? handleSubmit : handleNext}
+                disabled={!canProceed() || isValidating}
+                className="flex items-center gap-2"
+              >
+                {currentStep === 4 ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Crear Empresa
+                  </>
+                ) : (
+                  <>
+                    Siguiente
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     </div>

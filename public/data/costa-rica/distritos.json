@@ -1,0 +1,2930 @@
+[
+  {
+    "codigo": 10101,
+    "nombre": "Carmen",
+    "cantonCodigo": 101,
+    "area": 1.49
+  },
+  {
+    "codigo": 10102,
+    "nombre": "Merced",
+    "cantonCodigo": 101,
+    "area": 2.2
+  },
+  {
+    "codigo": 10103,
+    "nombre": "Hospital",
+    "cantonCodigo": 101,
+    "area": 3.32
+  },
+  {
+    "codigo": 10104,
+    "nombre": "Catedral",
+    "cantonCodigo": 101,
+    "area": 2.37
+  },
+  {
+    "codigo": 10105,
+    "nombre": "Zapote",
+    "cantonCodigo": 101,
+    "area": 2.86
+  },
+  {
+    "codigo": 10106,
+    "nombre": "San Francisco de Dos Ríos",
+    "cantonCodigo": 101,
+    "area": 2.64
+  },
+  {
+    "codigo": 10107,
+    "nombre": "Uruca",
+    "cantonCodigo": 101,
+    "area": 8.39
+  },
+  {
+    "codigo": 10108,
+    "nombre": "Mata Redonda",
+    "cantonCodigo": 101,
+    "area": 3.66
+  },
+  {
+    "codigo": 10109,
+    "nombre": "Pavas",
+    "cantonCodigo": 101,
+    "area": 9.35
+  },
+  {
+    "codigo": 10110,
+    "nombre": "Hatillo",
+    "cantonCodigo": 101,
+    "area": 4.37
+  },
+  {
+    "codigo": 10111,
+    "nombre": "San Sebastián",
+    "cantonCodigo": 101,
+    "area": 3.97
+  },
+  {
+    "codigo": 10201,
+    "nombre": "Escazú",
+    "cantonCodigo": 102,
+    "area": 4.53
+  },
+  {
+    "codigo": 10202,
+    "nombre": "San Antonio",
+    "cantonCodigo": 102,
+    "area": 16.96
+  },
+  {
+    "codigo": 10203,
+    "nombre": "San Rafael",
+    "cantonCodigo": 102,
+    "area": 13.04
+  },
+  {
+    "codigo": 10301,
+    "nombre": "Desamparados",
+    "cantonCodigo": 103,
+    "area": 3.32
+  },
+  {
+    "codigo": 10302,
+    "nombre": "San Miguel",
+    "cantonCodigo": 103,
+    "area": 21.34
+  },
+  {
+    "codigo": 10303,
+    "nombre": "San Juan de Dios",
+    "cantonCodigo": 103,
+    "area": 2.85
+  },
+  {
+    "codigo": 10304,
+    "nombre": "San Rafael Arriba",
+    "cantonCodigo": 103,
+    "area": 3.23
+  },
+  {
+    "codigo": 10305,
+    "nombre": "San Antonio",
+    "cantonCodigo": 103,
+    "area": 2.07
+  },
+  {
+    "codigo": 10306,
+    "nombre": "Frailes",
+    "cantonCodigo": 103,
+    "area": 19.67
+  },
+  {
+    "codigo": 10307,
+    "nombre": "Patarra",
+    "cantonCodigo": 103,
+    "area": 15.88
+  },
+  {
+    "codigo": 10308,
+    "nombre": "San Cristobal",
+    "cantonCodigo": 103,
+    "area": 25.03
+  },
+  {
+    "codigo": 10309,
+    "nombre": "Rosario",
+    "cantonCodigo": 103,
+    "area": 14.85
+  },
+  {
+    "codigo": 10310,
+    "nombre": "Damas",
+    "cantonCodigo": 103,
+    "area": 2.65
+  },
+  {
+    "codigo": 10311,
+    "nombre": "San Rafael Abajo",
+    "cantonCodigo": 103,
+    "area": 2.02
+  },
+  {
+    "codigo": 10312,
+    "nombre": "Gravilias",
+    "cantonCodigo": 103,
+    "area": 2.94
+  },
+  {
+    "codigo": 10313,
+    "nombre": "Los Guido",
+    "cantonCodigo": 103,
+    "area": 3.06
+  },
+  {
+    "codigo": 10401,
+    "nombre": "Santiago",
+    "cantonCodigo": 104,
+    "area": 34.52
+  },
+  {
+    "codigo": 10402,
+    "nombre": "Mercedes Sur",
+    "cantonCodigo": 104,
+    "area": 183.55
+  },
+  {
+    "codigo": 10403,
+    "nombre": "Barbacoas",
+    "cantonCodigo": 104,
+    "area": 18.62
+  },
+  {
+    "codigo": 10404,
+    "nombre": "Grifo Alto",
+    "cantonCodigo": 104,
+    "area": 26.4
+  },
+  {
+    "codigo": 10405,
+    "nombre": "San Rafael",
+    "cantonCodigo": 104,
+    "area": 15.5
+  },
+  {
+    "codigo": 10406,
+    "nombre": "Candelarita",
+    "cantonCodigo": 104,
+    "area": 24.94
+  },
+  {
+    "codigo": 10407,
+    "nombre": "Desamparaditos",
+    "cantonCodigo": 104,
+    "area": 7.22
+  },
+  {
+    "codigo": 10408,
+    "nombre": "San Antonio",
+    "cantonCodigo": 104,
+    "area": 14.62
+  },
+  {
+    "codigo": 10409,
+    "nombre": "Chires",
+    "cantonCodigo": 104,
+    "area": 229.66
+  },
+  {
+    "codigo": 10501,
+    "nombre": "San Marcos",
+    "cantonCodigo": 105,
+    "area": 46.02
+  },
+  {
+    "codigo": 10502,
+    "nombre": "San Lorenzo",
+    "cantonCodigo": 105,
+    "area": 186.29
+  },
+  {
+    "codigo": 10503,
+    "nombre": "San Carlos",
+    "cantonCodigo": 105,
+    "area": 58.96
+  },
+  {
+    "codigo": 10601,
+    "nombre": "Aserrí",
+    "cantonCodigo": 106,
+    "area": 15.26
+  },
+  {
+    "codigo": 10602,
+    "nombre": "Tarbaca",
+    "cantonCodigo": 106,
+    "area": 15.34
+  },
+  {
+    "codigo": 10603,
+    "nombre": "Vuelta de Jorco",
+    "cantonCodigo": 106,
+    "area": 22.05
+  },
+  {
+    "codigo": 10604,
+    "nombre": "San Gabriel",
+    "cantonCodigo": 106,
+    "area": 11.73
+  },
+  {
+    "codigo": 10605,
+    "nombre": "Legua",
+    "cantonCodigo": 106,
+    "area": 81.26
+  },
+  {
+    "codigo": 10606,
+    "nombre": "Monterrey",
+    "cantonCodigo": 106,
+    "area": 8.28
+  },
+  {
+    "codigo": 10607,
+    "nombre": "Salitrillos",
+    "cantonCodigo": 106,
+    "area": 14.34
+  },
+  {
+    "codigo": 10701,
+    "nombre": "Colón",
+    "cantonCodigo": 107,
+    "area": 39.89
+  },
+  {
+    "codigo": 10702,
+    "nombre": "Guayabo",
+    "cantonCodigo": 107,
+    "area": 9.01
+  },
+  {
+    "codigo": 10703,
+    "nombre": "Tabarcia",
+    "cantonCodigo": 107,
+    "area": 40.43
+  },
+  {
+    "codigo": 10704,
+    "nombre": "Piedras Negras",
+    "cantonCodigo": 107,
+    "area": 14.88
+  },
+  {
+    "codigo": 10705,
+    "nombre": "Picagres",
+    "cantonCodigo": 107,
+    "area": 27.16
+  },
+  {
+    "codigo": 10706,
+    "nombre": "Jaris",
+    "cantonCodigo": 107,
+    "area": 5.49
+  },
+  {
+    "codigo": 10707,
+    "nombre": "Quitirrisí",
+    "cantonCodigo": 107,
+    "area": 26.62
+  },
+  {
+    "codigo": 10801,
+    "nombre": "Guadalupe",
+    "cantonCodigo": 108,
+    "area": 2.39
+  },
+  {
+    "codigo": 10802,
+    "nombre": "San Francisco",
+    "cantonCodigo": 108,
+    "area": 0.58
+  },
+  {
+    "codigo": 10803,
+    "nombre": "Calle Blancos",
+    "cantonCodigo": 108,
+    "area": 2.36
+  },
+  {
+    "codigo": 10804,
+    "nombre": "Mata de Plátano",
+    "cantonCodigo": 108,
+    "area": 7.79
+  },
+  {
+    "codigo": 10805,
+    "nombre": "Ipis",
+    "cantonCodigo": 108,
+    "area": 2.5
+  },
+  {
+    "codigo": 10806,
+    "nombre": "Rancho Redondo",
+    "cantonCodigo": 108,
+    "area": 13.08
+  },
+  {
+    "codigo": 10807,
+    "nombre": "Purral",
+    "cantonCodigo": 108,
+    "area": 3
+  },
+  {
+    "codigo": 10901,
+    "nombre": "Santa Ana",
+    "cantonCodigo": 109,
+    "area": 5.44
+  },
+  {
+    "codigo": 10902,
+    "nombre": "Salitral",
+    "cantonCodigo": 109,
+    "area": 20.29
+  },
+  {
+    "codigo": 10903,
+    "nombre": "Pozos",
+    "cantonCodigo": 109,
+    "area": 13.35
+  },
+  {
+    "codigo": 10904,
+    "nombre": "Uruca",
+    "cantonCodigo": 109,
+    "area": 7.03
+  },
+  {
+    "codigo": 10905,
+    "nombre": "Piedades",
+    "cantonCodigo": 109,
+    "area": 12.07
+  },
+  {
+    "codigo": 10906,
+    "nombre": "Brasil",
+    "cantonCodigo": 109,
+    "area": 3.24
+  },
+  {
+    "codigo": 11001,
+    "nombre": "Alajuelita",
+    "cantonCodigo": 110,
+    "area": 1.27
+  },
+  {
+    "codigo": 11002,
+    "nombre": "San Josecito",
+    "cantonCodigo": 110,
+    "area": 2.37
+  },
+  {
+    "codigo": 11003,
+    "nombre": "San Antonio",
+    "cantonCodigo": 110,
+    "area": 10.26
+  },
+  {
+    "codigo": 11004,
+    "nombre": "Concepción",
+    "cantonCodigo": 110,
+    "area": 2.43
+  },
+  {
+    "codigo": 11005,
+    "nombre": "San Felipe",
+    "cantonCodigo": 110,
+    "area": 5.13
+  },
+  {
+    "codigo": 11101,
+    "nombre": "San Isidro",
+    "cantonCodigo": 111,
+    "area": 5.16
+  },
+  {
+    "codigo": 11102,
+    "nombre": "San Rafael",
+    "cantonCodigo": 111,
+    "area": 16.91
+  },
+  {
+    "codigo": 11103,
+    "nombre": "Dulce Nombre de Jesús",
+    "cantonCodigo": 111,
+    "area": 67.92
+  },
+  {
+    "codigo": 11104,
+    "nombre": "Patalillo",
+    "cantonCodigo": 111,
+    "area": 1.92
+  },
+  {
+    "codigo": 11105,
+    "nombre": "Cascajal",
+    "cantonCodigo": 111,
+    "area": 132.02
+  },
+  {
+    "codigo": 11201,
+    "nombre": "San Ignacio",
+    "cantonCodigo": 112,
+    "area": 22.74
+  },
+  {
+    "codigo": 11202,
+    "nombre": "Guaitil",
+    "cantonCodigo": 112,
+    "area": 43.99
+  },
+  {
+    "codigo": 11203,
+    "nombre": "Palmichal",
+    "cantonCodigo": 112,
+    "area": 34.14
+  },
+  {
+    "codigo": 11204,
+    "nombre": "Cangrejal",
+    "cantonCodigo": 112,
+    "area": 64.33
+  },
+  {
+    "codigo": 11205,
+    "nombre": "Sabanillas",
+    "cantonCodigo": 112,
+    "area": 177.36
+  },
+  {
+    "codigo": 11301,
+    "nombre": "San Juan",
+    "cantonCodigo": 113,
+    "area": 3.51
+  },
+  {
+    "codigo": 11302,
+    "nombre": "Cinco Esquinas",
+    "cantonCodigo": 113,
+    "area": 0.65
+  },
+  {
+    "codigo": 11303,
+    "nombre": "Anselmo Llorente",
+    "cantonCodigo": 113,
+    "area": 1.37
+  },
+  {
+    "codigo": 11304,
+    "nombre": "León XIII",
+    "cantonCodigo": 113,
+    "area": 0.72
+  },
+  {
+    "codigo": 11305,
+    "nombre": "Colima",
+    "cantonCodigo": 113,
+    "area": 2.01
+  },
+  {
+    "codigo": 11401,
+    "nombre": "San Vicente",
+    "cantonCodigo": 114,
+    "area": 5.4
+  },
+  {
+    "codigo": 11402,
+    "nombre": "San Jerónimo",
+    "cantonCodigo": 114,
+    "area": 18.53
+  },
+  {
+    "codigo": 11403,
+    "nombre": "La Trinidad",
+    "cantonCodigo": 114,
+    "area": 4.9
+  },
+  {
+    "codigo": 11501,
+    "nombre": "San Pedro",
+    "cantonCodigo": 115,
+    "area": 4.74
+  },
+  {
+    "codigo": 11502,
+    "nombre": "Sabanilla",
+    "cantonCodigo": 115,
+    "area": 1.79
+  },
+  {
+    "codigo": 11503,
+    "nombre": "Mercedes",
+    "cantonCodigo": 115,
+    "area": 1.43
+  },
+  {
+    "codigo": 11504,
+    "nombre": "San Rafael",
+    "cantonCodigo": 115,
+    "area": 7.82
+  },
+  {
+    "codigo": 11601,
+    "nombre": "San Pablo",
+    "cantonCodigo": 116,
+    "area": 26.41
+  },
+  {
+    "codigo": 11602,
+    "nombre": "San Pedro",
+    "cantonCodigo": 116,
+    "area": 39.2
+  },
+  {
+    "codigo": 11603,
+    "nombre": "San Juan de Mata",
+    "cantonCodigo": 116,
+    "area": 86.25
+  },
+  {
+    "codigo": 11604,
+    "nombre": "San Luis",
+    "cantonCodigo": 116,
+    "area": 43.84
+  },
+  {
+    "codigo": 11605,
+    "nombre": "Carara",
+    "cantonCodigo": 116,
+    "area": 220.55
+  },
+  {
+    "codigo": 11701,
+    "nombre": "Santa María",
+    "cantonCodigo": 117,
+    "area": 93.6
+  },
+  {
+    "codigo": 11702,
+    "nombre": "Jardín",
+    "cantonCodigo": 117,
+    "area": 33.27
+  },
+  {
+    "codigo": 11703,
+    "nombre": "Copey",
+    "cantonCodigo": 117,
+    "area": 277.58
+  },
+  {
+    "codigo": 11801,
+    "nombre": "Curridabat",
+    "cantonCodigo": 118,
+    "area": 6.17
+  },
+  {
+    "codigo": 11802,
+    "nombre": "Granadilla",
+    "cantonCodigo": 118,
+    "area": 3.51
+  },
+  {
+    "codigo": 11803,
+    "nombre": "Sánchez",
+    "cantonCodigo": 118,
+    "area": 4.51
+  },
+  {
+    "codigo": 11804,
+    "nombre": "Tirrases",
+    "cantonCodigo": 118,
+    "area": 1.88
+  },
+  {
+    "codigo": 11901,
+    "nombre": "San Isidro de El General",
+    "cantonCodigo": 119,
+    "area": 191.82
+  },
+  {
+    "codigo": 11902,
+    "nombre": "El General",
+    "cantonCodigo": 119,
+    "area": 76.88
+  },
+  {
+    "codigo": 11903,
+    "nombre": "Daniel Flores",
+    "cantonCodigo": 119,
+    "area": 64.06
+  },
+  {
+    "codigo": 11904,
+    "nombre": "Rivas",
+    "cantonCodigo": 119,
+    "area": 310
+  },
+  {
+    "codigo": 11905,
+    "nombre": "San Pedro",
+    "cantonCodigo": 119,
+    "area": 206.12
+  },
+  {
+    "codigo": 11906,
+    "nombre": "Platanares",
+    "cantonCodigo": 119,
+    "area": 80.92
+  },
+  {
+    "codigo": 11907,
+    "nombre": "Pejibaye",
+    "cantonCodigo": 119,
+    "area": 141.18
+  },
+  {
+    "codigo": 11908,
+    "nombre": "Cajón",
+    "cantonCodigo": 119,
+    "area": 118.63
+  },
+  {
+    "codigo": 11909,
+    "nombre": "Barú",
+    "cantonCodigo": 119,
+    "area": 189.66
+  },
+  {
+    "codigo": 11910,
+    "nombre": "Río Nuevo",
+    "cantonCodigo": 119,
+    "area": 242.19
+  },
+  {
+    "codigo": 11911,
+    "nombre": "Paramo",
+    "cantonCodigo": 119,
+    "area": 203.33
+  },
+  {
+    "codigo": 11912,
+    "nombre": "La Amistad",
+    "cantonCodigo": 119,
+    "area": 76.29
+  },
+  {
+    "codigo": 12001,
+    "nombre": "San Pablo",
+    "cantonCodigo": 120,
+    "area": 20.76
+  },
+  {
+    "codigo": 12002,
+    "nombre": "San Andrés",
+    "cantonCodigo": 120,
+    "area": 16.1
+  },
+  {
+    "codigo": 12003,
+    "nombre": "Llano Bonito",
+    "cantonCodigo": 120,
+    "area": 34.1
+  },
+  {
+    "codigo": 12004,
+    "nombre": "San Isidro",
+    "cantonCodigo": 120,
+    "area": 19.02
+  },
+  {
+    "codigo": 12005,
+    "nombre": "Santa Cruz",
+    "cantonCodigo": 120,
+    "area": 21.78
+  },
+  {
+    "codigo": 12006,
+    "nombre": "San Antonio",
+    "cantonCodigo": 120,
+    "area": 10.14
+  },
+  {
+    "codigo": 20101,
+    "nombre": "Alajuela",
+    "cantonCodigo": 201,
+    "area": 10.61
+  },
+  {
+    "codigo": 20102,
+    "nombre": "San José",
+    "cantonCodigo": 201,
+    "area": 14.87
+  },
+  {
+    "codigo": 20103,
+    "nombre": "Carrizal",
+    "cantonCodigo": 201,
+    "area": 16.22
+  },
+  {
+    "codigo": 20104,
+    "nombre": "San Antonio",
+    "cantonCodigo": 201,
+    "area": 8.76
+  },
+  {
+    "codigo": 20105,
+    "nombre": "Guácima",
+    "cantonCodigo": 201,
+    "area": 28.07
+  },
+  {
+    "codigo": 20106,
+    "nombre": "San Isidro",
+    "cantonCodigo": 201,
+    "area": 34.69
+  },
+  {
+    "codigo": 20107,
+    "nombre": "Sabanilla",
+    "cantonCodigo": 201,
+    "area": 43.18
+  },
+  {
+    "codigo": 20108,
+    "nombre": "San Rafael",
+    "cantonCodigo": 201,
+    "area": 19.33
+  },
+  {
+    "codigo": 20109,
+    "nombre": "Río Segundo",
+    "cantonCodigo": 201,
+    "area": 5.46
+  },
+  {
+    "codigo": 20110,
+    "nombre": "Desamparados",
+    "cantonCodigo": 201,
+    "area": 12.95
+  },
+  {
+    "codigo": 20111,
+    "nombre": "Turrucares",
+    "cantonCodigo": 201,
+    "area": 35.89
+  },
+  {
+    "codigo": 20112,
+    "nombre": "Tambor",
+    "cantonCodigo": 201,
+    "area": 13.89
+  },
+  {
+    "codigo": 20113,
+    "nombre": "Garita",
+    "cantonCodigo": 201,
+    "area": 33.9
+  },
+  {
+    "codigo": 20114,
+    "nombre": "Sarapiquí",
+    "cantonCodigo": 201,
+    "area": 113.79
+  },
+  {
+    "codigo": 20201,
+    "nombre": "San Ramón",
+    "cantonCodigo": 202,
+    "area": 1.28
+  },
+  {
+    "codigo": 20202,
+    "nombre": "Santiago",
+    "cantonCodigo": 202,
+    "area": 61.06
+  },
+  {
+    "codigo": 20203,
+    "nombre": "San Juan",
+    "cantonCodigo": 202,
+    "area": 5.12
+  },
+  {
+    "codigo": 20204,
+    "nombre": "Piedades Norte",
+    "cantonCodigo": 202,
+    "area": 47.68
+  },
+  {
+    "codigo": 20205,
+    "nombre": "Piedades Sur",
+    "cantonCodigo": 202,
+    "area": 115.63
+  },
+  {
+    "codigo": 20206,
+    "nombre": "San Rafael",
+    "cantonCodigo": 202,
+    "area": 30.69
+  },
+  {
+    "codigo": 20207,
+    "nombre": "San Isidro",
+    "cantonCodigo": 202,
+    "area": 8.69
+  },
+  {
+    "codigo": 20208,
+    "nombre": "Ángeles",
+    "cantonCodigo": 202,
+    "area": 84.91
+  },
+  {
+    "codigo": 20209,
+    "nombre": "Alfaro",
+    "cantonCodigo": 202,
+    "area": 17.84
+  },
+  {
+    "codigo": 20210,
+    "nombre": "Volio",
+    "cantonCodigo": 202,
+    "area": 20.67
+  },
+  {
+    "codigo": 20211,
+    "nombre": "Concepción",
+    "cantonCodigo": 202,
+    "area": 9.51
+  },
+  {
+    "codigo": 20212,
+    "nombre": "Zapotal",
+    "cantonCodigo": 202,
+    "area": 67.13
+  },
+  {
+    "codigo": 20213,
+    "nombre": "Peñas Blancas",
+    "cantonCodigo": 202,
+    "area": 246.8
+  },
+  {
+    "codigo": 20214,
+    "nombre": "San Lorenzo",
+    "cantonCodigo": 202,
+    "area": 304.74
+  },
+  {
+    "codigo": 20301,
+    "nombre": "Grecia",
+    "cantonCodigo": 203,
+    "area": 7.57
+  },
+  {
+    "codigo": 20302,
+    "nombre": "San Isidro",
+    "cantonCodigo": 203,
+    "area": 16.83
+  },
+  {
+    "codigo": 20303,
+    "nombre": "San José",
+    "cantonCodigo": 203,
+    "area": 12.41
+  },
+  {
+    "codigo": 20304,
+    "nombre": "San Roque",
+    "cantonCodigo": 203,
+    "area": 26.95
+  },
+  {
+    "codigo": 20305,
+    "nombre": "Tacares",
+    "cantonCodigo": 203,
+    "area": 24.9
+  },
+  {
+    "codigo": 20307,
+    "nombre": "Puente de Piedra",
+    "cantonCodigo": 203,
+    "area": 23.03
+  },
+  {
+    "codigo": 20308,
+    "nombre": "Bolivar",
+    "cantonCodigo": 203,
+    "area": 30.78
+  },
+  {
+    "codigo": 20401,
+    "nombre": "San Mateo",
+    "cantonCodigo": 204,
+    "area": 64.89
+  },
+  {
+    "codigo": 20402,
+    "nombre": "Desmonte",
+    "cantonCodigo": 204,
+    "area": 20.22
+  },
+  {
+    "codigo": 20403,
+    "nombre": "Jesús María",
+    "cantonCodigo": 204,
+    "area": 18.66
+  },
+  {
+    "codigo": 20404,
+    "nombre": "Labrador",
+    "cantonCodigo": 204,
+    "area": 21.26
+  },
+  {
+    "codigo": 20501,
+    "nombre": "Atenas",
+    "cantonCodigo": 205,
+    "area": 9.76
+  },
+  {
+    "codigo": 20502,
+    "nombre": "Jesús",
+    "cantonCodigo": 205,
+    "area": 18.11
+  },
+  {
+    "codigo": 20503,
+    "nombre": "Mercedes",
+    "cantonCodigo": 205,
+    "area": 7.84
+  },
+  {
+    "codigo": 20504,
+    "nombre": "San Isidro",
+    "cantonCodigo": 205,
+    "area": 14.39
+  },
+  {
+    "codigo": 20505,
+    "nombre": "Concepción",
+    "cantonCodigo": 205,
+    "area": 21.91
+  },
+  {
+    "codigo": 20506,
+    "nombre": "San José",
+    "cantonCodigo": 205,
+    "area": 13.47
+  },
+  {
+    "codigo": 20507,
+    "nombre": "Santa Eulalia",
+    "cantonCodigo": 205,
+    "area": 14.56
+  },
+  {
+    "codigo": 20508,
+    "nombre": "Escobal",
+    "cantonCodigo": 205,
+    "area": 26.28
+  },
+  {
+    "codigo": 20601,
+    "nombre": "Naranjo",
+    "cantonCodigo": 206,
+    "area": 16.85
+  },
+  {
+    "codigo": 20602,
+    "nombre": "San Miguel",
+    "cantonCodigo": 206,
+    "area": 15.59
+  },
+  {
+    "codigo": 20603,
+    "nombre": "San José",
+    "cantonCodigo": 206,
+    "area": 20.9
+  },
+  {
+    "codigo": 20604,
+    "nombre": "Cirrí Sur",
+    "cantonCodigo": 206,
+    "area": 32.11
+  },
+  {
+    "codigo": 20605,
+    "nombre": "San Jerónimo",
+    "cantonCodigo": 206,
+    "area": 9.05
+  },
+  {
+    "codigo": 20606,
+    "nombre": "San Juan",
+    "cantonCodigo": 206,
+    "area": 7.15
+  },
+  {
+    "codigo": 20607,
+    "nombre": "El Rosario",
+    "cantonCodigo": 206,
+    "area": 17.15
+  },
+  {
+    "codigo": 20608,
+    "nombre": "Palmitos",
+    "cantonCodigo": 206,
+    "area": 8.23
+  },
+  {
+    "codigo": 20701,
+    "nombre": "Palmares",
+    "cantonCodigo": 207,
+    "area": 1.19
+  },
+  {
+    "codigo": 20702,
+    "nombre": "Zaragoza",
+    "cantonCodigo": 207,
+    "area": 8.43
+  },
+  {
+    "codigo": 20703,
+    "nombre": "Buenos Aires",
+    "cantonCodigo": 207,
+    "area": 6.84
+  },
+  {
+    "codigo": 20704,
+    "nombre": "Santiago",
+    "cantonCodigo": 207,
+    "area": 7.96
+  },
+  {
+    "codigo": 20705,
+    "nombre": "Candelaria",
+    "cantonCodigo": 207,
+    "area": 4.72
+  },
+  {
+    "codigo": 20706,
+    "nombre": "Esquipulas",
+    "cantonCodigo": 207,
+    "area": 5.4
+  },
+  {
+    "codigo": 20707,
+    "nombre": "La Granja",
+    "cantonCodigo": 207,
+    "area": 4.39
+  },
+  {
+    "codigo": 20801,
+    "nombre": "San Pedro",
+    "cantonCodigo": 208,
+    "area": 13.58
+  },
+  {
+    "codigo": 20802,
+    "nombre": "San Juan",
+    "cantonCodigo": 208,
+    "area": 16.38
+  },
+  {
+    "codigo": 20803,
+    "nombre": "San Rafael",
+    "cantonCodigo": 208,
+    "area": 14.18
+  },
+  {
+    "codigo": 20804,
+    "nombre": "Carrillos",
+    "cantonCodigo": 208,
+    "area": 10.13
+  },
+  {
+    "codigo": 20805,
+    "nombre": "Sabana Redonda",
+    "cantonCodigo": 208,
+    "area": 20.21
+  },
+  {
+    "codigo": 20901,
+    "nombre": "Orotina",
+    "cantonCodigo": 209,
+    "area": 21.56
+  },
+  {
+    "codigo": 20902,
+    "nombre": "El Mastate",
+    "cantonCodigo": 209,
+    "area": 9.5
+  },
+  {
+    "codigo": 20903,
+    "nombre": "Hacienda Vieja",
+    "cantonCodigo": 209,
+    "area": 16.91
+  },
+  {
+    "codigo": 20904,
+    "nombre": "Coyolar",
+    "cantonCodigo": 209,
+    "area": 36.48
+  },
+  {
+    "codigo": 20905,
+    "nombre": "La Ceiba",
+    "cantonCodigo": 209,
+    "area": 60.66
+  },
+  {
+    "codigo": 21001,
+    "nombre": "Quesada",
+    "cantonCodigo": 210,
+    "area": 143.48
+  },
+  {
+    "codigo": 21002,
+    "nombre": "Florencia",
+    "cantonCodigo": 210,
+    "area": 199.66
+  },
+  {
+    "codigo": 21003,
+    "nombre": "Buenavista",
+    "cantonCodigo": 210,
+    "area": 25.97
+  },
+  {
+    "codigo": 21004,
+    "nombre": "Aguas Zarcas",
+    "cantonCodigo": 210,
+    "area": 185.7
+  },
+  {
+    "codigo": 21005,
+    "nombre": "Venecia",
+    "cantonCodigo": 210,
+    "area": 132.53
+  },
+  {
+    "codigo": 21006,
+    "nombre": "Pital",
+    "cantonCodigo": 210,
+    "area": 379.27
+  },
+  {
+    "codigo": 21007,
+    "nombre": "La Fortuna",
+    "cantonCodigo": 210,
+    "area": 229.59
+  },
+  {
+    "codigo": 21008,
+    "nombre": "La Tigra",
+    "cantonCodigo": 210,
+    "area": 56.21
+  },
+  {
+    "codigo": 21009,
+    "nombre": "La Palmera",
+    "cantonCodigo": 210,
+    "area": 100.36
+  },
+  {
+    "codigo": 21010,
+    "nombre": "Venado",
+    "cantonCodigo": 210,
+    "area": 169.19
+  },
+  {
+    "codigo": 21011,
+    "nombre": "Cutris",
+    "cantonCodigo": 210,
+    "area": 849.19
+  },
+  {
+    "codigo": 21012,
+    "nombre": "Monterrey",
+    "cantonCodigo": 210,
+    "area": 220.59
+  },
+  {
+    "codigo": 21013,
+    "nombre": "Pocosol",
+    "cantonCodigo": 210,
+    "area": 660.59
+  },
+  {
+    "codigo": 21101,
+    "nombre": "Zarcero",
+    "cantonCodigo": 211,
+    "area": 11.83
+  },
+  {
+    "codigo": 21102,
+    "nombre": "Laguna",
+    "cantonCodigo": 211,
+    "area": 23.28
+  },
+  {
+    "codigo": 21103,
+    "nombre": "Tapesco",
+    "cantonCodigo": 211,
+    "area": 6.39
+  },
+  {
+    "codigo": 21104,
+    "nombre": "Guadalupe",
+    "cantonCodigo": 211,
+    "area": 22.58
+  },
+  {
+    "codigo": 21105,
+    "nombre": "Palmira",
+    "cantonCodigo": 211,
+    "area": 30.67
+  },
+  {
+    "codigo": 21106,
+    "nombre": "Zapote",
+    "cantonCodigo": 211,
+    "area": 44.76
+  },
+  {
+    "codigo": 21107,
+    "nombre": "Brisas",
+    "cantonCodigo": 211,
+    "area": 17.85
+  },
+  {
+    "codigo": 21201,
+    "nombre": "Sarchí Norte",
+    "cantonCodigo": 212,
+    "area": 21.14
+  },
+  {
+    "codigo": 21202,
+    "nombre": "Sarchí Sur",
+    "cantonCodigo": 212,
+    "area": 6.35
+  },
+  {
+    "codigo": 21203,
+    "nombre": "Toro Amarillo",
+    "cantonCodigo": 212,
+    "area": 91.13
+  },
+  {
+    "codigo": 21204,
+    "nombre": "San Pedro",
+    "cantonCodigo": 212,
+    "area": 10.87
+  },
+  {
+    "codigo": 21205,
+    "nombre": "Rodríguez",
+    "cantonCodigo": 212,
+    "area": 7.28
+  },
+  {
+    "codigo": 21301,
+    "nombre": "Upala",
+    "cantonCodigo": 213,
+    "area": 148.65
+  },
+  {
+    "codigo": 21302,
+    "nombre": "Aguas Claras",
+    "cantonCodigo": 213,
+    "area": 408.54
+  },
+  {
+    "codigo": 21303,
+    "nombre": "San José O Pizote",
+    "cantonCodigo": 213,
+    "area": 285.43
+  },
+  {
+    "codigo": 21304,
+    "nombre": "Bijagua",
+    "cantonCodigo": 213,
+    "area": 186.8
+  },
+  {
+    "codigo": 21305,
+    "nombre": "Delicias",
+    "cantonCodigo": 213,
+    "area": 98.52
+  },
+  {
+    "codigo": 21306,
+    "nombre": "Dos Ríos",
+    "cantonCodigo": 213,
+    "area": 218.67
+  },
+  {
+    "codigo": 21307,
+    "nombre": "Yolillal",
+    "cantonCodigo": 213,
+    "area": 139.62
+  },
+  {
+    "codigo": 21308,
+    "nombre": "Canalete",
+    "cantonCodigo": 213,
+    "area": 106.45
+  },
+  {
+    "codigo": 21401,
+    "nombre": "Los Chiles",
+    "cantonCodigo": 214,
+    "area": 503.61
+  },
+  {
+    "codigo": 21402,
+    "nombre": "Caño Negro",
+    "cantonCodigo": 214,
+    "area": 301.27
+  },
+  {
+    "codigo": 21403,
+    "nombre": "El Amparo",
+    "cantonCodigo": 214,
+    "area": 312.89
+  },
+  {
+    "codigo": 21404,
+    "nombre": "San Jorge",
+    "cantonCodigo": 214,
+    "area": 214.95
+  },
+  {
+    "codigo": 21501,
+    "nombre": "San Rafael",
+    "cantonCodigo": 215,
+    "area": 303.99
+  },
+  {
+    "codigo": 21502,
+    "nombre": "Buenavista",
+    "cantonCodigo": 215,
+    "area": 150.86
+  },
+  {
+    "codigo": 21503,
+    "nombre": "Cote",
+    "cantonCodigo": 215,
+    "area": 183.58
+  },
+  {
+    "codigo": 21504,
+    "nombre": "Katira",
+    "cantonCodigo": 215,
+    "area": 114.4
+  },
+  {
+    "codigo": 21601,
+    "nombre": "Río Cuarto",
+    "cantonCodigo": 216,
+    "area": 97.62
+  },
+  {
+    "codigo": 21602,
+    "nombre": "Santa Rita",
+    "cantonCodigo": 216,
+    "area": 53.19
+  },
+  {
+    "codigo": 21603,
+    "nombre": "Santa Isabel",
+    "cantonCodigo": 216,
+    "area": 104.09
+  },
+  {
+    "codigo": 30101,
+    "nombre": "Oriental",
+    "cantonCodigo": 301,
+    "area": 2.04
+  },
+  {
+    "codigo": 30102,
+    "nombre": "Occidental",
+    "cantonCodigo": 301,
+    "area": 2.01
+  },
+  {
+    "codigo": 30103,
+    "nombre": "Carmen",
+    "cantonCodigo": 301,
+    "area": 4.33
+  },
+  {
+    "codigo": 30104,
+    "nombre": "San Nicolás",
+    "cantonCodigo": 301,
+    "area": 29.23
+  },
+  {
+    "codigo": 30105,
+    "nombre": "Aguacaliente o San Francisco",
+    "cantonCodigo": 301,
+    "area": 99.26
+  },
+  {
+    "codigo": 30106,
+    "nombre": "Guadalupe o Arenilla",
+    "cantonCodigo": 301,
+    "area": 13.16
+  },
+  {
+    "codigo": 30107,
+    "nombre": "Corralillo",
+    "cantonCodigo": 301,
+    "area": 32.69
+  },
+  {
+    "codigo": 30108,
+    "nombre": "Tierra Blanca",
+    "cantonCodigo": 301,
+    "area": 12.8
+  },
+  {
+    "codigo": 30109,
+    "nombre": "Dulce Nombre",
+    "cantonCodigo": 301,
+    "area": 33.64
+  },
+  {
+    "codigo": 30110,
+    "nombre": "Llano Grande",
+    "cantonCodigo": 301,
+    "area": 30.35
+  },
+  {
+    "codigo": 30111,
+    "nombre": "Quebradilla",
+    "cantonCodigo": 301,
+    "area": 19.15
+  },
+  {
+    "codigo": 30201,
+    "nombre": "Paraíso",
+    "cantonCodigo": 302,
+    "area": 18.29
+  },
+  {
+    "codigo": 30202,
+    "nombre": "Santiago",
+    "cantonCodigo": 302,
+    "area": 25.64
+  },
+  {
+    "codigo": 30203,
+    "nombre": "Orosi",
+    "cantonCodigo": 302,
+    "area": 376.54
+  },
+  {
+    "codigo": 30204,
+    "nombre": "Cachí",
+    "cantonCodigo": 302,
+    "area": 41.11
+  },
+  {
+    "codigo": 30205,
+    "nombre": "Llanos de Santa Lucía",
+    "cantonCodigo": 302,
+    "area": 6.54
+  },
+  {
+    "codigo": 30206,
+    "nombre": "Birrisito",
+    "cantonCodigo": 302,
+    "area": 8.88
+  },
+  {
+    "codigo": 30301,
+    "nombre": "Tres Ríos",
+    "cantonCodigo": 303,
+    "area": 2.28
+  },
+  {
+    "codigo": 30302,
+    "nombre": "San Diego",
+    "cantonCodigo": 303,
+    "area": 8.08
+  },
+  {
+    "codigo": 30303,
+    "nombre": "San Juan",
+    "cantonCodigo": 303,
+    "area": 3.95
+  },
+  {
+    "codigo": 30304,
+    "nombre": "San Rafael",
+    "cantonCodigo": 303,
+    "area": 9.51
+  },
+  {
+    "codigo": 30305,
+    "nombre": "Concepción",
+    "cantonCodigo": 303,
+    "area": 3.79
+  },
+  {
+    "codigo": 30306,
+    "nombre": "Dulce Nombre",
+    "cantonCodigo": 303,
+    "area": 8.26
+  },
+  {
+    "codigo": 30307,
+    "nombre": "San Ramón",
+    "cantonCodigo": 303,
+    "area": 3.47
+  },
+  {
+    "codigo": 30308,
+    "nombre": "Río Azul",
+    "cantonCodigo": 303,
+    "area": 4.85
+  },
+  {
+    "codigo": 30401,
+    "nombre": "Juan Viñas",
+    "cantonCodigo": 304,
+    "area": 43.37
+  },
+  {
+    "codigo": 30402,
+    "nombre": "Tucurrique",
+    "cantonCodigo": 304,
+    "area": 33.5
+  },
+  {
+    "codigo": 30403,
+    "nombre": "Pejibaye",
+    "cantonCodigo": 304,
+    "area": 173.2
+  },
+  {
+    "codigo": 30501,
+    "nombre": "Turrialba",
+    "cantonCodigo": 305,
+    "area": 56.63
+  },
+  {
+    "codigo": 30502,
+    "nombre": "La Suiza",
+    "cantonCodigo": 305,
+    "area": 160.93
+  },
+  {
+    "codigo": 30503,
+    "nombre": "Peralta",
+    "cantonCodigo": 305,
+    "area": 9.69
+  },
+  {
+    "codigo": 30504,
+    "nombre": "Santa Cruz",
+    "cantonCodigo": 305,
+    "area": 129.57
+  },
+  {
+    "codigo": 30505,
+    "nombre": "Santa Teresita",
+    "cantonCodigo": 305,
+    "area": 60.14
+  },
+  {
+    "codigo": 30506,
+    "nombre": "Pavones",
+    "cantonCodigo": 305,
+    "area": 42.05
+  },
+  {
+    "codigo": 30507,
+    "nombre": "Tuis",
+    "cantonCodigo": 305,
+    "area": 39.2
+  },
+  {
+    "codigo": 30508,
+    "nombre": "Tayutic",
+    "cantonCodigo": 305,
+    "area": 74.77
+  },
+  {
+    "codigo": 30509,
+    "nombre": "Santa Rosa",
+    "cantonCodigo": 305,
+    "area": 18.62
+  },
+  {
+    "codigo": 30510,
+    "nombre": "Tres Equis",
+    "cantonCodigo": 305,
+    "area": 36.95
+  },
+  {
+    "codigo": 30511,
+    "nombre": "La Isabel",
+    "cantonCodigo": 305,
+    "area": 19.79
+  },
+  {
+    "codigo": 30512,
+    "nombre": "Chirripó",
+    "cantonCodigo": 305,
+    "area": 940.9
+  },
+  {
+    "codigo": 30601,
+    "nombre": "Pacayas",
+    "cantonCodigo": 306,
+    "area": 29.62
+  },
+  {
+    "codigo": 30602,
+    "nombre": "Cervantes",
+    "cantonCodigo": 306,
+    "area": 15.18
+  },
+  {
+    "codigo": 30603,
+    "nombre": "Capellades",
+    "cantonCodigo": 306,
+    "area": 34.39
+  },
+  {
+    "codigo": 30701,
+    "nombre": "San Rafael",
+    "cantonCodigo": 307,
+    "area": 10.28
+  },
+  {
+    "codigo": 30702,
+    "nombre": "Cot",
+    "cantonCodigo": 307,
+    "area": 14.86
+  },
+  {
+    "codigo": 30703,
+    "nombre": "Potrero Cerrado",
+    "cantonCodigo": 307,
+    "area": 18.11
+  },
+  {
+    "codigo": 30704,
+    "nombre": "Cipreses",
+    "cantonCodigo": 307,
+    "area": 9.37
+  },
+  {
+    "codigo": 30705,
+    "nombre": "Santa Rosa",
+    "cantonCodigo": 307,
+    "area": 150.27
+  },
+  {
+    "codigo": 30801,
+    "nombre": "El Tejar",
+    "cantonCodigo": 308,
+    "area": 6.12
+  },
+  {
+    "codigo": 30802,
+    "nombre": "San Isidro",
+    "cantonCodigo": 308,
+    "area": 134.88
+  },
+  {
+    "codigo": 30803,
+    "nombre": "Tobosi",
+    "cantonCodigo": 308,
+    "area": 20.06
+  },
+  {
+    "codigo": 30804,
+    "nombre": "Patio de Agua",
+    "cantonCodigo": 308,
+    "area": 10.94
+  },
+  {
+    "codigo": 40101,
+    "nombre": "Heredia",
+    "cantonCodigo": 401,
+    "area": 2.86
+  },
+  {
+    "codigo": 40102,
+    "nombre": "Mercedes",
+    "cantonCodigo": 401,
+    "area": 4.15
+  },
+  {
+    "codigo": 40103,
+    "nombre": "San Francisco",
+    "cantonCodigo": 401,
+    "area": 6.56
+  },
+  {
+    "codigo": 40104,
+    "nombre": "Ulloa",
+    "cantonCodigo": 401,
+    "area": 11.38
+  },
+  {
+    "codigo": 40105,
+    "nombre": "Varablanca",
+    "cantonCodigo": 401,
+    "area": 258.17
+  },
+  {
+    "codigo": 40201,
+    "nombre": "Barva",
+    "cantonCodigo": 402,
+    "area": 0.84
+  },
+  {
+    "codigo": 40202,
+    "nombre": "San Pedro",
+    "cantonCodigo": 402,
+    "area": 7.17
+  },
+  {
+    "codigo": 40203,
+    "nombre": "San Pablo",
+    "cantonCodigo": 402,
+    "area": 6.83
+  },
+  {
+    "codigo": 40204,
+    "nombre": "San Roque",
+    "cantonCodigo": 402,
+    "area": 1.28
+  },
+  {
+    "codigo": 40205,
+    "nombre": "Santa Lucía",
+    "cantonCodigo": 402,
+    "area": 2.86
+  },
+  {
+    "codigo": 40206,
+    "nombre": "San José de la Montaña",
+    "cantonCodigo": 402,
+    "area": 37.04
+  },
+  {
+    "codigo": 40301,
+    "nombre": "Santo Domingo",
+    "cantonCodigo": 403,
+    "area": 0.78
+  },
+  {
+    "codigo": 40302,
+    "nombre": "San Vicente",
+    "cantonCodigo": 403,
+    "area": 2.88
+  },
+  {
+    "codigo": 40303,
+    "nombre": "San Miguel",
+    "cantonCodigo": 403,
+    "area": 5.9
+  },
+  {
+    "codigo": 40304,
+    "nombre": "Paracito",
+    "cantonCodigo": 403,
+    "area": 1.27
+  },
+  {
+    "codigo": 40305,
+    "nombre": "Santo Tomás",
+    "cantonCodigo": 403,
+    "area": 3.54
+  },
+  {
+    "codigo": 40306,
+    "nombre": "Santa Rosa",
+    "cantonCodigo": 403,
+    "area": 4.27
+  },
+  {
+    "codigo": 40307,
+    "nombre": "Tures",
+    "cantonCodigo": 403,
+    "area": 3.88
+  },
+  {
+    "codigo": 40308,
+    "nombre": "Pará",
+    "cantonCodigo": 403,
+    "area": 2.87
+  },
+  {
+    "codigo": 40401,
+    "nombre": "Santa Bárbara",
+    "cantonCodigo": 404,
+    "area": 1.28
+  },
+  {
+    "codigo": 40402,
+    "nombre": "San Pedro",
+    "cantonCodigo": 404,
+    "area": 2.56
+  },
+  {
+    "codigo": 40403,
+    "nombre": "San Juan",
+    "cantonCodigo": 404,
+    "area": 4.48
+  },
+  {
+    "codigo": 40404,
+    "nombre": "Jesús",
+    "cantonCodigo": 404,
+    "area": 11.15
+  },
+  {
+    "codigo": 40405,
+    "nombre": "Santo Domingo",
+    "cantonCodigo": 404,
+    "area": 26.49
+  },
+  {
+    "codigo": 40406,
+    "nombre": "Purabá",
+    "cantonCodigo": 404,
+    "area": 6.14
+  },
+  {
+    "codigo": 40501,
+    "nombre": "San Rafael",
+    "cantonCodigo": 405,
+    "area": 1.33
+  },
+  {
+    "codigo": 40502,
+    "nombre": "San Josecito",
+    "cantonCodigo": 405,
+    "area": 1.35
+  },
+  {
+    "codigo": 40503,
+    "nombre": "Santiago",
+    "cantonCodigo": 405,
+    "area": 1.57
+  },
+  {
+    "codigo": 40504,
+    "nombre": "Ángeles",
+    "cantonCodigo": 405,
+    "area": 21.24
+  },
+  {
+    "codigo": 40505,
+    "nombre": "Concepción",
+    "cantonCodigo": 405,
+    "area": 22.81
+  },
+  {
+    "codigo": 40601,
+    "nombre": "San Isidro",
+    "cantonCodigo": 406,
+    "area": 2.67
+  },
+  {
+    "codigo": 40602,
+    "nombre": "San José",
+    "cantonCodigo": 406,
+    "area": 11.37
+  },
+  {
+    "codigo": 40603,
+    "nombre": "Concepción",
+    "cantonCodigo": 406,
+    "area": 8.07
+  },
+  {
+    "codigo": 40604,
+    "nombre": "San Francisco",
+    "cantonCodigo": 406,
+    "area": 4.56
+  },
+  {
+    "codigo": 40701,
+    "nombre": "San Antonio",
+    "cantonCodigo": 407,
+    "area": 3.56
+  },
+  {
+    "codigo": 40702,
+    "nombre": "La Ribera",
+    "cantonCodigo": 407,
+    "area": 4.26
+  },
+  {
+    "codigo": 40703,
+    "nombre": "La Asunción",
+    "cantonCodigo": 407,
+    "area": 4.57
+  },
+  {
+    "codigo": 40801,
+    "nombre": "San Joaquín",
+    "cantonCodigo": 408,
+    "area": 2.75
+  },
+  {
+    "codigo": 40802,
+    "nombre": "Barrantes",
+    "cantonCodigo": 408,
+    "area": 2.14
+  },
+  {
+    "codigo": 40803,
+    "nombre": "Llorente",
+    "cantonCodigo": 408,
+    "area": 1.86
+  },
+  {
+    "codigo": 40901,
+    "nombre": "San Pablo",
+    "cantonCodigo": 409,
+    "area": 5.93
+  },
+  {
+    "codigo": 40902,
+    "nombre": "Rincón de Sabanilla",
+    "cantonCodigo": 409,
+    "area": 2.41
+  },
+  {
+    "codigo": 41001,
+    "nombre": "Puerto Viejo",
+    "cantonCodigo": 410,
+    "area": 428.52
+  },
+  {
+    "codigo": 41002,
+    "nombre": "La Virgen",
+    "cantonCodigo": 410,
+    "area": 514.19
+  },
+  {
+    "codigo": 41003,
+    "nombre": "Las Horquetas",
+    "cantonCodigo": 410,
+    "area": 564.59
+  },
+  {
+    "codigo": 41004,
+    "nombre": "Llanuras del Gaspar",
+    "cantonCodigo": 410,
+    "area": 267.34
+  },
+  {
+    "codigo": 41005,
+    "nombre": "Cureña",
+    "cantonCodigo": 410,
+    "area": 369.73
+  },
+  {
+    "codigo": 50101,
+    "nombre": "Liberia",
+    "cantonCodigo": 501,
+    "area": 563.02
+  },
+  {
+    "codigo": 50102,
+    "nombre": "Cañas Dulces",
+    "cantonCodigo": 501,
+    "area": 243.41
+  },
+  {
+    "codigo": 50103,
+    "nombre": "Mayorga",
+    "cantonCodigo": 501,
+    "area": 227.51
+  },
+  {
+    "codigo": 50104,
+    "nombre": "Nacascolo",
+    "cantonCodigo": 501,
+    "area": 326.91
+  },
+  {
+    "codigo": 50105,
+    "nombre": "Curubandé",
+    "cantonCodigo": 501,
+    "area": 81.32
+  },
+  {
+    "codigo": 50201,
+    "nombre": "Nicoya",
+    "cantonCodigo": 502,
+    "area": 310.66
+  },
+  {
+    "codigo": 50202,
+    "nombre": "Mansión",
+    "cantonCodigo": 502,
+    "area": 212.15
+  },
+  {
+    "codigo": 50203,
+    "nombre": "San Antonio",
+    "cantonCodigo": 502,
+    "area": 339.5
+  },
+  {
+    "codigo": 50204,
+    "nombre": "Quebrada Honda",
+    "cantonCodigo": 502,
+    "area": 109.17
+  },
+  {
+    "codigo": 50205,
+    "nombre": "Sámara",
+    "cantonCodigo": 502,
+    "area": 109.36
+  },
+  {
+    "codigo": 50206,
+    "nombre": "Nosara",
+    "cantonCodigo": 502,
+    "area": 133.65
+  },
+  {
+    "codigo": 50207,
+    "nombre": "Belén de Nosarita",
+    "cantonCodigo": 502,
+    "area": 123.07
+  },
+  {
+    "codigo": 50301,
+    "nombre": "Santa Cruz",
+    "cantonCodigo": 503,
+    "area": 288.92
+  },
+  {
+    "codigo": 50302,
+    "nombre": "Bolsón",
+    "cantonCodigo": 503,
+    "area": 32.28
+  },
+  {
+    "codigo": 50303,
+    "nombre": "Veintisiete de Abril",
+    "cantonCodigo": 503,
+    "area": 303
+  },
+  {
+    "codigo": 50304,
+    "nombre": "Tempate",
+    "cantonCodigo": 503,
+    "area": 139.69
+  },
+  {
+    "codigo": 50305,
+    "nombre": "Cartagena",
+    "cantonCodigo": 503,
+    "area": 72.9
+  },
+  {
+    "codigo": 50306,
+    "nombre": "Cuajiniquil",
+    "cantonCodigo": 503,
+    "area": 218
+  },
+  {
+    "codigo": 50307,
+    "nombre": "Diriá",
+    "cantonCodigo": 503,
+    "area": 66.22
+  },
+  {
+    "codigo": 50308,
+    "nombre": "Cabo Velas",
+    "cantonCodigo": 503,
+    "area": 73.7
+  },
+  {
+    "codigo": 50309,
+    "nombre": "Tamarindo",
+    "cantonCodigo": 503,
+    "area": 126.09
+  },
+  {
+    "codigo": 50401,
+    "nombre": "Bagaces",
+    "cantonCodigo": 504,
+    "area": 889.07
+  },
+  {
+    "codigo": 50402,
+    "nombre": "La Fortuna",
+    "cantonCodigo": 504,
+    "area": 163.47
+  },
+  {
+    "codigo": 50403,
+    "nombre": "Mogote",
+    "cantonCodigo": 504,
+    "area": 181.77
+  },
+  {
+    "codigo": 50404,
+    "nombre": "Río Naranjo",
+    "cantonCodigo": 504,
+    "area": 43.62
+  },
+  {
+    "codigo": 50501,
+    "nombre": "Filadelfia",
+    "cantonCodigo": 505,
+    "area": 125.24
+  },
+  {
+    "codigo": 50502,
+    "nombre": "Palmira",
+    "cantonCodigo": 505,
+    "area": 31.46
+  },
+  {
+    "codigo": 50503,
+    "nombre": "Sardinal",
+    "cantonCodigo": 505,
+    "area": 260.17
+  },
+  {
+    "codigo": 50504,
+    "nombre": "Belén",
+    "cantonCodigo": 505,
+    "area": 182.14
+  },
+  {
+    "codigo": 50601,
+    "nombre": "Cañas",
+    "cantonCodigo": 506,
+    "area": 193.09
+  },
+  {
+    "codigo": 50602,
+    "nombre": "Palmira",
+    "cantonCodigo": 506,
+    "area": 204.03
+  },
+  {
+    "codigo": 50603,
+    "nombre": "San Miguel",
+    "cantonCodigo": 506,
+    "area": 120.95
+  },
+  {
+    "codigo": 50604,
+    "nombre": "Bebedero",
+    "cantonCodigo": 506,
+    "area": 58.06
+  },
+  {
+    "codigo": 50605,
+    "nombre": "Porozal",
+    "cantonCodigo": 506,
+    "area": 110.91
+  },
+  {
+    "codigo": 50701,
+    "nombre": "Las Juntas",
+    "cantonCodigo": 507,
+    "area": 228.71
+  },
+  {
+    "codigo": 50702,
+    "nombre": "Sierra",
+    "cantonCodigo": 507,
+    "area": 112
+  },
+  {
+    "codigo": 50703,
+    "nombre": "San Juan",
+    "cantonCodigo": 507,
+    "area": 107.47
+  },
+  {
+    "codigo": 50704,
+    "nombre": "Colorado",
+    "cantonCodigo": 507,
+    "area": 197.84
+  },
+  {
+    "codigo": 50801,
+    "nombre": "Tilarán",
+    "cantonCodigo": 508,
+    "area": 144.75
+  },
+  {
+    "codigo": 50802,
+    "nombre": "Quebrada Grande",
+    "cantonCodigo": 508,
+    "area": 34.45
+  },
+  {
+    "codigo": 50803,
+    "nombre": "Tronadora",
+    "cantonCodigo": 508,
+    "area": 139.93
+  },
+  {
+    "codigo": 50804,
+    "nombre": "Santa Rosa",
+    "cantonCodigo": 508,
+    "area": 71.06
+  },
+  {
+    "codigo": 50805,
+    "nombre": "Líbano",
+    "cantonCodigo": 508,
+    "area": 72.13
+  },
+  {
+    "codigo": 50806,
+    "nombre": "Tierras Morenas",
+    "cantonCodigo": 508,
+    "area": 83.32
+  },
+  {
+    "codigo": 50807,
+    "nombre": "Arenal",
+    "cantonCodigo": 508,
+    "area": 72.67
+  },
+  {
+    "codigo": 50808,
+    "nombre": "Cabeceras",
+    "cantonCodigo": 508,
+    "area": 50.93
+  },
+  {
+    "codigo": 50901,
+    "nombre": "Carmona",
+    "cantonCodigo": 509,
+    "area": 31.66
+  },
+  {
+    "codigo": 50902,
+    "nombre": "Santa Rita",
+    "cantonCodigo": 509,
+    "area": 51.38
+  },
+  {
+    "codigo": 50903,
+    "nombre": "Zapotal",
+    "cantonCodigo": 509,
+    "area": 105.08
+  },
+  {
+    "codigo": 50904,
+    "nombre": "San Pablo",
+    "cantonCodigo": 509,
+    "area": 78.08
+  },
+  {
+    "codigo": 50905,
+    "nombre": "Porvenir",
+    "cantonCodigo": 509,
+    "area": 40.15
+  },
+  {
+    "codigo": 50906,
+    "nombre": "Bejuco",
+    "cantonCodigo": 509,
+    "area": 261.78
+  },
+  {
+    "codigo": 51001,
+    "nombre": "La Cruz",
+    "cantonCodigo": 510,
+    "area": 344.39
+  },
+  {
+    "codigo": 51002,
+    "nombre": "Santa Cecilia",
+    "cantonCodigo": 510,
+    "area": 258.01
+  },
+  {
+    "codigo": 51003,
+    "nombre": "La Garita",
+    "cantonCodigo": 510,
+    "area": 273.39
+  },
+  {
+    "codigo": 51004,
+    "nombre": "Santa Elena",
+    "cantonCodigo": 510,
+    "area": 509.59
+  },
+  {
+    "codigo": 51101,
+    "nombre": "Hojancha",
+    "cantonCodigo": 511,
+    "area": 70.4
+  },
+  {
+    "codigo": 51102,
+    "nombre": "Monte Romo",
+    "cantonCodigo": 511,
+    "area": 75.27
+  },
+  {
+    "codigo": 51103,
+    "nombre": "Puerto Carrillo",
+    "cantonCodigo": 511,
+    "area": 76.87
+  },
+  {
+    "codigo": 51104,
+    "nombre": "Huacas",
+    "cantonCodigo": 511,
+    "area": 31.74
+  },
+  {
+    "codigo": 51105,
+    "nombre": "Matambú",
+    "cantonCodigo": 511,
+    "area": 8.71
+  },
+  {
+    "codigo": 60101,
+    "nombre": "Puntarenas",
+    "cantonCodigo": 601,
+    "area": 34.03
+  },
+  {
+    "codigo": 60102,
+    "nombre": "Pitahaya",
+    "cantonCodigo": 601,
+    "area": 109.55
+  },
+  {
+    "codigo": 60103,
+    "nombre": "Chomes",
+    "cantonCodigo": 601,
+    "area": 118.95
+  },
+  {
+    "codigo": 60104,
+    "nombre": "Lepanto",
+    "cantonCodigo": 601,
+    "area": 424.31
+  },
+  {
+    "codigo": 60105,
+    "nombre": "Paquera",
+    "cantonCodigo": 601,
+    "area": 335.63
+  },
+  {
+    "codigo": 60106,
+    "nombre": "Manzanillo",
+    "cantonCodigo": 601,
+    "area": 59.86
+  },
+  {
+    "codigo": 60107,
+    "nombre": "Guacimal",
+    "cantonCodigo": 601,
+    "area": 114.94
+  },
+  {
+    "codigo": 60108,
+    "nombre": "Barranca",
+    "cantonCodigo": 601,
+    "area": 36.21
+  },
+  {
+    "codigo": 60110,
+    "nombre": "Isla del Coco",
+    "cantonCodigo": 601,
+    "area": 23.52
+  },
+  {
+    "codigo": 60111,
+    "nombre": "Cóbano",
+    "cantonCodigo": 601,
+    "area": 319.27
+  },
+  {
+    "codigo": 60112,
+    "nombre": "Chacarita",
+    "cantonCodigo": 601,
+    "area": 4.92
+  },
+  {
+    "codigo": 60113,
+    "nombre": "Chira",
+    "cantonCodigo": 601,
+    "area": 42.02
+  },
+  {
+    "codigo": 60114,
+    "nombre": "Acapulco",
+    "cantonCodigo": 601,
+    "area": 110.91
+  },
+  {
+    "codigo": 60115,
+    "nombre": "El Roble",
+    "cantonCodigo": 601,
+    "area": 7.93
+  },
+  {
+    "codigo": 60116,
+    "nombre": "Arancibia",
+    "cantonCodigo": 601,
+    "area": 44.86
+  },
+  {
+    "codigo": 60201,
+    "nombre": "Espíritu Santo",
+    "cantonCodigo": 602,
+    "area": 18.91
+  },
+  {
+    "codigo": 60202,
+    "nombre": "San Juan Grande",
+    "cantonCodigo": 602,
+    "area": 18.71
+  },
+  {
+    "codigo": 60203,
+    "nombre": "Macacona",
+    "cantonCodigo": 602,
+    "area": 34.13
+  },
+  {
+    "codigo": 60204,
+    "nombre": "San Rafael",
+    "cantonCodigo": 602,
+    "area": 34.32
+  },
+  {
+    "codigo": 60205,
+    "nombre": "San Jerónimo",
+    "cantonCodigo": 602,
+    "area": 49.14
+  },
+  {
+    "codigo": 60206,
+    "nombre": "Caldera",
+    "cantonCodigo": 602,
+    "area": 62.02
+  },
+  {
+    "codigo": 60301,
+    "nombre": "Buenos Aires",
+    "cantonCodigo": 603,
+    "area": 554.83
+  },
+  {
+    "codigo": 60302,
+    "nombre": "Volcán",
+    "cantonCodigo": 603,
+    "area": 187.41
+  },
+  {
+    "codigo": 60303,
+    "nombre": "Potrero Grande",
+    "cantonCodigo": 603,
+    "area": 626.7
+  },
+  {
+    "codigo": 60304,
+    "nombre": "Boruca",
+    "cantonCodigo": 603,
+    "area": 125.79
+  },
+  {
+    "codigo": 60305,
+    "nombre": "Pilas",
+    "cantonCodigo": 603,
+    "area": 114.34
+  },
+  {
+    "codigo": 60306,
+    "nombre": "Colinas",
+    "cantonCodigo": 603,
+    "area": 128.8
+  },
+  {
+    "codigo": 60307,
+    "nombre": "Chánguena",
+    "cantonCodigo": 603,
+    "area": 273.04
+  },
+  {
+    "codigo": 60308,
+    "nombre": "Biolley",
+    "cantonCodigo": 603,
+    "area": 208.27
+  },
+  {
+    "codigo": 60309,
+    "nombre": "Brunka",
+    "cantonCodigo": 603,
+    "area": 163.77
+  },
+  {
+    "codigo": 60401,
+    "nombre": "Miramar",
+    "cantonCodigo": 604,
+    "area": 110.96
+  },
+  {
+    "codigo": 60402,
+    "nombre": "La Unión",
+    "cantonCodigo": 604,
+    "area": 78.93
+  },
+  {
+    "codigo": 60403,
+    "nombre": "San Isidro",
+    "cantonCodigo": 604,
+    "area": 57.71
+  },
+  {
+    "codigo": 60501,
+    "nombre": "Puerto Cortés",
+    "cantonCodigo": 605,
+    "area": 234.39
+  },
+  {
+    "codigo": 60502,
+    "nombre": "Palmar",
+    "cantonCodigo": 605,
+    "area": 250.8
+  },
+  {
+    "codigo": 60503,
+    "nombre": "Sierpe",
+    "cantonCodigo": 605,
+    "area": 634.18
+  },
+  {
+    "codigo": 60504,
+    "nombre": "Bahía Ballena",
+    "cantonCodigo": 605,
+    "area": 158.33
+  },
+  {
+    "codigo": 60505,
+    "nombre": "Piedras Blancas",
+    "cantonCodigo": 605,
+    "area": 262.58
+  },
+  {
+    "codigo": 60506,
+    "nombre": "Bahía Drake",
+    "cantonCodigo": 605,
+    "area": 392.41
+  },
+  {
+    "codigo": 60601,
+    "nombre": "Quepos",
+    "cantonCodigo": 606,
+    "area": 236.05
+  },
+  {
+    "codigo": 60602,
+    "nombre": "Savegre",
+    "cantonCodigo": 606,
+    "area": 216.47
+  },
+  {
+    "codigo": 60603,
+    "nombre": "Naranjito",
+    "cantonCodigo": 606,
+    "area": 105.33
+  },
+  {
+    "codigo": 60701,
+    "nombre": "Golfito",
+    "cantonCodigo": 607,
+    "area": 355.9
+  },
+  {
+    "codigo": 60702,
+    "nombre": "Puerto Jiménez",
+    "cantonCodigo": 607,
+    "area": 720.43
+  },
+  {
+    "codigo": 60703,
+    "nombre": "Guaycará",
+    "cantonCodigo": 607,
+    "area": 323.1
+  },
+  {
+    "codigo": 60704,
+    "nombre": "Pavón",
+    "cantonCodigo": 607,
+    "area": 353.32
+  },
+  {
+    "codigo": 60801,
+    "nombre": "San Vito",
+    "cantonCodigo": 608,
+    "area": 74.59
+  },
+  {
+    "codigo": 60802,
+    "nombre": "Sabalito",
+    "cantonCodigo": 608,
+    "area": 186.86
+  },
+  {
+    "codigo": 60803,
+    "nombre": "Aguabuena",
+    "cantonCodigo": 608,
+    "area": 63.89
+  },
+  {
+    "codigo": 60804,
+    "nombre": "Limoncito",
+    "cantonCodigo": 608,
+    "area": 123.64
+  },
+  {
+    "codigo": 60805,
+    "nombre": "Pittier",
+    "cantonCodigo": 608,
+    "area": 257.05
+  },
+  {
+    "codigo": 60806,
+    "nombre": "Gutiérrez Braun",
+    "cantonCodigo": 608,
+    "area": 238.19
+  },
+  {
+    "codigo": 60901,
+    "nombre": "Parrita",
+    "cantonCodigo": 609,
+    "area": 483.22
+  },
+  {
+    "codigo": 61001,
+    "nombre": "Corredor",
+    "cantonCodigo": 610,
+    "area": 275.67
+  },
+  {
+    "codigo": 61002,
+    "nombre": "La Cuesta",
+    "cantonCodigo": 610,
+    "area": 37.08
+  },
+  {
+    "codigo": 61003,
+    "nombre": "Canoas",
+    "cantonCodigo": 610,
+    "area": 122.02
+  },
+  {
+    "codigo": 61004,
+    "nombre": "Laurel",
+    "cantonCodigo": 610,
+    "area": 188.85
+  },
+  {
+    "codigo": 61101,
+    "nombre": "Jacó",
+    "cantonCodigo": 611,
+    "area": 141.37
+  },
+  {
+    "codigo": 61102,
+    "nombre": "Tárcoles",
+    "cantonCodigo": 611,
+    "area": 93.64
+  },
+  {
+    "codigo": 61103,
+    "nombre": "Lagunillas",
+    "cantonCodigo": 611,
+    "area": 81
+  },
+  {
+    "codigo": 61201,
+    "nombre": "Monteverde",
+    "cantonCodigo": 612,
+    "area": 53.47
+  },
+  {
+    "codigo": 70101,
+    "nombre": "Limón",
+    "cantonCodigo": 701,
+    "area": 59.18
+  },
+  {
+    "codigo": 70102,
+    "nombre": "Valle La Estrella",
+    "cantonCodigo": 701,
+    "area": 1238.42
+  },
+  {
+    "codigo": 70103,
+    "nombre": "Río Blanco",
+    "cantonCodigo": 701,
+    "area": 131.31
+  },
+  {
+    "codigo": 70104,
+    "nombre": "Matama",
+    "cantonCodigo": 701,
+    "area": 340.47
+  },
+  {
+    "codigo": 70201,
+    "nombre": "Guápiles",
+    "cantonCodigo": 702,
+    "area": 221.74
+  },
+  {
+    "codigo": 70202,
+    "nombre": "Jiménez",
+    "cantonCodigo": 702,
+    "area": 108.23
+  },
+  {
+    "codigo": 70203,
+    "nombre": "Rita",
+    "cantonCodigo": 702,
+    "area": 503.74
+  },
+  {
+    "codigo": 70204,
+    "nombre": "Roxana",
+    "cantonCodigo": 702,
+    "area": 166.21
+  },
+  {
+    "codigo": 70205,
+    "nombre": "Cariari",
+    "cantonCodigo": 702,
+    "area": 201.03
+  },
+  {
+    "codigo": 70206,
+    "nombre": "Colorado",
+    "cantonCodigo": 702,
+    "area": 948.51
+  },
+  {
+    "codigo": 70207,
+    "nombre": "La Colonia",
+    "cantonCodigo": 702,
+    "area": 38.79
+  },
+  {
+    "codigo": 70301,
+    "nombre": "Siquirres",
+    "cantonCodigo": 703,
+    "area": 184.21
+  },
+  {
+    "codigo": 70302,
+    "nombre": "Pacuarito",
+    "cantonCodigo": 703,
+    "area": 220.02
+  },
+  {
+    "codigo": 70303,
+    "nombre": "Florida",
+    "cantonCodigo": 703,
+    "area": 81.93
+  },
+  {
+    "codigo": 70304,
+    "nombre": "Germania",
+    "cantonCodigo": 703,
+    "area": 33.96
+  },
+  {
+    "codigo": 70305,
+    "nombre": "El Cairo",
+    "cantonCodigo": 703,
+    "area": 106.96
+  },
+  {
+    "codigo": 70306,
+    "nombre": "Alegría",
+    "cantonCodigo": 703,
+    "area": 38.05
+  },
+  {
+    "codigo": 70307,
+    "nombre": "Reventazón",
+    "cantonCodigo": 703,
+    "area": 190.01
+  },
+  {
+    "codigo": 70401,
+    "nombre": "Bratsi",
+    "cantonCodigo": 704,
+    "area": 180.85
+  },
+  {
+    "codigo": 70402,
+    "nombre": "Sixaola",
+    "cantonCodigo": 704,
+    "area": 169.01
+  },
+  {
+    "codigo": 70403,
+    "nombre": "Cahuita",
+    "cantonCodigo": 704,
+    "area": 234.07
+  },
+  {
+    "codigo": 70404,
+    "nombre": "Telire",
+    "cantonCodigo": 704,
+    "area": 2208.3
+  },
+  {
+    "codigo": 70501,
+    "nombre": "Matina",
+    "cantonCodigo": 705,
+    "area": 351.45
+  },
+  {
+    "codigo": 70502,
+    "nombre": "Batán",
+    "cantonCodigo": 705,
+    "area": 213.41
+  },
+  {
+    "codigo": 70503,
+    "nombre": "Carrandí",
+    "cantonCodigo": 705,
+    "area": 205.54
+  },
+  {
+    "codigo": 70601,
+    "nombre": "Guácimo",
+    "cantonCodigo": 706,
+    "area": 223.79
+  },
+  {
+    "codigo": 70602,
+    "nombre": "Mercedes",
+    "cantonCodigo": 706,
+    "area": 90.06
+  },
+  {
+    "codigo": 70603,
+    "nombre": "Pocora",
+    "cantonCodigo": 706,
+    "area": 72.88
+  }
+]
