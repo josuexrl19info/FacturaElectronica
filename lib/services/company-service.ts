@@ -75,15 +75,24 @@ export class CompanyService {
       // Encriptar datos sensibles
       const masterPassword = EncryptionService.getMasterPassword()
       
-      // Debug: Verificar datos del certificado
-      console.log('🔍 Debug certificado:', {
-        certificateInfo: certificate.certificateInfo,
-        hasCertificateInfo: !!certificate.certificateInfo,
-        subject: certificate.certificateInfo?.subject,
-        validFrom: certificate.certificateInfo?.validFrom,
-        validTo: certificate.certificateInfo?.validTo
-      })
+        // Debug: Verificar datos del certificado
+        console.log('🔍 Debug certificado completo:', {
+          certificate: certificate,
+          certificateInfo: certificate.certificateInfo,
+          hasCertificateInfo: !!certificate.certificateInfo,
+          subject: certificate.certificateInfo?.subject,
+          issuer: certificate.certificateInfo?.issuer,
+          serialNumber: certificate.certificateInfo?.serialNumber,
+          validFrom: certificate.certificateInfo?.validFrom,
+          validTo: certificate.certificateInfo?.validTo
+        })
       
+      console.log('🔐 Debug encriptación:', {
+        masterPassword: masterPassword ? 'Definida' : 'No definida',
+        atvPasswordOriginal: atvCredentials.password,
+        certPasswordOriginal: certificate.password
+      })
+
       const encryptedAtvPassword = await EncryptionService.encrypt(
         atvCredentials.password,
         masterPassword
@@ -92,6 +101,13 @@ export class CompanyService {
         certificate.password,
         masterPassword
       )
+
+      console.log('🔐 Resultado encriptación:', {
+        atvPasswordEncrypted: encryptedAtvPassword,
+        certPasswordEncrypted: encryptedCertPassword,
+        atvPasswordLength: encryptedAtvPassword?.length,
+        certPasswordLength: encryptedCertPassword?.length
+      })
 
       // Usar tenantId del usuario o generar uno nuevo
       const tenantId = userData.tenantId || this.generateTenantId()
