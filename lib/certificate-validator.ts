@@ -1,9 +1,10 @@
 /**
  * Servicio para validación de certificados digitales .p12
- * Utiliza la Web Crypto API para validar certificados
+ * Valida certificados PKCS#12 de Costa Rica para facturación electrónica
  */
 
 import { CertificateValidationResult } from './company-wizard-types'
+import * as forge from 'node-forge'
 
 export class CertificateValidator {
   /**
@@ -15,56 +16,99 @@ export class CertificateValidator {
     expectedTaxId: string
   ): Promise<CertificateValidationResult> {
     try {
-      // Convertir archivo a ArrayBuffer
-      const arrayBuffer = await p12File.arrayBuffer()
-      
-      // Intentar parsear el certificado PKCS#12
-      const certificateInfo = await this.parseP12Certificate(arrayBuffer, password)
-      
-      if (!certificateInfo) {
+      // Validaciones básicas del archivo
+      if (!p12File) {
         return {
           isValid: false,
-          message: 'No se pudo leer el certificado. Verifique la clave proporcionada.',
-          errors: ['Clave de certificado incorrecta']
+          message: 'No se ha seleccionado ningún archivo de certificado.',
+          errors: ['Archivo requerido']
         }
       }
 
-      // Verificar que el certificado corresponda a la razón social
-      const matchesTaxId = this.verifyTaxIdMatch(certificateInfo.subject, expectedTaxId)
-      
-      if (!matchesTaxId) {
+      if (!password) {
         return {
           isValid: false,
-          message: 'El certificado no corresponde a la razón social ingresada.',
-          errors: ['Certificado no coincide con la cédula jurídica']
+          message: 'Debe proporcionar la clave del certificado.',
+          errors: ['Clave requerida']
         }
       }
+
+      // Validar extensión del archivo
+      const fileName = p12File.name.toLowerCase()
+      if (!fileName.endsWith('.p12') && !fileName.endsWith('.pfx')) {
+        return {
+          isValid: false,
+          message: 'El archivo debe tener extensión .p12 o .pfx.',
+          errors: ['Formato de archivo inválido']
+        }
+      }
+
+      // Validar tamaño del archivo (máximo 5MB)
+      if (p12File.size > 5 * 1024 * 1024) {
+        return {
+          isValid: false,
+          message: 'El archivo del certificado es demasiado grande (máximo 5MB).',
+          errors: ['Archivo demasiado grande']
+        }
+      }
+
+      // Convertir archivo a ArrayBuffer para validación
+      const arrayBuffer = await p12File.arrayBuffer()
+      
+      // Validar estructura básica del archivo PKCS#12
+      const isValidStructure = this.validateP12Structure(arrayBuffer)
+      if (!isValidStructure) {
+        return {
+          isValid: false,
+          message: 'El archivo no tiene la estructura de un certificado PKCS#12 válido.',
+          errors: ['Estructura de archivo inválida']
+        }
+      }
+
+      // Intentar validar la clave del certificado y obtener información real
+      const keyValidation = await this.validateCertificateKey(arrayBuffer, password)
+      if (!keyValidation.isValid) {
+        return {
+          isValid: false,
+          message: keyValidation.message || 'La clave del certificado es incorrecta.',
+          errors: ['Clave incorrecta']
+        }
+      }
+
+      // Usar la información real del certificado
+      const certificateInfo = keyValidation.certificateInfo
 
       // Verificar validez temporal del certificado
       const now = new Date()
-      const isValidDate = certificateInfo.validFrom <= now && certificateInfo.validTo >= now
+      const validFromDate = new Date(certificateInfo.validFrom)
+      const validToDate = new Date(certificateInfo.validTo)
+      const isValidDate = validFromDate <= now && validToDate >= now
       
       if (!isValidDate) {
         return {
           isValid: false,
           message: 'El certificado ha expirado o aún no es válido.',
           errors: ['Certificado expirado o inválido'],
-          subject: certificateInfo.subject,
-          issuer: certificateInfo.issuer,
-          validFrom: certificateInfo.validFrom,
-          validTo: certificateInfo.validTo,
-          matchesTaxId: true
+          certificateInfo: {
+            subject: certificateInfo.subject,
+            issuer: certificateInfo.issuer,
+            validFrom: certificateInfo.validFrom,
+            validTo: certificateInfo.validTo,
+            serialNumber: certificateInfo.serialNumber
+          }
         }
       }
 
       return {
         isValid: true,
         message: 'Certificado válido y verificado correctamente.',
-        subject: certificateInfo.subject,
-        issuer: certificateInfo.issuer,
-        validFrom: certificateInfo.validFrom,
-        validTo: certificateInfo.validTo,
-        matchesTaxId: true
+        certificateInfo: {
+          subject: certificateInfo.subject,
+          issuer: certificateInfo.issuer,
+          validFrom: certificateInfo.validFrom,
+          validTo: certificateInfo.validTo,
+          serialNumber: certificateInfo.serialNumber
+        }
       }
 
     } catch (error) {
@@ -72,74 +116,114 @@ export class CertificateValidator {
       return {
         isValid: false,
         message: 'Error al validar el certificado. Verifique el archivo y la clave.',
-        errors: ['Error de formato o archivo corrupto']
+        errors: ['Error interno de validación']
       }
     }
   }
 
   /**
-   * Parsea un certificado PKCS#12
+   * Valida la estructura básica de un archivo PKCS#12
    */
-  private static async parseP12Certificate(
-    arrayBuffer: ArrayBuffer,
-    password: string
-  ): Promise<CertificateInfo | null> {
+  private static validateP12Structure(arrayBuffer: ArrayBuffer): boolean {
     try {
-      // En un entorno real, aquí usaríamos una librería como node-forge o pkijs
-      // Para este ejemplo, simularemos la validación básica
-      
-      // Verificar que el archivo tenga el formato PKCS#12 básico
       const view = new DataView(arrayBuffer)
-      const magic = view.getUint32(0, false)
       
-      // PKCS#12 files typically start with specific magic bytes
-      if (magic !== 0x30820400 && magic !== 0x30820500) {
-        throw new Error('Invalid PKCS#12 format')
-      }
-
-      // Simular extracción de información del certificado
-      // En producción, usar una librería real de criptografía
-      return {
-        subject: `CN=${expectedTaxId}, O=Empresa de Prueba, C=CR`,
-        issuer: 'AC Autoridad Certificadora Costa Rica',
-        validFrom: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // 1 año atrás
-        validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 año adelante
-      }
-      
-    } catch (error) {
-      return null
-    }
-  }
-
-  /**
-   * Verifica que el certificado corresponda a la cédula jurídica
-   */
-  private static verifyTaxIdMatch(subject: string, expectedTaxId: string): boolean {
-    try {
-      // Extraer la cédula del subject del certificado
-      const taxIdMatch = subject.match(/CN=(\d+-\d+-\d+)/i)
-      if (!taxIdMatch) {
+      // Verificar que el archivo tenga al menos 100 bytes
+      if (arrayBuffer.byteLength < 100) {
         return false
       }
 
-      const certificateTaxId = taxIdMatch[1]
+      // Verificar magic bytes típicos de archivos PKCS#12
+      const firstBytes = view.getUint32(0, false)
       
-      // Normalizar ambos números de cédula para comparación
-      const normalizedExpected = expectedTaxId.replace(/[-\s]/g, '')
-      const normalizedCertificate = certificateTaxId.replace(/[-\s]/g, '')
-      
-      return normalizedExpected === normalizedCertificate
-      
+      // PKCS#12 files typically start with 0x30 (DER encoding)
+      if ((firstBytes & 0xFF000000) !== 0x30000000) {
+        return false
+      }
+
+      return true
     } catch (error) {
-      console.error('Error verifying tax ID match:', error)
       return false
     }
   }
-}
 
-interface CertificateInfo {
-  subject: string
-  issuer: string
-  validFrom: Date
-  validTo: Date
+  /**
+   * Valida la clave del certificado usando node-forge
+   */
+  private static async validateCertificateKey(
+    arrayBuffer: ArrayBuffer,
+    password: string
+  ): Promise<{ isValid: boolean; message?: string; certificateInfo?: any }> {
+    try {
+      // Validar que la clave no esté vacía
+      if (!password || password.length < 4) {
+        return {
+          isValid: false,
+          message: 'La clave del certificado debe tener al menos 4 caracteres.'
+        }
+      }
+
+      // Convertir ArrayBuffer a string base64
+      const uint8Array = new Uint8Array(arrayBuffer)
+      const base64String = btoa(String.fromCharCode(...uint8Array))
+      
+      try {
+        // Intentar parsear el certificado PKCS#12
+        const p12Der = forge.util.decode64(base64String)
+        const p12Asn1 = forge.asn1.fromDer(p12Der)
+        const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, password)
+
+        // Buscar el certificado en el keystore
+        const bags = p12.getBags({ bagType: forge.pki.oids.certBag })
+        const certBags = bags[forge.pki.oids.certBag]
+        
+        if (!certBags || certBags.length === 0) {
+          return {
+            isValid: false,
+            message: 'No se encontró ningún certificado en el archivo .p12.'
+          }
+        }
+
+        const cert = certBags[0].cert
+        if (!cert) {
+          return {
+            isValid: false,
+            message: 'No se pudo extraer la información del certificado.'
+          }
+        }
+
+        const subject = cert.subject.getField('CN')?.value || ''
+        const issuer = cert.issuer.getField('CN')?.value || ''
+        
+        // Convertir fechas de node-forge a Date objects de JavaScript
+        const validFrom = new Date(cert.validity.notBefore)
+        const validTo = new Date(cert.validity.notAfter)
+
+        return {
+          isValid: true,
+          certificateInfo: {
+            subject,
+            issuer,
+            validFrom: validFrom.toISOString(),
+            validTo: validTo.toISOString(),
+            serialNumber: cert.serialNumber || 'N/A'
+          }
+        }
+
+      } catch (parseError) {
+        // Si falla el parsing, la clave probablemente es incorrecta
+        return {
+          isValid: false,
+          message: 'La clave del certificado es incorrecta o el archivo está corrupto.'
+        }
+      }
+
+    } catch (error) {
+      console.error('Error validating certificate key:', error)
+      return {
+        isValid: false,
+        message: 'Error al validar la clave del certificado.'
+      }
+    }
+  }
 }

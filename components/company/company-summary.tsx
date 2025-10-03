@@ -2,7 +2,6 @@
 
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CompanyWizardData } from "@/lib/company-wizard-types"
 import { 
   Building2, 
@@ -13,7 +12,8 @@ import {
   Shield, 
   CheckCircle,
   FileText,
-  User
+  User,
+  BarChart3
 } from "lucide-react"
 
 interface CompanySummaryProps {
@@ -44,12 +44,13 @@ export function CompanySummary({ data }: CompanySummaryProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             {personalInfo.logo && (
-              <Avatar className="w-16 h-16">
-                <AvatarImage src={URL.createObjectURL(personalInfo.logo)} />
-                <AvatarFallback>
-                  {personalInfo.commercialName.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
+              <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-muted">
+                <img 
+                  src={URL.createObjectURL(personalInfo.logo)} 
+                  alt="Logo de la empresa"
+                  className="w-full h-full object-contain bg-white"
+                />
+              </div>
             )}
             <div>
               <h5 className="font-semibold text-lg">{personalInfo.commercialName}</h5>
@@ -81,6 +82,16 @@ export function CompanySummary({ data }: CompanySummaryProps) {
               {personalInfo.barrio && `, ${personalInfo.barrio}`}
             </span>
           </div>
+
+          {personalInfo.economicActivity && (
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{personalInfo.economicActivity.descripcion}</span>
+                <span className="text-xs text-muted-foreground">Código: {personalInfo.economicActivity.codigo}</span>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 

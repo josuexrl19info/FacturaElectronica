@@ -12,13 +12,17 @@ import { ProgressBar } from "@/components/wizard/progress-bar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToastNotification } from "@/components/providers/toast-provider"
+import { useAuthGuard } from "@/hooks/use-auth-redirect"
 import { CompanyWizardData } from "@/lib/company-wizard-types"
 import { ATVValidator } from "@/lib/atv-validator"
 import { CertificateValidator } from "@/lib/certificate-validator"
 import { CompanySummary } from "@/components/company/company-summary"
 import { GeoDropdowns } from "@/components/ui/geo-dropdowns"
 import { TaxIdInputClean } from "@/components/ui/tax-id-input-clean"
+import { EconomicActivitySelector } from "@/components/ui/economic-activity-selector"
+import { PhoneInputWithFlags } from "@/components/ui/phone-input-with-flags"
 import { Provincia, Canton, Distrito } from "@/lib/costa-rica-geo"
+import { HaciendaCompanyInfo } from "@/lib/company-wizard-types"
 import { 
   X, 
   CheckCircle, 
@@ -46,9 +50,25 @@ const COLORS = [
   { name: "Rojo", value: "#ef4444" },
 ]
 
+// Función helper para convertir archivos a base64 en el cliente
+const convertFileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      // Extraer solo la parte base64 (sin el prefijo data:image/...)
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function CompanyOnboardingPage() {
   const router = useRouter()
   const toast = useToastNotification()
+  const { user, loading } = useAuthGuard()
   const [currentStep, setCurrentStep] = useState(1)
   const [isValidating, setIsValidating] = useState(false)
   const [validationResults, setValidationResults] = useState<{
@@ -69,16 +89,18 @@ export default function CompanyOnboardingPage() {
   const [formData, setFormData] = useState<CompanyWizardData>({
     personalInfo: {
       legalName: "",
-      commercialName: "",
+      name: "",
       taxIdType: "juridica",
       taxId: "",
       email: "",
       phone: "",
+      phoneCountryCode: "+506",
       province: "",
       canton: "",
       district: "",
       barrio: "",
       logo: null,
+      economicActivity: undefined,
     },
     atvCredentials: {
       username: "",
@@ -90,6 +112,7 @@ export default function CompanyOnboardingPage() {
     certificate: {
       p12File: null,
       password: "",
+      certificateInfo: undefined
     },
   })
 
@@ -97,7 +120,9 @@ export default function CompanyOnboardingPage() {
     atv: false,
     certificate: false,
   })
+  const [haciendaCompanyInfo, setHaciendaCompanyInfo] = useState<HaciendaCompanyInfo | null>(null)
 
+  // TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETURN CONDICIONAL
   const updateField = useCallback((section: keyof CompanyWizardData, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -114,23 +139,50 @@ export default function CompanyOnboardingPage() {
     distrito: Distrito | null
   }) => {
     setSelectedLocation(location)
-    updateField('personalInfo', 'province', location.provincia?.nombre || '')
-    updateField('personalInfo', 'canton', location.canton?.nombre || '')
-    updateField('personalInfo', 'district', location.distrito?.nombre || '')
+    // Guardar los códigos en lugar de los nombres para que se mapeen correctamente
+    updateField('personalInfo', 'province', location.provincia?.codigo?.toString() || '')
+    updateField('personalInfo', 'canton', location.canton?.codigo?.toString() || '')
+    updateField('personalInfo', 'district', location.distrito?.codigo?.toString() || '')
+    
+    console.log('🗺️ Ubicación seleccionada:', {
+      provincia: { nombre: location.provincia?.nombre, codigo: location.provincia?.codigo },
+      canton: { nombre: location.canton?.nombre, codigo: location.canton?.codigo },
+      distrito: { nombre: location.distrito?.nombre, codigo: location.distrito?.codigo }
+    })
   }, [updateField])
+
+  // RETURNS CONDICIONALES DESPUÉS DE TODOS LOS HOOKS
+  // Mostrar pantalla de carga mientras se verifica la autenticación
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no hay usuario autenticado, el hook ya redirigió al login
+  if (!user) {
+    return null
+  }
 
   // Validaciones para cada paso
   const canProceedStep1 = () => {
     const { personalInfo } = formData
     return !!(
       personalInfo.legalName &&
-      personalInfo.commercialName &&
+      personalInfo.name &&
       personalInfo.taxId &&
       personalInfo.email &&
       personalInfo.phone &&
+      personalInfo.phoneCountryCode &&
       selectedLocation.provincia &&
       selectedLocation.canton &&
-      selectedLocation.distrito
+      selectedLocation.distrito &&
+      personalInfo.economicActivity
     )
   }
 
@@ -233,6 +285,27 @@ export default function CompanyOnboardingPage() {
       setValidationResults(prev => ({ ...prev, certificate: result }))
 
       if (result.isValid) {
+        // Guardar información del certificado validado en el wizard
+        if (result.certificate && result.certificate.certificateInfo) {
+          const certInfo = result.certificate.certificateInfo
+          console.log('🔍 Guardando certificateInfo:', certInfo)
+          
+          // Actualizar directamente con setFormData para asegurar que se guarde
+          setFormData(prev => ({
+            ...prev,
+            certificate: {
+              ...prev.certificate,
+              certificateInfo: {
+                subject: certInfo.subject,
+                issuer: certInfo.issuer,
+                serialNumber: certInfo.serialNumber,
+                validFrom: certInfo.validFrom,
+                validTo: certInfo.validTo
+              }
+            }
+          }))
+          console.log('✅ certificateInfo guardado en formData')
+        }
         toast.success('Certificado válido', 'El certificado corresponde a la razón social')
       } else {
         toast.error('Certificado inválido', result.message)
@@ -245,25 +318,54 @@ export default function CompanyOnboardingPage() {
   }
 
   const handleSubmit = async () => {
+    // Verificar autenticación directamente
+    if (!user) {
+      console.error('❌ Usuario no autenticado')
+      toast.error('Error', 'Debe estar autenticado para crear una empresa')
+      return
+    }
+
     try {
       setIsValidating(true)
       
+      // Convertir archivos a base64 antes de enviar
+      let logoBase64 = ''
+      let certificateBase64 = ''
+      
+      if (formData.personalInfo.logo) {
+        logoBase64 = await convertFileToBase64(formData.personalInfo.logo)
+      }
+      
+      if (formData.certificate.p12File) {
+        certificateBase64 = await convertFileToBase64(formData.certificate.p12File)
+      }
+
       // Preparar datos para envío
       const companyData = {
-        personalInfo: formData.personalInfo,
+        personalInfo: {
+          ...formData.personalInfo,
+          logoBase64: logoBase64
+        },
         atvCredentials: formData.atvCredentials,
         certificate: {
           p12File: formData.certificate.p12File?.name,
+          p12FileData: certificateBase64,
           password: formData.certificate.password,
+          certificateInfo: formData.certificate.certificateInfo
         },
-        primaryColor: '#10b981'
+        primaryColor: '#10b981',
+        userId: user.uid
       }
+
+      console.log('✅ Usuario autenticado:', user.uid)
+      console.log('🔍 Debug certificateInfo:', formData.certificate.certificateInfo)
+      console.log('📦 Datos enviados:', companyData)
 
       // Crear empresa via API
       const response = await fetch('/api/company/create', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(companyData)
       })
@@ -345,18 +447,6 @@ export default function CompanyOnboardingPage() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="commercialName">Nombre Comercial *</Label>
-                    <Input
-                      id="commercialName"
-                      placeholder="Ej: TechCorp CR"
-                      value={formData.personalInfo.commercialName}
-                      onChange={(e) => updateField('personalInfo', 'commercialName', e.target.value)}
-                      className="h-12"
-                    />
-                    <p className="text-sm text-muted-foreground">Nombre con el que se conoce su empresa</p>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="legalName">Razón Social *</Label>
                     <Input
                       id="legalName"
@@ -366,6 +456,18 @@ export default function CompanyOnboardingPage() {
                       className="h-12"
                     />
                     <p className="text-sm text-muted-foreground">Nombre legal registrado ante Hacienda</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nombre Comercial *</Label>
+                    <Input
+                      id="name"
+                      placeholder="Ej: TechCorp CR"
+                      value={formData.personalInfo.name}
+                      onChange={(e) => updateField('personalInfo', 'name', e.target.value)}
+                      className="h-12"
+                    />
+                    <p className="text-sm text-muted-foreground">Nombre con el que se conoce su empresa</p>
                   </div>
                 </div>
 
@@ -397,17 +499,18 @@ export default function CompanyOnboardingPage() {
                     <p className="text-sm text-muted-foreground">Para notificaciones de Hacienda</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Teléfono *</Label>
-                    <Input
-                      id="phone"
-                      placeholder="+506 2222-3333"
-                      value={formData.personalInfo.phone}
-                      onChange={(e) => updateField('personalInfo', 'phone', e.target.value)}
-                      className="h-12"
-                    />
-                    <p className="text-sm text-muted-foreground">Con código de país</p>
-                  </div>
+                  <PhoneInputWithFlags
+                    value={{
+                      countryCode: formData.personalInfo.phoneCountryCode,
+                      phoneNumber: formData.personalInfo.phone
+                    }}
+                    onChange={(phoneData) => {
+                      updateField('personalInfo', 'phoneCountryCode', phoneData.countryCode)
+                      updateField('personalInfo', 'phone', phoneData.phoneNumber)
+                    }}
+                    label="Teléfono *"
+                    description="Seleccione el país y ingrese el número de teléfono"
+                  />
                 </div>
 
                 {/* Ubicación con dropdowns dependientes */}
@@ -431,28 +534,69 @@ export default function CompanyOnboardingPage() {
                   </p>
                 </div>
 
-                <div className="space-y-2">
+                {/* Actividad Económica */}
+                <div className="space-y-4">
+                  <Label>Actividad Económica</Label>
+                  <EconomicActivitySelector
+                    taxId={formData.personalInfo.taxId}
+                    value={formData.personalInfo.economicActivity}
+                    onChange={(activity) => updateField('personalInfo', 'economicActivity', activity)}
+                    onCompanyInfo={setHaciendaCompanyInfo}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Se consultará automáticamente la información desde Hacienda basada en la cédula ingresada
+                  </p>
+                </div>
+
+                <div className="space-y-4">
                   <Label htmlFor="logo">Logo de la Empresa</Label>
-                  <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
-                    <input
-                      id="logo"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) updateField('personalInfo', 'logo', file)
-                      }}
-                    />
-                    <label htmlFor="logo" className="cursor-pointer">
-                      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Upload className="w-8 h-8 text-muted-foreground" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Cargar Imagen */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Cargar Imagen</Label>
+                      <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer h-32 flex flex-col items-center justify-center">
+                        <input
+                          id="logo"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) updateField('personalInfo', 'logo', file)
+                          }}
+                        />
+                        <label htmlFor="logo" className="cursor-pointer w-full h-full flex flex-col items-center justify-center">
+                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Upload className="w-6 h-6 text-primary" />
+                          </div>
+                          <p className="font-medium mb-1 text-sm">
+                            {formData.personalInfo.logo ? "Cambiar logo" : "Subir logo"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG o SVG (máx. 2MB)</p>
+                        </label>
                       </div>
-                      <p className="font-medium mb-1">
-                        {formData.personalInfo.logo ? formData.personalInfo.logo.name : "Subir logo"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">PNG, JPG o SVG (máx. 2MB)</p>
-                    </label>
+                    </div>
+
+                    {/* Vista Previa */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Vista Previa</Label>
+                      <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-6 h-32 flex items-center justify-center bg-muted/10">
+                        {formData.personalInfo.logo ? (
+                          <img
+                            src={URL.createObjectURL(formData.personalInfo.logo)}
+                            alt="Logo preview"
+                            className="max-w-full max-h-full object-contain rounded"
+                          />
+                        ) : (
+                          <div className="text-center text-muted-foreground">
+                            <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-2">
+                              <Upload className="w-6 h-6" />
+                            </div>
+                            <p className="text-sm">Sin logo</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -656,28 +800,42 @@ export default function CompanyOnboardingPage() {
                 )}
 
                 {/* Certificate Info */}
-                {validationResults.certificate?.isValid && (
+                {validationResults.certificate?.isValid && validationResults.certificate.certificateInfo && (
                   <div className="space-y-3">
                     <h4 className="font-medium">Información del Certificado:</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="font-medium">Sujeto:</span>
-                        <p className="text-muted-foreground">{validationResults.certificate.subject}</p>
+                        <p className="text-muted-foreground">{validationResults.certificate.certificateInfo.subject}</p>
                       </div>
                       <div>
                         <span className="font-medium">Emisor:</span>
-                        <p className="text-muted-foreground">{validationResults.certificate.issuer}</p>
+                        <p className="text-muted-foreground">{validationResults.certificate.certificateInfo.issuer}</p>
                       </div>
                       <div>
                         <span className="font-medium">Válido desde:</span>
                         <p className="text-muted-foreground">
-                          {new Date(validationResults.certificate.validFrom).toLocaleDateString()}
+                          {new Date(validationResults.certificate.certificateInfo.validFrom).toLocaleDateString('es-CR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
                         </p>
                       </div>
                       <div>
                         <span className="font-medium">Válido hasta:</span>
                         <p className="text-muted-foreground">
-                          {new Date(validationResults.certificate.validTo).toLocaleDateString()}
+                          {new Date(validationResults.certificate.certificateInfo.validTo).toLocaleDateString('es-CR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-medium">Número de Serie:</span>
+                        <p className="text-muted-foreground font-mono text-xs">
+                          {validationResults.certificate.certificateInfo.serialNumber}
                         </p>
                       </div>
                     </div>
