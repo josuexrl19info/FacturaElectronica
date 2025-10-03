@@ -1,319 +1,306 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { X, Search } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { X, Package, DollarSign, Percent, FileText, Calendar } from "lucide-react"
+import { ProductFormData, UNIDADES_MEDIDA, TIPOS_IMPUESTO, TARIFAS_IMPUESTO } from '@/lib/product-types'
 
 interface ProductFormProps {
   onClose: () => void
-  onSubmit: (data: any) => void
-  initialData?: any
+  onSubmit: (data: ProductFormData) => void
+  editingProduct?: ProductFormData
 }
 
-const PRODUCT_TYPES = [
-  { value: "product", label: "Producto" },
-  { value: "service", label: "Servicio" },
-]
-
-const TAX_RATES = [
-  { value: 0, label: "Exento (0%)" },
-  { value: 1, label: "Reducido (1%)" },
-  { value: 2, label: "Reducido (2%)" },
-  { value: 4, label: "Reducido (4%)" },
-  { value: 13, label: "General (13%)" },
-]
-
-// Mock CABYS codes - in production, this would be a searchable database
-const mockCABYS = [
-  { code: "4620101010000", description: "Computadoras portátiles" },
-  { code: "4620101020000", description: "Computadoras de escritorio" },
-  { code: "4320101010000", description: "Teléfonos móviles" },
-  { code: "8111501010000", description: "Servicios de consultoría en tecnología" },
-  { code: "8111502010000", description: "Servicios de desarrollo de software" },
-]
-
-export function ProductForm({ onClose, onSubmit, initialData }: ProductFormProps) {
-  const [formData, setFormData] = useState({
-    type: initialData?.type || "product",
-    name: initialData?.name || "",
-    description: initialData?.description || "",
-    sku: initialData?.sku || "",
-    cabysCode: initialData?.cabysCode || "",
-    cabysDescription: initialData?.cabysDescription || "",
-    price: initialData?.price || 0,
-    cost: initialData?.cost || 0,
-    taxRate: initialData?.taxRate || 13,
-    stock: initialData?.stock || 0,
-    minStock: initialData?.minStock || 0,
-    unit: initialData?.unit || "unidad",
+export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormProps) {
+  const [formData, setFormData] = useState<ProductFormData>({
+    codigoCABYS: '',
+    detalle: '',
+    precioUnitario: 0,
+    unidadMedida: 'Sp',
+    tipoImpuesto: '01',
+    codigoTarifaImpuesto: '08',
+    tarifaImpuesto: 13,
+    tieneExoneracion: false,
+    porcentajeExoneracion: 0,
+    numeroDocumentoExoneracion: '',
+    nombreInstitucionExoneracion: '',
+    fechaEmisionExoneracion: '',
+    montoExoneracion: 0
   })
 
-  const [showCABYSSearch, setShowCABYSSearch] = useState(false)
-  const [cabysSearchTerm, setCABYSSearchTerm] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  useEffect(() => {
+    if (editingProduct) {
+      setFormData(editingProduct)
+    }
+  }, [editingProduct])
+
+  const handleInputChange = (field: keyof ProductFormData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
-  const selectCABYS = (cabys: any) => {
-    updateField("cabysCode", cabys.code)
-    updateField("cabysDescription", cabys.description)
-    setShowCABYSSearch(false)
+  const handleTarifaChange = (codigo: string) => {
+    const tarifa = TARIFAS_IMPUESTO.find(t => t.codigo === codigo)
+    if (tarifa) {
+      setFormData(prev => ({
+        ...prev,
+        codigoTarifaImpuesto: codigo,
+        tarifaImpuesto: tarifa.porcentaje
+      }))
+    }
   }
 
-  const filteredCABYS = mockCABYS.filter(
-    (cabys) =>
-      cabys.code.includes(cabysSearchTerm) || cabys.description.toLowerCase().includes(cabysSearchTerm.toLowerCase()),
-  )
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
 
-  const handleSubmit = () => {
-    onSubmit(formData)
+    try {
+      await onSubmit(formData)
+      onClose()
+    } catch (error) {
+      console.error('Error al guardar producto:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const canSubmit = formData.name && formData.cabysCode && formData.price > 0
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-CR', {
+      style: 'currency',
+      currency: 'CRC',
+      minimumFractionDigits: 0
+    }).format(amount)
+  }
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <Card className="p-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-3xl font-bold">{initialData ? "Editar Producto" : "Agregar Producto"}</h2>
-              <p className="text-muted-foreground mt-1">Complete la información del producto o servicio</p>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        transition={{ duration: 0.3 }}
+        className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+      >
+        <div className="sticky top-0 bg-background border-b p-6 rounded-t-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Package className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">
+                  {editingProduct ? 'Editar Producto' : 'Agregar Producto'}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {editingProduct ? 'Modifica la información del producto' : 'Agrega un nuevo producto o servicio'}
+                </p>
+              </div>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
             </Button>
           </div>
+        </div>
 
-          <div className="space-y-6">
-            {/* Type Selection */}
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {PRODUCT_TYPES.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => updateField("type", type.value)}
-                    className={`p-4 rounded-lg border-2 transition-colors font-medium ${
-                      formData.type === type.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    {type.label}
-                  </button>
-                ))}
-              </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Información Básica */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Package className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold">Información Básica</h3>
             </div>
-
-            {/* Basic Info */}
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre *</Label>
-              <Input
-                id="name"
-                placeholder="Nombre del producto o servicio"
-                value={formData.name}
-                onChange={(e) => updateField("name", e.target.value)}
-                className="h-12"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                placeholder="Descripción detallada"
-                value={formData.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-
-            {/* CABYS Code */}
-            <div className="space-y-2">
-              <Label>Código CABYS *</Label>
-              {formData.cabysCode ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 p-4 bg-muted rounded-lg">
-                    <p className="font-mono font-bold">{formData.cabysCode}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{formData.cabysDescription}</p>
-                  </div>
-                  <Button variant="outline" onClick={() => setShowCABYSSearch(true)}>
-                    Cambiar
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 bg-transparent"
-                  onClick={() => setShowCABYSSearch(true)}
-                >
-                  <Search className="w-4 h-4" />
-                  Buscar Código CABYS
-                </Button>
-              )}
-            </div>
-
-            {/* CABYS Search Modal */}
-            {showCABYSSearch && (
-              <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <Card className="w-full max-w-2xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold">Buscar Código CABYS</h3>
-                    <Button variant="ghost" size="icon" onClick={() => setShowCABYSSearch(false)}>
-                      <X className="w-5 h-5" />
-                    </Button>
-                  </div>
-
-                  <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por código o descripción..."
-                      value={cabysSearchTerm}
-                      onChange={(e) => setCABYSSearchTerm(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {filteredCABYS.map((cabys) => (
-                      <button
-                        key={cabys.code}
-                        onClick={() => selectCABYS(cabys)}
-                        className="w-full p-4 text-left rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors"
-                      >
-                        <p className="font-mono font-bold">{cabys.code}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{cabys.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {/* Pricing */}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Precio de Venta *</Label>
+                <Label htmlFor="codigoCABYS">Código CABYS *</Label>
                 <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.price}
-                  onChange={(e) => updateField("price", Number.parseFloat(e.target.value) || 0)}
-                  className="h-12"
+                  id="codigoCABYS"
+                  placeholder="Ej: 8399000000000"
+                  value={formData.codigoCABYS}
+                  onChange={(e) => handleInputChange('codigoCABYS', e.target.value)}
+                  required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Código de clasificación oficial de Hacienda
+                </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cost">Costo</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.cost}
-                  onChange={(e) => updateField("cost", Number.parseFloat(e.target.value) || 0)}
-                  className="h-12"
-                />
+                <Label htmlFor="unidadMedida">Unidad de Medida *</Label>
+                <Select value={formData.unidadMedida} onValueChange={(value) => handleInputChange('unidadMedida', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar unidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UNIDADES_MEDIDA.map((unidad) => (
+                      <SelectItem key={unidad.codigo} value={unidad.codigo}>
+                        {unidad.codigo} - {unidad.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            {/* Tax Rate */}
-            <div className="space-y-2">
-              <Label htmlFor="taxRate">Tarifa de IVA</Label>
-              <select
-                id="taxRate"
-                value={formData.taxRate}
-                onChange={(e) => updateField("taxRate", Number.parseFloat(e.target.value))}
-                className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {TAX_RATES.map((rate) => (
-                  <option key={rate.value} value={rate.value}>
-                    {rate.label}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="detalle">Descripción del Producto/Servicio *</Label>
+              <Textarea
+                id="detalle"
+                placeholder="Describe detalladamente el producto o servicio..."
+                value={formData.detalle}
+                onChange={(e) => handleInputChange('detalle', e.target.value)}
+                rows={3}
+                required
+              />
             </div>
+          </Card>
 
-            {/* Inventory (only for products) */}
-            {formData.type === "product" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="sku">SKU / Código Interno</Label>
-                  <Input
-                    id="sku"
-                    placeholder="Código único del producto"
-                    value={formData.sku}
-                    onChange={(e) => updateField("sku", e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="stock">Stock Actual</Label>
-                    <Input
-                      id="stock"
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={formData.stock}
-                      onChange={(e) => updateField("stock", Number.parseFloat(e.target.value) || 0)}
-                      className="h-12"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="minStock">Stock Mínimo</Label>
-                    <Input
-                      id="minStock"
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={formData.minStock}
-                      onChange={(e) => updateField("minStock", Number.parseFloat(e.target.value) || 0)}
-                      className="h-12"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="unit">Unidad de Medida</Label>
-                    <Input
-                      id="unit"
-                      placeholder="unidad"
-                      value={formData.unit}
-                      onChange={(e) => updateField("unit", e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-4 pt-4 border-t">
-              <Button variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSubmit} disabled={!canSubmit}>
-                {initialData ? "Guardar Cambios" : "Agregar Producto"}
-              </Button>
+          {/* Información de Precio */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="w-5 h-5 text-green-600" />
+              <h3 className="text-lg font-semibold">Información de Precio</h3>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="precioUnitario">Precio Unitario (₡) *</Label>
+                <Input
+                  id="precioUnitario"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={formData.precioUnitario || ''}
+                  onChange={(e) => handleInputChange('precioUnitario', Number(e.target.value) || 0)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Precio en colones costarricenses
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Precio Formateado</Label>
+                <div className="h-10 px-3 py-2 border rounded-md bg-muted flex items-center">
+                  <span className="text-sm font-medium">
+                    {formatCurrency(formData.precioUnitario)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Información de Impuestos */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Percent className="w-5 h-5 text-purple-600" />
+              <h3 className="text-lg font-semibold">Información de Impuestos</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="tipoImpuesto">Tipo de Impuesto *</Label>
+                <Select value={formData.tipoImpuesto} onValueChange={(value) => handleInputChange('tipoImpuesto', value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_IMPUESTO.map((tipo) => (
+                      <SelectItem key={tipo.codigo} value={tipo.codigo}>
+                        {tipo.codigo} - {tipo.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tarifaImpuesto">Tarifa de Impuesto *</Label>
+                <Select value={formData.codigoTarifaImpuesto} onValueChange={handleTarifaChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar tarifa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TARIFAS_IMPUESTO.map((tarifa) => (
+                      <SelectItem key={`${tarifa.codigo}-${tarifa.porcentaje}`} value={tarifa.codigo}>
+                        {tarifa.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Exoneración - Próximamente */}
+          <Card className="p-6 opacity-60">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-5 h-5 text-orange-600" />
+              <h3 className="text-lg font-semibold">Exoneración</h3>
+              <div className="ml-auto">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  Próximamente
+                </span>
+              </div>
+            </div>
+            
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-100 flex items-center justify-center">
+                <FileText className="w-8 h-8 text-orange-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-muted-foreground mb-2">
+                Gestión de Exoneraciones
+              </h4>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                La funcionalidad para gestionar exoneraciones de productos estará disponible en una próxima actualización.
+              </p>
+            </div>
+          </Card>
+
+          {/* Botones */}
+          <div className="flex items-center justify-end gap-3 pt-6 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="gap-2">
+              {isSubmitting ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Package className="w-4 h-4" />
+                  </motion.div>
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Package className="w-4 h-4" />
+                  {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
+                </>
+              )}
+            </Button>
           </div>
-        </Card>
-      </div>
-    </div>
+        </form>
+      </motion.div>
+    </motion.div>
   )
 }
