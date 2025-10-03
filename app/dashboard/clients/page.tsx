@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { DashboardHeader } from "@/components/layout/dashboard-header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -81,71 +82,163 @@ export default function ClientsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={handleRefresh}
-              disabled={loading}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button onClick={() => setShowWizard(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Agregar Cliente
-            </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button onClick={() => setShowWizard(true)} className="gap-2">
+                <motion.div
+                  animate={{ rotate: [0, 90, 0] }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <Plus className="w-4 h-4" />
+                </motion.div>
+                Agregar Cliente
+              </Button>
+            </motion.div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-600" />
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-4 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, staggerChildren: 0.1 }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <Card className="p-6 hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"
+                  whileHover={{ rotate: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Users className="w-5 h-5 text-blue-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Clientes</p>
+                  <motion.p 
+                    className="text-2xl font-bold"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.3 }}
+                  >
+                    {stats.totalClients}
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Clientes</p>
-                <p className="text-2xl font-bold">{stats.totalClients}</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </motion.div>
           
-          <Card className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <Users className="w-5 h-5 text-green-600" />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <Card className="p-6 hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center"
+                  whileHover={{ rotate: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Users className="w-5 h-5 text-green-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Activos</p>
+                  <motion.p 
+                    className="text-2xl font-bold"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.3, duration: 0.3 }}
+                  >
+                    {stats.activeClients}
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Activos</p>
-                <p className="text-2xl font-bold">{stats.activeClients}</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </motion.div>
 
-          <Card className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-purple-600" />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <Card className="p-6 hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center"
+                  whileHover={{ rotate: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <FileText className="w-5 h-5 text-purple-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Facturas</p>
+                  <motion.p 
+                    className="text-2xl font-bold"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4, duration: 0.3 }}
+                  >
+                    {stats.totalInvoices}
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Facturas</p>
-                <p className="text-2xl font-bold">{stats.totalInvoices}</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </motion.div>
 
-          <Card className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-orange-600" />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <Card className="p-6 hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center"
+                  whileHover={{ rotate: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <DollarSign className="w-5 h-5 text-orange-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Monto Total</p>
+                  <motion.p 
+                    className="text-2xl font-bold"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, duration: 0.3 }}
+                  >
+                    {formatCurrency(stats.totalAmount)}
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Monto Total</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.totalAmount)}</p>
-              </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </motion.div>
+        </motion.div>
 
         {/* Loading State */}
         {loading && (
@@ -176,17 +269,34 @@ export default function ClientsPage() {
         {/* Clients List */}
         {!loading && !error && (
           <>
-            <div className="grid grid-cols-1 gap-4">
-              {filteredClients.map((client) => (
-                <ClientCard
-                  key={client.id}
-                  client={client}
-                  onEdit={(client) => console.log('Edit client:', client)}
-                  onDelete={(clientId) => console.log('Delete client:', clientId)}
-                  onView={(client) => console.log('View client:', client)}
-                />
-              ))}
-            </div>
+            <motion.div 
+              className="grid grid-cols-1 gap-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AnimatePresence mode="wait">
+                {filteredClients.map((client, index) => (
+                  <motion.div
+                    key={client.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ 
+                      duration: 0.3,
+                      delay: index * 0.05 // Stagger effect
+                    }}
+                  >
+                    <ClientCard
+                      client={client}
+                      onEdit={(client) => console.log('Edit client:', client)}
+                      onDelete={(clientId) => console.log('Delete client:', clientId)}
+                      onView={(client) => console.log('View client:', client)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
 
             {/* Empty State */}
             {filteredClients.length === 0 && searchTerm && (
