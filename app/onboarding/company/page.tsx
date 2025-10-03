@@ -151,6 +151,10 @@ export default function CompanyOnboardingPage() {
     })
   }, [updateField])
 
+  const handleEconomicActivityChange = useCallback((activity: any) => {
+    updateField('personalInfo', 'economicActivity', activity)
+  }, [updateField])
+
   // RETURNS CONDICIONALES DESPUÉS DE TODOS LOS HOOKS
   // Mostrar pantalla de carga mientras se verifica la autenticación
   if (loading) {
@@ -540,7 +544,7 @@ export default function CompanyOnboardingPage() {
                   <EconomicActivitySelector
                     taxId={formData.personalInfo.taxId}
                     value={formData.personalInfo.economicActivity}
-                    onChange={(activity) => updateField('personalInfo', 'economicActivity', activity)}
+                    onChange={handleEconomicActivityChange}
                     onCompanyInfo={setHaciendaCompanyInfo}
                   />
                   <p className="text-sm text-muted-foreground">

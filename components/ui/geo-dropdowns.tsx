@@ -54,16 +54,19 @@ export function GeoDropdowns({
     loadProvincias()
   }, [])
 
+  // Estabilizar la función onLocationChange para evitar bucles infinitos
+  const stableOnLocationChange = useCallback(onLocationChange, [onLocationChange])
+
   // Notificar cambios de ubicación solo cuando hay una selección válida
   useEffect(() => {
     if (isInitialized) {
-      onLocationChange({
+      stableOnLocationChange({
         provincia: selectedProvincia,
         canton: selectedCanton,
         distrito: selectedDistrito
       })
     }
-  }, [selectedProvincia, selectedCanton, selectedDistrito, isInitialized, onLocationChange])
+  }, [selectedProvincia, selectedCanton, selectedDistrito, isInitialized, stableOnLocationChange])
 
   // Cargar cantones cuando cambie la provincia
   useEffect(() => {
