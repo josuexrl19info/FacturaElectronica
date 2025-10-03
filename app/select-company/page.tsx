@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { LogOut, Plus, TrendingUp, Users, Calendar } from "lucide-react"
 import { useCompanies } from "@/hooks/use-companies"
 import { useCompanySelection } from "@/hooks/use-company-selection"
+import { motion } from "framer-motion"
 
 export default function SelectCompanyPage() {
   const { user, signOut } = useAuth()
@@ -101,10 +102,6 @@ export default function SelectCompanyPage() {
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={handleSignOut} className="gap-2 bg-transparent hover:bg-destructive/10 hover:text-destructive">
-            <LogOut className="w-4 h-4" />
-            Cerrar sesión
-          </Button>
         </div>
       </div>
 
@@ -163,17 +160,34 @@ export default function SelectCompanyPage() {
             </div>
 
             {/* Netflix-style grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {companies.map((company) => (
-                <NetflixCompanyCard 
-                  key={company.id} 
-                  company={company} 
-                  onSelect={() => handleCompanySelect(company)}
-                  onEdit={() => handleCompanyEdit(company.id)}
-                />
+            <motion.div 
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, staggerChildren: 0.1 }}
+            >
+              {companies.map((company, index) => (
+                <motion.div
+                  key={company.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                >
+                  <NetflixCompanyCard 
+                    company={company} 
+                    onSelect={() => handleCompanySelect(company)}
+                    onEdit={() => handleCompanyEdit(company.id)}
+                  />
+                </motion.div>
               ))}
-              <AddCompanyCard onClick={handleAddCompany} />
-            </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: companies.length * 0.1 }}
+              >
+                <AddCompanyCard onClick={handleAddCompany} />
+              </motion.div>
+            </motion.div>
           </>
         )}
       </div>
@@ -226,6 +240,18 @@ export default function SelectCompanyPage() {
               <h4 className="font-semibold mb-2">Multi-Empresa</h4>
               <p className="text-sm text-muted-foreground">Gestiona múltiples empresas desde una sola cuenta</p>
             </div>
+          </div>
+
+          {/* Logout Button */}
+          <div className="mt-12 flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={handleSignOut} 
+              className="gap-2 bg-transparent hover:bg-destructive/10 hover:text-destructive border-destructive/20 hover:border-destructive/40"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar sesión
+            </Button>
           </div>
 
           <div className="mt-8 text-center">

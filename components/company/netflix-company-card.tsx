@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Edit2, Play, Building2, Calendar, MapPin } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
+import { motion } from "framer-motion"
 
 interface NetflixCompanyCardProps {
   company: {
@@ -42,12 +43,15 @@ export function NetflixCompanyCard({ company, onSelect, onEdit }: NetflixCompany
   console.log('🎯 NetflixCompanyCard - onSelect:', onSelect)
   
   // Convertir fecha de creación
-  const createdAt = company.createdAt?.toDate?.() || new Date(company.createdAt)
-  const formattedDate = createdAt.toLocaleDateString('es-CR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
+  const createdAt = company.createdAt?.toDate ? company.createdAt.toDate() : 
+                   company.createdAt ? new Date(company.createdAt) : new Date()
+  const formattedDate = createdAt instanceof Date && !isNaN(createdAt.getTime()) 
+    ? createdAt.toLocaleDateString('es-CR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : 'Fecha no disponible'
 
   // Obtener código de provincia para mostrar nombre
   const getProvinceName = (code: string) => {
@@ -64,13 +68,19 @@ export function NetflixCompanyCard({ company, onSelect, onEdit }: NetflixCompany
     : null
 
   return (
-    <Card 
-      className="group relative overflow-hidden cursor-pointer bg-gradient-to-br from-card via-card to-card/80 border-2 border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-2"
-      onClick={(e) => {
-        console.log('🎯 Card clicked - calling onSelect')
-        onSelect()
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{ y: -8 }}
     >
+      <Card 
+        className="group relative overflow-hidden cursor-pointer bg-gradient-to-br from-card via-card to-card/80 border-2 border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10"
+        onClick={(e) => {
+          console.log('🎯 Card clicked - calling onSelect')
+          onSelect()
+        }}
+      >
       {/* Background gradient based on brand color */}
       <div 
         className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300"
@@ -179,5 +189,6 @@ export function NetflixCompanyCard({ company, onSelect, onEdit }: NetflixCompany
       {/* Hover overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </Card>
+    </motion.div>
   )
 }

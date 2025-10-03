@@ -60,9 +60,17 @@ const menuItems = [
 
 interface SidebarProps {
   company: {
-    name: string
-    logo?: string
-    primaryColor: string
+    id: string
+    name: string // Razón Social
+    nombreComercial: string // Nombre Comercial
+    logo?: {
+      fileName: string
+      type: string
+      size: number
+      fileData: string
+    }
+    logoUrl?: string
+    brandColor: string
   }
 }
 
@@ -79,13 +87,23 @@ export function Sidebar({ company }: SidebarProps) {
     >
       <div className="p-4 border-b border-border/50 flex items-center gap-3 relative overflow-hidden">
         <div className="absolute inset-0 gradient-primary-subtle opacity-50" />
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg relative z-10 gradient-primary">
-          {company.name.charAt(0)}
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg relative z-10 bg-white border-2 border-white overflow-hidden">
+          {company.logoUrl ? (
+            <img 
+              src={company.logoUrl} 
+              alt={company.nombreComercial} 
+              className="w-full h-full object-contain p-1"
+            />
+          ) : (
+            <span className="text-lg font-bold text-primary">
+              {company.nombreComercial.charAt(0)}
+            </span>
+          )}
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0 relative z-10">
-            <h2 className="font-bold truncate text-gradient">{company.name}</h2>
-            <p className="text-xs text-muted-foreground">InvoSell por InnovaSellCR</p>
+            <h2 className="font-bold truncate text-gradient">{company.nombreComercial}</h2>
+            <p className="text-xs text-muted-foreground">{company.name}</p>
           </div>
         )}
       </div>
