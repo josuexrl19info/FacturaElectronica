@@ -101,6 +101,12 @@ export interface EmailSendResult {
   deliveredTo: string[]
   /** IDs de los destinatarios que fallaron */
   failedTo: string[]
+  /** Análisis específico del proveedor (si hay error) */
+  providerAnalysis?: {
+    provider: string
+    errorType: string
+    recommendation: string
+  }
 }
 
 export interface EmailConfig {

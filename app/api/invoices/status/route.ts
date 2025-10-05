@@ -3,6 +3,7 @@ import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/
 import { initializeApp, getApps } from 'firebase/app'
 import { firebaseConfig } from '@/lib/firebase-config'
 import { HaciendaStatusService } from '@/lib/services/hacienda-status'
+import { InvoiceEmailService } from '@/lib/services/invoice-email-service'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -72,6 +73,8 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      const invoiceData = invoiceSnap.data()
+      
       await updateDoc(invoiceRef, {
         haciendaSubmission: statusResult.status,
         status: interpretedStatus.status,
@@ -82,6 +85,50 @@ export async function POST(request: NextRequest) {
       })
 
       console.log('✅ Factura actualizada con estado:', interpretedStatus.status)
+
+      // 📧 ENVIAR EMAIL SI LA FACTURA ES APROBADA
+      if (interpretedStatus.isFinal && interpretedStatus.status === 'Aceptado') {
+        console.log('🎉 Factura APROBADA - Enviando email al cliente...')
+        
+        try {
+          const emailResult = await InvoiceEmailService.sendApprovalEmail({
+            ...invoiceData,
+            id: invoiceId,
+            status: interpretedStatus.status,
+            statusDescription: interpretedStatus.description,
+            isFinalStatus: interpretedStatus.isFinal
+          })
+
+          if (emailResult.success) {
+            console.log('✅ Email de aprobación enviado exitosamente')
+            console.log('📧 Message ID:', emailResult.messageId)
+            
+            // Actualizar factura con información del email enviado
+            await updateDoc(invoiceRef, {
+              emailSent: true,
+              emailSentAt: serverTimestamp(),
+              emailMessageId: emailResult.messageId,
+              emailDeliveredTo: emailResult.deliveredTo
+            })
+          } else {
+            console.error('❌ Error enviando email de aprobación:', emailResult.error)
+            
+            // Marcar que hubo error enviando email
+            await updateDoc(invoiceRef, {
+              emailError: emailResult.error,
+              emailErrorAt: serverTimestamp()
+            })
+          }
+        } catch (emailError) {
+          console.error('❌ Error en proceso de email:', emailError)
+          
+          // Marcar error en la factura
+          await updateDoc(invoiceRef, {
+            emailError: emailError instanceof Error ? emailError.message : 'Error desconocido',
+            emailErrorAt: serverTimestamp()
+          })
+        }
+      }
 
       return NextResponse.json({
         success: true,
