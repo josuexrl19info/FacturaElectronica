@@ -73,19 +73,30 @@ export class HaciendaSubmissionService {
         }
       }
 
+      // Logs de datos del cliente
+      console.log('👤 Datos del cliente:', {
+        hasClient: !!invoiceData.client,
+        clientName: invoiceData.client?.name,
+        clientId: invoiceData.client?.identification,
+        clientType: invoiceData.client?.identificationType,
+        hasReceptor: !!invoiceData.receptor,
+        receptorId: invoiceData.receptor?.numeroIdentificacion,
+        receptorType: invoiceData.receptor?.tipoIdentificacion
+      })
+
       // Construir el request de envío
       const submissionRequest: HaciendaSubmissionRequest = {
         clave: clave,
         fecha: invoiceData.fecha || new Date().toISOString(),
         emisor: {
           tipoIdentificacion: companyData.identificationType || '02',
-          numeroIdentificacion: companyData.identification || ''
+          numeroIdentificacion: (companyData.identification || '').replace(/-/g, '')
         },
         receptor: {
-          tipoIdentificacion: invoiceData.receptor?.tipoIdentificacion || '02',
-          numeroIdentificacion: invoiceData.receptor?.numeroIdentificacion || ''
+          tipoIdentificacion: invoiceData.client?.identificationType || invoiceData.receptor?.tipoIdentificacion || '02',
+          numeroIdentificacion: (invoiceData.client?.identification || invoiceData.receptor?.numeroIdentificacion || '').replace(/-/g, '')
         },
-        comprobanteXml: signedXml
+        comprobanteXml: Buffer.from(signedXml, 'utf8').toString('base64')
       }
 
       console.log('📋 Datos de envío preparados:', {
@@ -93,7 +104,12 @@ export class HaciendaSubmissionService {
         fecha: submissionRequest.fecha,
         emisor: submissionRequest.emisor,
         receptor: submissionRequest.receptor,
-        xmlSize: signedXml.length
+        xmlSize: signedXml.length,
+        hasXml: !!signedXml,
+        xmlPreview: signedXml.substring(0, 200) + '...',
+        xmlBase64Size: submissionRequest.comprobanteXml.length,
+        xmlBase64Preview: submissionRequest.comprobanteXml.substring(0, 100) + '...',
+        isBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(submissionRequest.comprobanteXml)
       })
 
       // Realizar el envío a Hacienda
@@ -105,7 +121,7 @@ export class HaciendaSubmissionService {
         },
         body: JSON.stringify(submissionRequest)
       })
-
+      console.log('📊 Respuesta full de Hacienda:', response)
       console.log('📊 Status de respuesta Hacienda:', response.status)
       console.log('📊 Status text:', response.statusText)
 
@@ -127,18 +143,39 @@ export class HaciendaSubmissionService {
         }
       }
 
-      const submissionResponse: HaciendaSubmissionResponse = await response.json()
+      let submissionResponse: any = null
+      try {
+        submissionResponse = await response.json()
+      } catch {
+        // Si no hay JSON en la respuesta, crear objeto con la información disponible
+        submissionResponse = {
+          status: response.status,
+          statusText: response.statusText,
+          location: response.headers.get('location'),
+          clave: submissionRequest.clave,
+          success: true
+        }
+      }
+      
       console.log('✅ Respuesta de Hacienda:', submissionResponse)
 
-      if (submissionResponse.success !== false) {
+      // Considerar exitoso si el status es 202 (Accepted) o 200/201
+      if (response.status === 202 || response.status === 200 || response.status === 201 || submissionResponse.success !== false) {
         console.log('🎉 Documento enviado exitosamente a Hacienda')
-        console.log('🔑 Clave:', submissionResponse.clave)
-        console.log('📊 Estado:', submissionResponse.estado)
-        console.log('💬 Mensaje:', submissionResponse.mensaje)
+        console.log('🔑 Clave:', submissionResponse.clave || submissionRequest.clave)
+        console.log('📊 Estado HTTP:', response.status)
+        console.log('📊 Status Text:', response.statusText)
+        console.log('📍 Location:', response.headers.get('location'))
 
         return {
           success: true,
-          response: submissionResponse
+          response: {
+            ...submissionResponse,
+            status: response.status,
+            statusText: response.statusText,
+            location: response.headers.get('location'),
+            clave: submissionResponse.clave || submissionRequest.clave
+          }
         }
       } else {
         console.error('❌ Error en el proceso de envío:', submissionResponse.mensaje)

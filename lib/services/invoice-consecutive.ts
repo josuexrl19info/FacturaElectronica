@@ -41,7 +41,7 @@ export class InvoiceConsecutiveService {
 
       // Generar el siguiente consecutivo
       const nextConsecutive = currentConsecutive + 1
-      const consecutiveFormatted = `FAC-${nextConsecutive.toString().padStart(10, '0')}`
+      const consecutiveFormatted = `FE-${nextConsecutive.toString().padStart(10, '0')}`
 
       console.log('📊 Consecutivo actual:', currentConsecutive)
       console.log('📊 Siguiente consecutivo:', nextConsecutive)
@@ -89,7 +89,7 @@ export class InvoiceConsecutiveService {
         updatedAt: serverTimestamp()
       })
 
-      const consecutiveFormatted = `FAC-${newConsecutive.toString().padStart(10, '0')}`
+      const consecutiveFormatted = `FE-${newConsecutive.toString().padStart(10, '0')}`
 
       console.log('✅ Consecutivo actualizado:', {
         anterior: currentConsecutive,
@@ -130,11 +130,11 @@ export class InvoiceConsecutiveService {
         return updateResult
       }
 
-      console.log('✅ Proceso de consecutivo completado:', getResult.consecutive)
+      console.log('✅ Proceso de consecutivo completado:', updateResult.consecutive)
 
       return {
         success: true,
-        consecutive: getResult.consecutive
+        consecutive: updateResult.consecutive
       }
 
     } catch (error) {

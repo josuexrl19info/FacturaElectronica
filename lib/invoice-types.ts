@@ -35,11 +35,14 @@ export interface Invoice {
   // Respuesta de Hacienda
   haciendaStatus?: 'aceptado' | 'rechazado' | 'error'
   haciendaValidationDate?: Date | any
-  haciendaResponse?: {
+  haciendaSubmission?: {
     clave: string
     'ind-estado': string
     'respuesta-xml': string
     fecha: string
+    estado?: string
+    state?: string
+    [key: string]: any // Para campos adicionales que pueda tener
   }
   
   // XML firmado

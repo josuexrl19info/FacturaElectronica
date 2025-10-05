@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { InvoiceCard } from "@/components/documents/invoice-card"
 import { InvoiceCreationModal } from "@/components/documents/invoice-creation-modal"
+import { HaciendaStatusModal } from "@/components/documents/hacienda-status-modal"
 import { useDocuments } from "@/hooks/use-documents"
 import { useToast } from "@/hooks/use-toast"
 import { InvoiceFormData, Invoice } from "@/lib/invoice-types"
 import { DocumentType } from "@/components/documents/document-type-tabs"
 import { Plus, Search, FileText, DollarSign, TrendingUp, RefreshCw, Receipt, CreditCard } from "lucide-react"
+import { useState } from "react"
 
 interface DocumentContentProps {
   documentType: DocumentType
@@ -96,6 +98,8 @@ export function DocumentContent({
 }: DocumentContentProps) {
   const { documents, loading, error, isReady, fetchDocuments } = useDocuments(documentType)
   const { toast } = useToast()
+  const [showHaciendaModal, setShowHaciendaModal] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   
   const config = documentConfig[documentType]
   const Icon = config.icon
@@ -110,6 +114,16 @@ export function DocumentContent({
   // Función para refrescar documentos
   const handleRefresh = () => {
     fetchDocuments()
+  }
+
+  const handleViewHaciendaStatus = (invoice: Invoice) => {
+    setSelectedInvoice(invoice)
+    setShowHaciendaModal(true)
+  }
+
+  const handleCloseHaciendaModal = () => {
+    setShowHaciendaModal(false)
+    setSelectedInvoice(null)
   }
 
   const stats = {
@@ -315,6 +329,7 @@ export function DocumentContent({
                     onView={(document) => console.log('Ver documento:', document)}
                     onEdit={(document) => console.log('Editar documento:', document)}
                     onDelete={(documentId) => console.log('Eliminar documento:', documentId)}
+                    onViewHaciendaStatus={handleViewHaciendaStatus}
                   />
                 </motion.div>
               ))}
@@ -328,6 +343,16 @@ export function DocumentContent({
         <InvoiceCreationModal
           onClose={() => onShowCreateModal(false)}
           onSubmit={onCreateDocument}
+        />
+      )}
+
+      {/* Modal de Estado de Hacienda */}
+      {showHaciendaModal && selectedInvoice && (
+        <HaciendaStatusModal
+          isOpen={showHaciendaModal}
+          onClose={handleCloseHaciendaModal}
+          haciendaSubmission={selectedInvoice.haciendaSubmission}
+          consecutivo={selectedInvoice.consecutivo}
         />
       )}
     </motion.div>

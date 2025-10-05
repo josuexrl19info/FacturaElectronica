@@ -81,6 +81,35 @@ export interface FacturaData {
 
 export class XMLGenerator {
   /**
+   * Convierte códigos de ubicación completos a códigos relativos para Hacienda
+   * Provincia: se mantiene igual
+   * Cantón: se resta el prefijo de provincia (ej: 302 - 300 = 02)
+   * Distrito: se resta el prefijo de cantón (ej: 30205 - 30200 = 05)
+   */
+  private static convertLocationCodes(provincia: string, canton: string, distrito: string): {
+    provinciaRelativa: string
+    cantonRelativo: string
+    distritoRelativo: string
+  } {
+    // Provincia se mantiene igual
+    const provinciaRelativa = provincia
+
+    // Cantón: restar prefijo de provincia (multiplicar por 100)
+    const provinciaPrefix = parseInt(provincia) * 100
+    const cantonRelativo = (parseInt(canton) - provinciaPrefix).toString().padStart(2, '0')
+
+    // Distrito: restar prefijo de cantón (multiplicar por 100)
+    const cantonPrefix = parseInt(canton) * 100
+    const distritoRelativo = (parseInt(distrito) - cantonPrefix).toString().padStart(2, '0')
+
+    return {
+      provinciaRelativa,
+      cantonRelativo,
+      distritoRelativo
+    }
+  }
+
+  /**
    * Genera el XML de una Factura Electrónica
    */
   static generateFacturaXML(facturaData: FacturaData): string {
@@ -137,17 +166,24 @@ export class XMLGenerator {
    * Genera el XML del emisor
    */
   private static generateEmisorXML(emisor: EmisorData): string {
+    // Convertir códigos de ubicación a formato relativo para Hacienda
+    const { provinciaRelativa, cantonRelativo, distritoRelativo } = this.convertLocationCodes(
+      emisor.provincia,
+      emisor.canton,
+      emisor.distrito
+    )
+
     return `<Emisor>
   <Nombre>${this.escapeXml(emisor.nombre)}</Nombre>
   <Identificacion>
     <Tipo>${this.escapeXml(emisor.tipoIdentificacion)}</Tipo>
-    <Numero>${this.escapeXml(emisor.numeroIdentificacion)}</Numero>
+    <Numero>${this.escapeXml(emisor.numeroIdentificacion.replace(/-/g, ''))}</Numero>
   </Identificacion>
   <NombreComercial>${this.escapeXml(emisor.nombreComercial)}</NombreComercial>
   <Ubicacion>
-    <Provincia>${this.escapeXml(emisor.provincia)}</Provincia>
-    <Canton>${this.escapeXml(emisor.canton)}</Canton>
-    <Distrito>${this.escapeXml(emisor.distrito)}</Distrito>
+    <Provincia>${this.escapeXml(provinciaRelativa)}</Provincia>
+    <Canton>${this.escapeXml(cantonRelativo)}</Canton>
+    <Distrito>${this.escapeXml(distritoRelativo)}</Distrito>
     <OtrasSenas>${this.escapeXml(emisor.otrasSenas)}</OtrasSenas>
   </Ubicacion>
   <Telefono>
@@ -162,17 +198,24 @@ export class XMLGenerator {
    * Genera el XML del receptor
    */
   private static generateReceptorXML(receptor: ReceptorData): string {
+    // Convertir códigos de ubicación a formato relativo para Hacienda
+    const { provinciaRelativa, cantonRelativo, distritoRelativo } = this.convertLocationCodes(
+      receptor.provincia,
+      receptor.canton,
+      receptor.distrito
+    )
+
     return `<Receptor>
   <Nombre>${this.escapeXml(receptor.nombre)}</Nombre>
   <Identificacion>
     <Tipo>${this.escapeXml(receptor.tipoIdentificacion)}</Tipo>
-    <Numero>${this.escapeXml(receptor.numeroIdentificacion)}</Numero>
+    <Numero>${this.escapeXml(receptor.numeroIdentificacion.replace(/-/g, ''))}</Numero>
   </Identificacion>
   <NombreComercial>${this.escapeXml(receptor.nombreComercial)}</NombreComercial>
   <Ubicacion>
-    <Provincia>${this.escapeXml(receptor.provincia)}</Provincia>
-    <Canton>${this.escapeXml(receptor.canton)}</Canton>
-    <Distrito>${this.escapeXml(receptor.distrito)}</Distrito>
+    <Provincia>${this.escapeXml(provinciaRelativa)}</Provincia>
+    <Canton>${this.escapeXml(cantonRelativo)}</Canton>
+    <Distrito>${this.escapeXml(distritoRelativo)}</Distrito>
     <OtrasSenas>${this.escapeXml(receptor.otrasSenas)}</OtrasSenas>
   </Ubicacion>
   <OtrasSenasExtranjero>${this.escapeXml(receptor.otrasSenas)}</OtrasSenasExtranjero>

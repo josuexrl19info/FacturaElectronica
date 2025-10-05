@@ -80,7 +80,7 @@ export function useInvoices(): UseInvoicesReturn {
         throw new Error(result.error || 'Error al crear factura')
       }
 
-      // Refrescar la lista de facturas
+      // Refrescar la lista de facturas después de crear
       await fetchInvoices()
       
       return result.invoiceId

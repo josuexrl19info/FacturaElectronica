@@ -110,10 +110,15 @@ export class HaciendaKeyGenerator {
     const anio = fecha.getFullYear().toString().slice(-2)
 
     // e) Cédula del emisor (12 dígitos) - rellenar con ceros a la izquierda
-    const cedula = keyData.cedulaEmisor.padStart(12, '0')
+    const cedula = keyData.cedulaEmisor.replace(/-/g, '').padStart(12, '0')
+    console.log('🔍 Cédula original:', keyData.cedulaEmisor)
+    console.log('🔍 Cédula formateada (12 dígitos):', cedula)
 
     // f) Consecutivo (20 dígitos) - formato específico: 0010000101XXXXXXXXXX
     const consecutivo = this.formatConsecutiveForKey(keyData.consecutivo)
+    console.log('🔍 Consecutivo original recibido:', keyData.consecutivo)
+    console.log('🔍 Consecutivo formateado (20 dígitos):', consecutivo)
+    console.log('🔍 Longitud del consecutivo original:', keyData.consecutivo.length)
 
     // g) Situación (1 dígito) - siempre normal
     const situacion = '1' // Siempre normal
@@ -146,7 +151,24 @@ export class HaciendaKeyGenerator {
     situacion: string
     codigoSeguridad: string
   }): string {
-    return `${parts.pais}${parts.dia}${parts.mes}${parts.anio}${parts.cedula}${parts.consecutivo}${parts.situacion}${parts.codigoSeguridad}`
+    const clave = `${parts.pais}${parts.dia}${parts.mes}${parts.anio}${parts.cedula}${parts.consecutivo}${parts.situacion}${parts.codigoSeguridad}`
+    console.log('🔍 Clave generada:', clave)
+    console.log('🔍 Longitud de la clave:', clave.length, 'dígitos')
+    console.log('🔍 Desglose de la clave:')
+    console.log('   - País:', parts.pais, `(${parts.pais.length} dígitos)`)
+    console.log('   - Día:', parts.dia, `(${parts.dia.length} dígitos)`)
+    console.log('   - Mes:', parts.mes, `(${parts.mes.length} dígitos)`)
+    console.log('   - Año:', parts.anio, `(${parts.anio.length} dígitos)`)
+    console.log('   - Cédula:', parts.cedula, `(${parts.cedula.length} dígitos)`)
+    console.log('   - Consecutivo:', parts.consecutivo, `(${parts.consecutivo.length} dígitos)`)
+    console.log('   - Situación:', parts.situacion, `(${parts.situacion.length} dígitos)`)
+    console.log('   - Código Seguridad:', parts.codigoSeguridad, `(${parts.codigoSeguridad.length} dígitos)`)
+    
+    if (clave.length !== 50) {
+      console.error('❌ ERROR: La clave debe tener exactamente 50 dígitos, pero tiene', clave.length)
+    }
+    
+    return clave
   }
 
   /**
@@ -163,20 +185,44 @@ export class HaciendaKeyGenerator {
    * Formatea el consecutivo para la clave con el formato específico: 0010000101XXXXXXXXXX
    */
   private static formatConsecutiveForKey(consecutivo: string): string {
-    // Extraer solo los números del consecutivo (ignorar prefijo FAC-)
+    console.log('🔍 ENTRADA A formatConsecutiveForKey:')
+    console.log('   - Parámetro recibido:', consecutivo)
+    console.log('   - Tipo:', typeof consecutivo)
+    console.log('   - Longitud:', consecutivo.length)
+    
+    // Extraer solo los números del consecutivo (ignorar prefijo FE-)
     let numeroConsecutivo = consecutivo
     
-    // Si tiene formato FAC-XXXXXXXXXX, extraer solo los números
-    const match = consecutivo.match(/FAC-(\d+)/)
+    // Si tiene formato FE-XXXXXXXXXX, extraer solo los números
+    const match = consecutivo.match(/FE-(\d+)/)
     if (match) {
       numeroConsecutivo = match[1]
+      console.log('   - Match encontrado (FE-):', match[1])
+    } else {
+      console.log('   - No se encontró formato FE-XXXXXXXXXX')
     }
     
     // Formato: 0010000101XXXXXXXXXX (20 dígitos)
     // - 0010000101: Parte fija (10 dígitos)
-    // - XXXXXXXXXX: Número consecutivo (10 dígitos)
+    // - XXXXXXXXXX: Número consecutivo (exactamente 10 dígitos)
     const parteFija = '0010000101'
-    const numeroFormateado = numeroConsecutivo.padStart(10, '0')
+    
+    // Tomar los últimos 10 dígitos del número consecutivo
+    let numeroFormateado = numeroConsecutivo
+    if (numeroConsecutivo.length > 10) {
+      numeroFormateado = numeroConsecutivo.substring(numeroConsecutivo.length - 10)
+      console.log('⚠️ Número consecutivo truncado de', numeroConsecutivo, 'a', numeroFormateado)
+    }
+    
+    // Rellenar con ceros a la izquierda para que tenga exactamente 10 dígitos
+    numeroFormateado = numeroFormateado.padStart(10, '0')
+    
+    console.log('🔍 Formateo de consecutivo:')
+    console.log('   - Consecutivo original:', consecutivo)
+    console.log('   - Número sin FAC:', numeroConsecutivo)
+    console.log('   - Número formateado:', numeroFormateado, '(10 dígitos)')
+    console.log('   - Parte fija:', parteFija, '(10 dígitos)')
+    console.log('   - Consecutivo final:', parteFija + numeroFormateado, '(20 dígitos)')
     
     return parteFija + numeroFormateado
   }

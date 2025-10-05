@@ -6,7 +6,9 @@ import { XMLGenerator, FacturaData } from '@/lib/services/xml-generator'
 import { DigitalSignatureService } from '@/lib/services/digital-signature'
 import { HaciendaAuthService } from '@/lib/services/hacienda-auth'
 import { HaciendaSubmissionService } from '@/lib/services/hacienda-submission'
+import { HaciendaStatusService } from '@/lib/services/hacienda-status'
 import { InvoiceConsecutiveService } from '@/lib/services/invoice-consecutive'
+import { HaciendaKeyGenerator } from '@/lib/services/hacienda-key-generator'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -124,10 +126,8 @@ export async function POST(req: NextRequest) {
       updatedAt: serverTimestamp()
     }
 
-    // Crear documento en Firestore
-    const docRef = await addDoc(collection(db, 'invoices'), invoiceData)
-
-    console.log('✅ Factura creada en Firestore:', docRef.id)
+    // NOTA: La factura se creará en Firestore DESPUÉS del envío a Hacienda
+    let docRef: any = null
 
     // Generar y firmar XML
     try {
@@ -141,6 +141,13 @@ export async function POST(req: NextRequest) {
 
       const companyData = companyDoc.data()
       console.log('📋 Datos de empresa obtenidos:', companyData.nombreComercial)
+      console.log('🔍 atvCredentials disponibles:', !!companyData.atvCredentials)
+      if (companyData.atvCredentials) {
+        console.log('🔍 receptionUrl:', companyData.atvCredentials.receptionUrl)
+        console.log('🔍 authUrl:', companyData.atvCredentials.authUrl)
+        console.log('🔍 clientId:', companyData.atvCredentials.clientId)
+        console.log('🔍 username:', companyData.atvCredentials.username)
+      }
 
       // Obtener datos del cliente
       const clientDoc = await getDoc(doc(db, 'clients', clientId))
@@ -151,22 +158,39 @@ export async function POST(req: NextRequest) {
       const clientData = clientDoc.data()
       console.log('👤 Datos de cliente obtenidos:', clientData.name)
 
+      // Generar clave de Hacienda usando el método original que funciona
+      console.log('🔑 Generando clave de Hacienda para XML y envío...')
+      
+      // Pasar el consecutivo completo con formato FE-XXXXXXXXXX
+      console.log('🔍 Consecutivo completo que se pasa al generador:', generatedConsecutivo)
+      
+      // Usar la misma fecha para la clave y fecha de emisión (zona horaria Costa Rica)
+      const fechaCostaRica = new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')
+      const fechaParaClave = new Date(fechaCostaRica)
+      
+      const keyResult = HaciendaKeyGenerator.generateKey({
+        fecha: fechaParaClave,
+        cedulaEmisor: companyData.identification || '',
+        consecutivo: generatedConsecutivo, // Pasar el consecutivo completo
+        pais: companyData.countryCode || '506',
+        situacion: '1' // Normal
+      })
+      
+      if (!keyResult.success) {
+        throw new Error(`Error al generar clave: ${keyResult.error}`)
+      }
+      
+      const haciendaKey = keyResult.clave!
+      console.log('✅ Clave generada:', haciendaKey)
+
       // Generar XML
       const facturaXMLData: FacturaData = {
-        clave: XMLGenerator.generateClave(
-          '506', // Costa Rica
-          '01', // Factura
-          companyData.identification || '3102867860',
-          '1', // Normal
-          '00001', // Código de seguridad
-          XMLGenerator.generateConsecutivo(parseInt(consecutivo.split('-')[1]) || 1),
-          '1' // Normal
-        ),
+        clave: haciendaKey,
         proveedorSistemas: companyData.proveedorSistemas || '3102867860',
         codigoActividadEmisor: companyData.economicActivity?.codigo || '924909',
         codigoActividadReceptor: clientData.economicActivity?.codigo || '924103',
-        numeroConsecutivo: XMLGenerator.generateConsecutivo(parseInt(consecutivo.split('-')[1]) || 1),
-        fechaEmision: new Date().toISOString(),
+        numeroConsecutivo: haciendaKey.substring(21, 41), // Extraer los 20 dígitos del consecutivo de la clave
+        fechaEmision: fechaCostaRica, // Fecha en zona horaria de Costa Rica (misma que la clave)
         emisor: {
           nombre: companyData.name,
           tipoIdentificacion: companyData.identificationType,
@@ -276,11 +300,35 @@ export async function POST(req: NextRequest) {
 
       // 5. Enviar documento a Hacienda si tenemos XML firmado y token
       let haciendaSubmissionResult = null
+      
+      // Debug de variables para envío a Hacienda
+      console.log('🔍 Verificando condiciones para envío a Hacienda:')
+      console.log('   - signedXml:', !!signedXml, signedXml ? `(${signedXml.length} caracteres)` : 'null')
+      console.log('   - haciendaToken:', !!haciendaToken, haciendaToken ? `(${haciendaToken.length} caracteres)` : 'null')
+      console.log('   - companyData.atvCredentials:', !!companyData.atvCredentials)
+      console.log('   - receptionUrl:', companyData.atvCredentials?.receptionUrl || 'no disponible')
+      
       if (signedXml && haciendaToken && companyData.atvCredentials?.receptionUrl) {
         console.log('📤 Iniciando envío de documento a Hacienda...')
         
+        // Preparar datos completos para envío a Hacienda
+        const submissionData = {
+          ...invoiceData,
+          clave: haciendaKey, // Usar la misma clave generada para el XML
+          client: clientData, // Incluir datos completos del cliente
+          receptor: {
+            tipoIdentificacion: clientData.identificationType,
+            numeroIdentificacion: clientData.identification
+          }
+        }
+        
+        console.log('🔍 Verificando consistencia de claves:')
+        console.log('   - Clave en XML:', facturaXMLData.clave)
+        console.log('   - Clave en submissionData:', submissionData.clave)
+        console.log('   - ¿Son iguales?', facturaXMLData.clave === submissionData.clave)
+
         const submissionResult = await HaciendaSubmissionService.submitInvoiceToHacienda(
-          invoiceData,
+          submissionData,
           signedXml,
           haciendaToken,
           companyData
@@ -291,23 +339,102 @@ export async function POST(req: NextRequest) {
           console.log('✅ Documento enviado exitosamente a Hacienda')
           console.log('🔑 Clave Hacienda:', submissionResult.response?.clave)
           console.log('📊 Estado:', submissionResult.response?.estado)
+          
+          // Actualizar status según respuesta de Hacienda
+          if ((submissionResult.response as any)?.status === 202) {
+            invoiceData.status = 'Enviando Hacienda'
+            console.log('📊 Status actualizado a: Enviando Hacienda')
+          }
         } else {
           console.error('❌ Error al enviar documento a Hacienda:', submissionResult.error)
+          // Si falla el envío, marcar como error
+          invoiceData.status = 'Error Envío Hacienda'
         }
       } else {
         console.log('⚠️ Saltando envío a Hacienda - faltan XML firmado, token o receptionUrl')
+        // Si no se puede enviar a Hacienda, marcar como pendiente
+        invoiceData.status = 'Pendiente Envío Hacienda'
       }
 
-      // Actualizar la factura con el XML, token de Hacienda y resultado de envío
+      // 6. CREAR FACTURA EN FIRESTORE DESPUÉS DEL PROCESO DE HACIENDA
+      console.log('💾 Creando factura en Firestore...')
+      docRef = await addDoc(collection(db, 'invoices'), invoiceData)
+      console.log('✅ Factura creada en Firestore:', docRef.id)
+
+      // Actualizar la factura con el XML y token de Hacienda (sin submission aún)
       await updateDoc(docRef, {
         xml: xml,
         xmlSigned: signedXml,
         haciendaToken: haciendaToken,
-        haciendaSubmission: haciendaSubmissionResult,
         updatedAt: serverTimestamp()
       })
 
-      console.log('✅ Factura actualizada con XML, token de Hacienda y resultado de envío')
+      console.log('✅ Factura actualizada con XML y token de Hacienda')
+
+      // 7. CONSULTAR ESTADO REAL DE HACIENDA DESPUÉS DE 10 SEGUNDOS (solo si se envió a Hacienda)
+      if (haciendaSubmissionResult && (haciendaSubmissionResult as any).location) {
+        const locationUrl = (haciendaSubmissionResult as any).location
+        
+        // Validar URL de location
+        if (!HaciendaStatusService.validateLocationUrl(locationUrl)) {
+          console.error('❌ URL de location inválida:', locationUrl)
+          await updateDoc(docRef, {
+            status: 'Error URL Inválida',
+            haciendaSubmission: {
+              error: 'URL de location inválida',
+              locationUrl: locationUrl
+            },
+            updatedAt: serverTimestamp()
+          })
+        } else {
+          console.log('⏰ Esperando 10 segundos para consultar estado real de Hacienda...')
+          
+          // Esperar 10 segundos
+          await new Promise(resolve => setTimeout(resolve, 10000))
+          
+          console.log('🔍 Consultando estado real de Hacienda...')
+          console.log('📍 URL de consulta:', locationUrl)
+          
+          // Usar el servicio de consulta de estado
+          const statusResult = await HaciendaStatusService.checkDocumentStatus(locationUrl, haciendaToken || '')
+          
+          if (statusResult.success) {
+            console.log('✅ Estado real obtenido de Hacienda:', statusResult.status)
+            
+            // Usar el campo "ind-estado" de la respuesta de Hacienda
+            const estadoHacienda = statusResult.status['ind-estado'] || statusResult.status.estado || statusResult.status.state
+            
+            // Interpretar el estado
+            const interpretedStatus = HaciendaStatusService.interpretStatus(statusResult.status)
+            
+            // Actualizar la factura con el estado real
+            await updateDoc(docRef, {
+              haciendaSubmission: statusResult.status,
+              status: estadoHacienda || interpretedStatus.status,
+              statusDescription: interpretedStatus.description,
+              isFinalStatus: interpretedStatus.isFinal,
+              updatedAt: serverTimestamp()
+            })
+            
+            console.log('✅ Factura actualizada con estado real de Hacienda:', interpretedStatus.status)
+          } else {
+            console.error('❌ Error al consultar estado de Hacienda:', statusResult.error)
+            
+            // Marcar como error en consulta
+            await updateDoc(docRef, {
+              status: 'Error Consulta Hacienda',
+              haciendaSubmission: {
+                error: statusResult.error,
+                locationUrl: locationUrl,
+                timestamp: new Date().toISOString()
+              },
+              updatedAt: serverTimestamp()
+            })
+          }
+        }
+      } else {
+        console.log('⚠️ No se puede consultar estado - no hay location URL disponible')
+      }
 
     } catch (xmlError) {
       console.error('❌ Error al generar/firmar XML:', xmlError)

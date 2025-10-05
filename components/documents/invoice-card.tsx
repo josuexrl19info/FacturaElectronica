@@ -9,14 +9,14 @@ import {
   Trash2, 
   Eye, 
   FileText,
-  DollarSign,
   Calendar,
   User,
   Building,
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  FileDown
 } from "lucide-react"
 import { Invoice } from '@/lib/invoice-types'
 
@@ -25,15 +25,65 @@ interface InvoiceCardProps {
   onEdit?: (invoice: Invoice) => void
   onDelete?: (invoiceId: string) => void
   onView?: (invoice: Invoice) => void
+  onViewHaciendaStatus?: (invoice: Invoice) => void
 }
 
-export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardProps) {
+export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaStatus }: InvoiceCardProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CR', {
       style: 'currency',
       currency: 'CRC',
       minimumFractionDigits: 0
     }).format(amount)
+  }
+
+  const formatAmount = (amount: number) => {
+    return new Intl.NumberFormat('es-CR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+
+  const downloadXMLFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'application/xml' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleDownloadBothXMLs = () => {
+    if (!invoice.haciendaSubmission || !invoice.haciendaSubmission.clave) {
+      console.error('No hay clave de Hacienda disponible para descargar archivos')
+      return
+    }
+
+    const clave = invoice.haciendaSubmission.clave
+    
+    // Descargar XML firmado si existe
+    if (invoice.xmlSigned) {
+      downloadXMLFile(invoice.xmlSigned, `${clave}.xml`)
+    }
+    
+    // Descargar XML de respuesta de Hacienda si existe
+    if (invoice.haciendaSubmission['respuesta-xml']) {
+      try {
+        // Decodificar el Base64
+        const decodedXML = atob(invoice.haciendaSubmission['respuesta-xml'])
+        downloadXMLFile(decodedXML, `${clave}_respuesta.xml`)
+      } catch (error) {
+        console.error('Error al decodificar XML de Hacienda:', error)
+      }
+    }
+  }
+
+  const isHaciendaAccepted = () => {
+    return invoice.haciendaSubmission && 
+           invoice.haciendaSubmission['ind-estado'] === 'aceptado'
   }
 
   const formatDate = (date: Date | string) => {
@@ -51,20 +101,28 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardPr
   const getStatusInfo = (status: string) => {
     switch (status) {
       case 'accepted':
+      case 'Aceptada':
+      case 'aceptado':
+      case 'Aceptado':
         return { 
-          label: 'Aceptada', 
+          label: 'Aceptado', 
           variant: 'default' as const, 
           icon: CheckCircle,
           color: 'text-green-600'
         }
       case 'rejected':
+      case 'Rechazada':
+      case 'rechazado':
+      case 'Rechazado':
         return { 
-          label: 'Rechazada', 
+          label: 'Rechazado', 
           variant: 'destructive' as const, 
           icon: XCircle,
           color: 'text-red-600'
         }
       case 'pending':
+      case 'Pendiente':
+      case 'Pendiente Envío Hacienda':
         return { 
           label: 'Pendiente', 
           variant: 'secondary' as const, 
@@ -72,17 +130,33 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardPr
           color: 'text-yellow-600'
         }
       case 'error':
+      case 'Error':
+      case 'Error Envío Hacienda':
         return { 
           label: 'Error', 
           variant: 'destructive' as const, 
           icon: AlertCircle,
           color: 'text-red-600'
         }
-      default:
+      case 'Enviando Hacienda':
+        return { 
+          label: 'Enviando Hacienda', 
+          variant: 'secondary' as const, 
+          icon: Clock,
+          color: 'text-blue-600'
+        }
+      case 'Borrador':
         return { 
           label: 'Borrador', 
           variant: 'outline' as const, 
           icon: FileText,
+          color: 'text-gray-600'
+        }
+      default:
+        return { 
+          label: status || 'Desconocido', 
+          variant: 'outline' as const, 
+          icon: AlertCircle,
           color: 'text-gray-600'
         }
     }
@@ -143,19 +217,50 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardPr
                 initial={{ x: 10 }}
                 animate={{ x: 0 }}
               >
-                {onView && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(invoice)}>
+                {onViewHaciendaStatus && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7" 
+                    onClick={() => onViewHaciendaStatus(invoice)}
+                    title="Ver estado de Hacienda"
+                    disabled={!invoice.haciendaSubmission}
+                  >
                     <Eye className="w-3 h-3" />
                   </Button>
                 )}
+                
+                {/* Botones adicionales solo si Hacienda está aceptado */}
+                {isHaciendaAccepted() && (
+                  <>
+                    {/* Botón PDF (solo visual por ahora) */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7" 
+                      title="Descargar PDF"
+                      disabled={true}
+                    >
+                      <FileDown className="w-3 h-3" />
+                    </Button>
+                    
+                    {/* Botón para descargar ambos XML */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7" 
+                      onClick={handleDownloadBothXMLs}
+                      title="Descargar XML firmado y respuesta de Hacienda"
+                      disabled={!invoice.haciendaSubmission?.clave}
+                    >
+                      <FileText className="w-3 h-3" />
+                    </Button>
+                  </>
+                )}
+                
                 {onEdit && (
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(invoice)}>
                     <Edit className="w-3 h-3" />
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(invoice.id!)}>
-                    <Trash2 className="w-3 h-3 text-destructive" />
                   </Button>
                 )}
               </motion.div>
@@ -168,10 +273,9 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardPr
                 whileHover={{ scale: 1.05 }}
                 transition={{ duration: 0.2 }}
               >
-                <DollarSign className="w-3 h-3 text-green-600 flex-shrink-0" />
                 <div>
                   <p className="font-semibold text-green-600 text-xs">
-                    {formatCurrency(invoice.total)}
+                    ₡{formatAmount(invoice.total)}
                   </p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </div>
@@ -195,23 +299,23 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardPr
                   <Calendar className="w-3 h-3" />
                   {formatDate(invoice.createdAt)}
                 </span>
-                {invoice.haciendaStatus && (
+                {invoice.haciendaSubmission && (
                   <Badge 
-                    variant={invoice.haciendaStatus === 'aceptado' ? 'default' : 'destructive'} 
+                    variant={invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? 'default' : 'destructive'} 
                     className="text-xs px-1.5 py-0.5"
                   >
-                    Hacienda: {invoice.haciendaStatus}
+                    Hacienda: {invoice.haciendaSubmission['ind-estado']}
                   </Badge>
                 )}
               </div>
 
               {/* Estado de Hacienda */}
-              {invoice.haciendaStatus && (
+              {invoice.haciendaSubmission && (
                 <Badge 
-                  variant={invoice.haciendaStatus === 'aceptado' ? 'default' : 'destructive'}
+                  variant={invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? 'default' : 'destructive'}
                   className="text-xs px-1.5 py-0.5"
                 >
-                  {invoice.haciendaStatus === 'aceptado' ? '✓ Aceptada' : '✗ Rechazada'}
+                  {invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? '✓ Aceptada' : '✗ Rechazada'}
                 </Badge>
               )}
             </div>
@@ -226,7 +330,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView }: InvoiceCardPr
                         {item.detalle}
                       </span>
                       <span className="font-medium">
-                        {formatCurrency(item.montoTotalLinea)}
+                        ₡{formatAmount(item.montoTotalLinea)}
                       </span>
                     </div>
                   ))}
