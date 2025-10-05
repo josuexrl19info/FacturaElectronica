@@ -52,6 +52,7 @@
     "firebase-admin": "^13.5.0",
     "framer-motion": "^11.11.17",
     "geist": "latest",
+    "html2pdf.js": "^0.12.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "14.2.16",

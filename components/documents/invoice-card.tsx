@@ -19,6 +19,7 @@ import {
   FileDown
 } from "lucide-react"
 import { Invoice } from '@/lib/invoice-types'
+import { useRouter } from 'next/navigation'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -29,6 +30,8 @@ interface InvoiceCardProps {
 }
 
 export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaStatus }: InvoiceCardProps) {
+  const router = useRouter()
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CR', {
       style: 'currency',
@@ -84,6 +87,11 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
   const isHaciendaAccepted = () => {
     return invoice.haciendaSubmission && 
            invoice.haciendaSubmission['ind-estado'] === 'aceptado'
+  }
+
+  const handleViewPDF = () => {
+    // Navegar a la página de preview con el ID de la factura
+    router.push(`/dashboard/documents/invoice/preview?id=${invoice.id}`)
   }
 
   const formatDate = (date: Date | string) => {
@@ -233,13 +241,13 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                 {/* Botones adicionales solo si Hacienda está aceptado */}
                 {isHaciendaAccepted() && (
                   <>
-                    {/* Botón PDF (solo visual por ahora) */}
+                    {/* Botón PDF */}
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       className="h-7 w-7" 
-                      title="Descargar PDF"
-                      disabled={true}
+                      onClick={handleViewPDF}
+                      title="Ver y descargar PDF"
                     >
                       <FileDown className="w-3 h-3" />
                     </Button>

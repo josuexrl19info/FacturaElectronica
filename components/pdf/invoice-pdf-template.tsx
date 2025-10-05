@@ -43,6 +43,33 @@ interface InvoicePDFTemplateProps {
 }
 
 export const InvoicePDFTemplate = forwardRef<HTMLDivElement, InvoicePDFTemplateProps>(({ data }, ref) => {
+  // Debug: Verificar datos del logo
+  console.log('🔍 DEBUG Template - Logo exists:', !!data.company.logo)
+  console.log('🔍 DEBUG Template - Logo type:', typeof data.company.logo)
+  
+  // Verificar si el logo es válido y procesarlo
+  let processedLogo = null
+  let hasValidLogo = false
+  
+  if (data.company.logo) {
+    if (data.company.logo.startsWith('data:') || 
+        data.company.logo.startsWith('http') ||
+        data.company.logo.startsWith('/')) {
+      // Ya tiene prefijo válido
+      processedLogo = data.company.logo
+      hasValidLogo = true
+      console.log('✅ Logo ya tiene prefijo válido')
+    } else {
+      // Es Base64 puro, agregar prefijo
+      processedLogo = `data:image/png;base64,${data.company.logo}`
+      hasValidLogo = true
+      console.log('✅ Logo Base64 puro convertido con prefijo')
+    }
+  }
+  
+  console.log('🔍 DEBUG Template - Has valid logo:', hasValidLogo)
+  console.log('🔍 DEBUG Template - Processed logo length:', processedLogo?.length || 0)
+  
   return (
     <div
       ref={ref}
@@ -59,15 +86,55 @@ export const InvoicePDFTemplate = forwardRef<HTMLDivElement, InvoicePDFTemplateP
         />
         <div className="border-x border-b border-gray-200 p-8 rounded-b-lg">
           <div className="flex items-start justify-between">
-            <div>
-              {data.company.logo && (
-                <img src={data.company.logo || "/placeholder.svg"} alt={data.company.name} className="h-16 mb-4" />
+            <div className="flex items-start space-x-6">
+              {/* Logo Section - Solo si existe y es válido */}
+              {hasValidLogo && (
+                <div className="flex-shrink-0">
+                  <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+                    <img 
+                      src={processedLogo || ''} 
+                      alt={`Logo de ${data.company.name}`} 
+                      className="h-20 w-20 object-contain"
+                      style={{
+                        maxHeight: '80px',
+                        maxWidth: '80px',
+                        objectFit: 'contain'
+                      }}
+                      onError={(e) => {
+                        console.error('❌ Error cargando logo:', processedLogo?.substring(0, 100))
+                        console.error('❌ Error details:', e)
+                        console.error('❌ Logo length:', processedLogo?.length)
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Logo cargado exitosamente en PDF')
+                      }}
+                    />
+                  </div>
+                </div>
               )}
-              <h1 className="text-3xl font-bold mb-2">{data.company.name}</h1>
-              <p className="text-sm text-gray-600">Cédula: {data.company.id}</p>
-              <p className="text-sm text-gray-600">{data.company.phone}</p>
-              <p className="text-sm text-gray-600">{data.company.email}</p>
-              <p className="text-sm text-gray-600 mt-1">{data.company.address}</p>
+              
+              {/* Company Info - Ocupa todo el ancho si no hay logo */}
+              <div className={hasValidLogo ? "flex-1" : "w-full"}>
+                <h1 className="text-3xl font-bold mb-2 text-gray-800">{data.company.name}</h1>
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-600 flex items-center">
+                    <span className="font-medium text-gray-500 mr-2">Cédula:</span>
+                    {data.company.id}
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-center">
+                    <span className="font-medium text-gray-500 mr-2">Teléfono:</span>
+                    {data.company.phone}
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-center">
+                    <span className="font-medium text-gray-500 mr-2">Email:</span>
+                    {data.company.email}
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-start">
+                    <span className="font-medium text-gray-500 mr-2 mt-0.5">Dirección:</span>
+                    <span className="leading-relaxed">{data.company.address}</span>
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="text-right">
               <div
@@ -87,19 +154,66 @@ export const InvoicePDFTemplate = forwardRef<HTMLDivElement, InvoicePDFTemplateP
       </div>
 
       {/* Clave numérica */}
-      <div className="mb-8 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
-        <p className="text-xs font-semibold text-gray-700 mb-1">Clave Numérica:</p>
-        <p className="text-sm font-mono break-all">{data.key}</p>
+      <div className="mb-8 p-5 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
+        <div className="flex items-center mb-3">
+          <div 
+            className="w-1 h-5 rounded-full mr-3"
+            style={{
+              background: "linear-gradient(135deg, #14b8a6 0%, #06b6d4 50%, #0891b2 100%)",
+            }}
+          />
+          <p className="text-sm font-bold text-gray-700 uppercase tracking-wide">Clave Numérica de Factura Electrónica:</p>
+        </div>
+        <div className="bg-white p-3 rounded-md border border-teal-100">
+          <p className="text-sm font-mono text-gray-800 break-all leading-relaxed">{data.key}</p>
+        </div>
       </div>
 
       {/* Client info */}
-      <div className="mb-8 p-6 border border-gray-200 rounded-lg">
-        <h2 className="text-sm font-bold text-gray-700 mb-3">FACTURAR A:</h2>
-        <p className="font-semibold text-lg">{data.client.name}</p>
-        <p className="text-sm text-gray-600">Cédula: {data.client.id}</p>
-        {data.client.phone && <p className="text-sm text-gray-600">{data.client.phone}</p>}
-        {data.client.email && <p className="text-sm text-gray-600">{data.client.email}</p>}
-        {data.client.address && <p className="text-sm text-gray-600 mt-1">{data.client.address}</p>}
+      <div className="mb-8 p-6 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg">
+        <div className="flex items-center mb-4">
+          <div 
+            className="w-1 h-6 rounded-full mr-3"
+            style={{
+              background: "linear-gradient(135deg, #14b8a6 0%, #06b6d4 50%, #0891b2 100%)",
+            }}
+          />
+          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">FACTURAR A:</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="font-semibold text-lg text-gray-800 mb-2">{data.client.name}</p>
+            <p className="text-sm text-gray-600 flex items-center">
+              <span className="font-medium text-gray-500 mr-2">Cédula:</span>
+              {data.client.id}
+            </p>
+          </div>
+          
+          <div className="space-y-1">
+            {data.client.phone && (
+              <p className="text-sm text-gray-600 flex items-center">
+                <span className="font-medium text-gray-500 mr-2">Teléfono:</span>
+                {data.client.phone}
+              </p>
+            )}
+            {data.client.email && (
+              <p className="text-sm text-gray-600 flex items-center">
+                <span className="font-medium text-gray-500 mr-2">Email:</span>
+                {data.client.email}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        {data.client.address && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-sm text-gray-600 flex items-start">
+              <span className="font-medium text-gray-500 mr-2 mt-0.5">Dirección:</span>
+              <span className="leading-relaxed">{data.client.address}</span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Items table */}
