@@ -10,10 +10,32 @@ import { HaciendaStatusService } from '@/lib/services/hacienda-status'
 import { InvoiceConsecutiveService } from '@/lib/services/invoice-consecutive'
 import { HaciendaKeyGenerator } from '@/lib/services/hacienda-key-generator'
 import { InvoiceEmailService } from '@/lib/services/invoice-email-service'
+import { ExchangeRateService } from '@/lib/services/exchange-rate-service'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 const db = getFirestore(app)
+
+/**
+ * Obtiene el tipo de cambio para una moneda específica
+ */
+async function getExchangeRateForCurrency(currency: string): Promise<number> {
+  if (currency?.toUpperCase() === 'USD') {
+    console.log('💱 [ExchangeRate] Moneda USD detectada, obteniendo tipo de cambio de Hacienda...')
+    const exchangeRate = await ExchangeRateService.getExchangeRate()
+    
+    if (exchangeRate) {
+      console.log(`💱 [ExchangeRate] Tipo de cambio obtenido: ${exchangeRate} CRC por USD`)
+      return exchangeRate
+    } else {
+      console.warn('💱 [ExchangeRate] No se pudo obtener tipo de cambio, usando 1 como fallback')
+      return 1
+    }
+  }
+  
+  console.log(`💱 [ExchangeRate] Moneda ${currency}, usando tipo de cambio 1`)
+  return 1
+}
 
 /**
  * POST /api/invoices/create
@@ -240,7 +262,7 @@ export async function POST(req: NextRequest) {
           montoTotalLinea: item.montoTotalLinea
         })),
         codigoMoneda: currency || 'CRC',
-        tipoCambio: 1,
+        tipoCambio: await getExchangeRateForCurrency(currency || 'CRC'),
         totalServGravados: subtotal,
         totalGravado: subtotal,
         totalVenta: subtotal,

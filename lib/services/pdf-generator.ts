@@ -1,4 +1,4 @@
-import html2pdf from 'html2pdf.js'
+// Importaciones removidas para evitar problemas de compatibilidad
 
 export interface PDFInvoiceData {
   number: string
@@ -101,6 +101,46 @@ export class PDFGeneratorService {
   }
 
   /**
+   * Genera un PDF en base64 (para uso en servidor)
+   * @param invoiceData - Datos de la factura
+   * @returns Promise<string> - PDF en base64
+   */
+  static async generatePDFAsBase64(invoiceData: PDFInvoiceData): Promise<string> {
+    try {
+      console.log('📄 Generando PDF final optimizado en base64 para:', invoiceData.number)
+      
+      // Llamar al endpoint API final optimizado para generar el PDF
+      const response = await fetch('http://localhost:3000/api/generate-pdf-optimized', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(invoiceData)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Error en endpoint de PDF final optimizado: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error generando PDF final optimizado')
+      }
+      
+      console.log('✅ PDF final optimizado generado en base64:', result.size, 'caracteres')
+      console.log('📊 Tamaño del PDF:', result.size_mb, 'MB')
+      console.log('🎯 Método utilizado:', result.method)
+      
+      return result.pdf_base64
+      
+    } catch (error) {
+      console.error('❌ Error al generar PDF final optimizado en base64:', error)
+      throw new Error('Error al generar PDF final optimizado en base64')
+    }
+  }
+
+  /**
    * Verifica si una cadena es un Base64 válido
    * @param str - Cadena a verificar
    * @returns true si es Base64 válido
@@ -128,7 +168,26 @@ export class PDFGeneratorService {
     // Formatear fecha
     const formatDate = (date: any) => {
       if (!date) return 'N/A'
-      const dateObj = typeof date === 'string' ? new Date(date) : date
+      
+      let dateObj: Date
+      if (typeof date === 'string') {
+        dateObj = new Date(date)
+      } else if (date instanceof Date) {
+        dateObj = date
+      } else if (date.toDate && typeof date.toDate === 'function') {
+        // Para objetos Timestamp de Firestore
+        dateObj = date.toDate()
+      } else {
+        // Intentar convertir cualquier otro tipo
+        dateObj = new Date(date)
+      }
+      
+      // Verificar que la fecha sea válida
+      if (isNaN(dateObj.getTime())) {
+        console.warn('⚠️ Fecha inválida recibida:', date)
+        return new Date().toLocaleDateString('es-CR')
+      }
+      
       return dateObj.toLocaleDateString('es-CR')
     }
 
@@ -158,6 +217,28 @@ export class PDFGeneratorService {
     // Asegurar que el logo siempre tenga el prefijo correcto
     if (logoUrl && !logoUrl.startsWith('data:') && !logoUrl.startsWith('http') && !logoUrl.startsWith('/')) {
       logoUrl = `data:image/png;base64,${logoUrl}`
+    }
+
+    // Optimizar logo si es muy grande
+    if (logoUrl && logoUrl.startsWith('data:image')) {
+      try {
+        const base64Data = logoUrl.replace(/^data:image\/[a-z]+;base64,/, '');
+        const logoSize = Buffer.byteLength(base64Data, 'utf8');
+        const logoSizeMB = logoSize / (1024 * 1024);
+
+        console.log(`📸 Logo detectado: ${logoSizeMB.toFixed(2)} MB`);
+
+        // Si el logo es muy grande (> 500 KB), omitirlo para reducir tamaño del PDF
+        if (logoSizeMB > 0.5) {
+          console.warn(`⚠️ Logo demasiado grande (${logoSizeMB.toFixed(2)} MB), omitiendo para reducir tamaño del PDF`);
+          logoUrl = undefined;
+        } else {
+          console.log(`✅ Logo de tamaño aceptable (${logoSizeMB.toFixed(2)} MB)`);
+        }
+      } catch (error) {
+        console.warn('⚠️ Error procesando logo, omitiendo:', error);
+        logoUrl = undefined;
+      }
     }
 
     console.log('🔍 DEBUG PDF Generator - Logo processed:', logoUrl ? 'SUCCESS' : 'NULL')

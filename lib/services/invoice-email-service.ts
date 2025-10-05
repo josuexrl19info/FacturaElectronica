@@ -2,6 +2,7 @@ import { Invoice } from '@/lib/invoice-types'
 import { getFirestore, doc, getDoc } from 'firebase/firestore'
 import { initializeApp, getApps } from 'firebase/app'
 import { firebaseConfig } from '@/lib/firebase-config'
+import { PDFGeneratorService } from '@/lib/services/pdf-generator'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -13,6 +14,7 @@ export interface InvoiceEmailData {
   message: string
   xml1_base64?: string  // XML firmado que se envió a Hacienda
   xml2_base64?: string  // XML de respuesta de Hacienda
+  pdf_base64?: string   // PDF de la factura en base64
   pdf_filename?: string // Nombre del archivo PDF
   xml1_filename?: string // Nombre del archivo XML firmado
   xml2_filename?: string // Nombre del archivo XML respuesta
@@ -111,7 +113,7 @@ export class InvoiceEmailService {
       }
 
       // Crear contenido del email
-      const emailData = this.createApprovalEmailData(invoice, recipientEmail)
+      const emailData = await this.createApprovalEmailData(invoice, recipientEmail)
       
       // Enviar email
       const result = await this.sendEmail(emailData)
@@ -138,7 +140,7 @@ export class InvoiceEmailService {
   /**
    * Crea los datos del email para factura aprobada
    */
-  private static createApprovalEmailData(invoice: Invoice, recipientEmail: string): InvoiceEmailData {
+  private static async createApprovalEmailData(invoice: Invoice, recipientEmail: string): Promise<InvoiceEmailData> {
     const subject = `Factura Electrónica ${invoice.consecutivo} - Aprobada por Hacienda`
     
     const message = this.createApprovalEmailHTML(invoice)
@@ -146,6 +148,7 @@ export class InvoiceEmailService {
     // Preparar XMLs en base64
     let xml1_base64: string | undefined
     let xml2_base64: string | undefined
+    let pdf_base64: string | undefined
     
     // XML1: XML firmado que se envió a Hacienda
     if (invoice.xmlSigned) {
@@ -170,6 +173,82 @@ export class InvoiceEmailService {
       }
     } else {
       console.warn('⚠️ No se encontró XML de respuesta de Hacienda')
+    }
+    
+    // PDF: Generar PDF de la factura
+    try {
+      console.log('📄 Generando PDF de la factura...')
+      
+      // Obtener datos de la empresa y cliente para el PDF
+      let companyData = invoice.companyData || {}
+      let clientData = invoice.cliente || {}
+      
+      // Si no tenemos datos completos, intentar obtenerlos desde Firestore
+      if (!companyData || !clientData || Object.keys(companyData).length === 0) {
+        console.log('🔍 Obteniendo datos completos para PDF...')
+        
+        // Obtener datos de la empresa
+        if (invoice.companyId) {
+          try {
+            const companyRef = doc(db, 'companies', invoice.companyId)
+            const companySnap = await getDoc(companyRef)
+            if (companySnap.exists()) {
+              companyData = companySnap.data()
+              console.log('✅ Datos de empresa obtenidos para PDF')
+            }
+          } catch (error) {
+            console.error('❌ Error obteniendo datos de empresa:', error)
+          }
+        }
+        
+        // Obtener datos del cliente
+        if (invoice.clientId) {
+          try {
+            const clientRef = doc(db, 'clients', invoice.clientId)
+            const clientSnap = await getDoc(clientRef)
+            if (clientSnap.exists()) {
+              clientData = clientSnap.data()
+              console.log('✅ Datos de cliente obtenidos para PDF')
+            }
+          } catch (error) {
+            console.error('❌ Error obteniendo datos de cliente:', error)
+          }
+        }
+      }
+      
+      // Preparar datos para el PDF optimizado
+      const pdfData = {
+        invoice: invoice,
+        company: companyData,
+        client: clientData,
+        haciendaResponse: invoice.haciendaSubmission
+      }
+      
+      // Generar PDF en base64 usando el endpoint optimizado
+      const response = await fetch('http://localhost:3000/api/generate-pdf-optimized', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(pdfData)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Error en endpoint de PDF optimizado: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error generando PDF optimizado')
+      }
+      
+      pdf_base64 = result.pdf_base64
+      console.log('✅ PDF generado en base64:', pdf_base64.length, 'caracteres')
+      
+    } catch (error) {
+      console.error('❌ Error generando PDF:', error)
+      console.warn('⚠️ Continuando sin PDF adjunto')
     }
     
     // Generar nombres de archivo basados en la clave de Hacienda
@@ -197,8 +276,10 @@ export class InvoiceEmailService {
     console.log('📧 Preparando email con adjuntos:', {
       hasXml1: !!xml1_base64,
       hasXml2: !!xml2_base64,
+      hasPdf: !!pdf_base64,
       xml1Size: xml1_base64?.length || 0,
       xml2Size: xml2_base64?.length || 0,
+      pdfSize: pdf_base64?.length || 0,
       pdf_filename,
       xml1_filename,
       xml2_filename
@@ -210,6 +291,7 @@ export class InvoiceEmailService {
       message,
       xml1_base64,
       xml2_base64,
+      pdf_base64,
       pdf_filename,
       xml1_filename,
       xml2_filename,
@@ -230,10 +312,17 @@ export class InvoiceEmailService {
   private static createApprovalEmailHTML(invoice: Invoice): string {
     const cliente = invoice.cliente?.nombre || invoice.cliente?.razonSocial || 'Cliente'
     const consecutivo = invoice.consecutivo || 'N/A'
+    // Obtener la moneda de la factura
+    const currency = invoice.currency || invoice.moneda || 'CRC'
+    console.log('🔍 [EMAIL] Debug Moneda:', {
+      'invoice.currency': invoice.currency,
+      'invoice.moneda': invoice.moneda,
+      'currency final': currency
+    })
     const total = invoice.total?.toLocaleString('es-CR', { 
       style: 'currency', 
-      currency: 'CRC' 
-    }) || '₡0'
+      currency: currency 
+    }) || (currency === 'USD' ? '$0.00' : '₡0')
     const fecha = invoice.fecha?.toLocaleDateString('es-ES') || new Date().toLocaleDateString('es-ES')
     
     // Obtener el nombre comercial de la empresa
@@ -241,7 +330,7 @@ export class InvoiceEmailService {
                          invoice.emisor?.nombre || 
                          invoice.companyData?.nombreComercial ||
                          invoice.companyData?.name ||
-                         'Ketch Corporation SA' // Fallback por si no se encuentra
+                         'la empresa emisora' // Fallback por si no se encuentra
 
     return `
       <!DOCTYPE html>
@@ -493,7 +582,132 @@ export class InvoiceEmailService {
       console.log('📤 Enviando email a endpoint:', this.EMAIL_ENDPOINT)
       console.log('📧 Destinatario:', emailData.to)
       console.log('📧 Asunto:', emailData.subject)
+      
+      // Calcular y mostrar el tamaño de los datos
+      const jsonString = JSON.stringify(emailData)
+      const dataSize = Buffer.byteLength(jsonString, 'utf8')
+      const dataSizeMB = (dataSize / (1024 * 1024)).toFixed(2)
+      
+      console.log('📊 Tamaño de datos a enviar:', `${dataSizeMB} MB (${dataSize} bytes)`)
+      
+      // Mostrar tamaños de cada componente
+      if (emailData.pdf_base64) {
+        const pdfSize = Buffer.byteLength(emailData.pdf_base64, 'utf8')
+        const pdfSizeMB = (pdfSize / (1024 * 1024)).toFixed(2)
+        console.log('📄 Tamaño del PDF:', `${pdfSizeMB} MB (${pdfSize} bytes)`)
+      }
+      
+      if (emailData.xml1_base64) {
+        const xml1Size = Buffer.byteLength(emailData.xml1_base64, 'utf8')
+        console.log('📄 Tamaño del XML1:', `${xml1Size} bytes`)
+      }
+      
+      if (emailData.xml2_base64) {
+        const xml2Size = Buffer.byteLength(emailData.xml2_base64, 'utf8')
+        console.log('📄 Tamaño del XML2:', `${xml2Size} bytes`)
+      }
+      
+      // Verificar si excede límites razonables y ajustar si es necesario
+      const maxSize = 7 * 1024 * 1024 // 7 MB (por debajo del límite de 8 MB de PHP)
+      
+      if (dataSize > maxSize) {
+        console.warn('⚠️ ADVERTENCIA: Datos exceden límite seguro para envío')
+        console.warn(`📊 Tamaño actual: ${dataSizeMB} MB, límite seguro: ${(maxSize / (1024 * 1024)).toFixed(2)} MB`)
+        
+        // Si el PDF es muy grande, enviarlo sin PDF y agregar nota
+        if (emailData.pdf_base64 && Buffer.byteLength(emailData.pdf_base64, 'utf8') > 5 * 1024 * 1024) {
+          console.log('📄 PDF muy grande, enviando email sin PDF adjunto')
+          
+          // Crear versión sin PDF
+          const emailDataWithoutPDF = {
+            ...emailData,
+            pdf_base64: undefined,
+            pdf_filename: undefined,
+            message: emailData.message + `
+              <div style="background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                <h4 style="color: #92400e;">📎 Nota sobre PDF</h4>
+                <p style="color: #92400e;">El PDF de esta factura es demasiado grande para enviar por email. Puede descargarlo desde la aplicación web.</p>
+              </div>
+            `
+          }
+          
+          // Recalcular tamaño sin PDF
+          const newJsonString = JSON.stringify(emailDataWithoutPDF)
+          const newDataSize = Buffer.byteLength(newJsonString, 'utf8')
+          const newDataSizeMB = (newDataSize / (1024 * 1024)).toFixed(2)
+          
+          console.log('📊 Nuevo tamaño sin PDF:', `${newDataSizeMB} MB (${newDataSize} bytes)`)
+          
+          if (newDataSize <= maxSize) {
+            console.log('✅ Enviando email sin PDF (dentro del límite)')
+            return this.sendEmailRequest(emailDataWithoutPDF)
+          }
+        }
+        
+        // Si aún es muy grande, intentar reducir el mensaje HTML
+        if (dataSize > maxSize) {
+          console.log('📧 Reduciendo tamaño del mensaje HTML')
+          
+          const emailDataReduced = {
+            ...emailData,
+            message: emailData.message.replace(/<div[^>]*style="[^"]*"[^>]*>/g, '<div>')
+                                     .replace(/\s+/g, ' ')
+                                     .trim()
+          }
+          
+          const reducedJsonString = JSON.stringify(emailDataReduced)
+          const reducedDataSize = Buffer.byteLength(reducedJsonString, 'utf8')
+          const reducedDataSizeMB = (reducedDataSize / (1024 * 1024)).toFixed(2)
+          
+          console.log('📊 Tamaño reducido:', `${reducedDataSizeMB} MB (${reducedDataSize} bytes)`)
+          
+          if (reducedDataSize <= maxSize) {
+            console.log('✅ Enviando email con mensaje reducido')
+            return this.sendEmailRequest(emailDataReduced)
+          }
+        }
+        
+        // Si todo lo anterior falla, enviar solo los datos esenciales
+        console.log('🚨 Enviando email mínimo (sin archivos adjuntos)')
+        
+        const minimalEmailData = {
+          to: emailData.to,
+          subject: emailData.subject,
+          message: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #14b8a6;">¡Su Factura ha sido Aprobada!</h2>
+              <p>Estimado cliente,</p>
+              <p>Nos complace informarle que su factura ha sido aprobada por el Ministerio de Hacienda.</p>
+              
+              <div style="background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                <h4 style="color: #92400e;">📎 Documentos</h4>
+                <p style="color: #92400e;">Los documentos de esta factura son demasiado grandes para enviar por email. Puede descargarlos desde la aplicación web.</p>
+              </div>
+              
+              <p>Gracias por su confianza.</p>
+              <p><strong>InnovaSell Costa Rica</strong></p>
+            </div>
+          `
+        }
+        
+        return this.sendEmailRequest(minimalEmailData)
+      }
+      
+      return this.sendEmailRequest(emailData)
+    } catch (error) {
+      console.error('❌ Error enviando email:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido enviando email'
+      }
+    }
+  }
 
+  /**
+   * Envía la petición HTTP al endpoint de email
+   */
+  private static async sendEmailRequest(emailData: InvoiceEmailData): Promise<InvoiceEmailResult> {
+    try {
       const response = await fetch(this.EMAIL_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -503,18 +717,39 @@ export class InvoiceEmailService {
         body: JSON.stringify(emailData)
       })
 
+      // Obtener el texto de la respuesta primero
+      const responseText = await response.text()
+      
+      console.log('📊 Status de respuesta:', response.status)
+      console.log('📊 Headers de respuesta:', Object.fromEntries(response.headers.entries()))
+      console.log('📊 Contenido de respuesta:', responseText.substring(0, 200) + '...')
+
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
+        throw new Error(`HTTP ${response.status}: ${responseText}`)
       }
 
-      const result = await response.json()
+      // Verificar el Content-Type
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('⚠️ Respuesta no es JSON, Content-Type:', contentType)
+        throw new Error(`Respuesta no es JSON. Content-Type: ${contentType}. Respuesta: ${responseText.substring(0, 200)}`)
+      }
+
+      // Intentar parsear JSON
+      let result
+      try {
+        result = JSON.parse(responseText)
+      } catch (jsonError) {
+        console.error('❌ Error parseando JSON:', jsonError)
+        console.error('❌ Respuesta recibida:', responseText)
+        throw new Error(`Error parseando JSON: ${jsonError.message}. Respuesta: ${responseText.substring(0, 200)}`)
+      }
       
       console.log('✅ Respuesta del endpoint de email:', result)
 
       return {
         success: true,
-        messageId: result.messageId || result.id || `email-${Date.now()}`,
+        messageId: result.message_id || result.messageId || result.id || `email-${Date.now()}`,
         deliveredTo: [emailData.to],
         sentAt: new Date().toISOString()
       }
