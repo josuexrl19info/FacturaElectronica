@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { initializeApp, getApps } from 'firebase/app'
+import { getFirestore, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { firebaseConfig } from '@/lib/firebase-config'
 
-// Inicializar Firebase si no está ya inicializado
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-const db = getFirestore(app)
-
 /**
- * GET /api/invoices
- * Obtiene las facturas de una empresa específica
+ * Obtiene tiquetes electrónicos de Firestore
  */
 export async function GET(req: NextRequest) {
   try {
@@ -24,32 +19,34 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Consultar facturas de la empresa específica
-    const invoicesRef = collection(db, 'invoices')
+    // Inicializar Firebase si no está inicializado
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+    const db = getFirestore(app)
+
+    // Consultar tiquetes de la empresa específica
+    const ticketsRef = collection(db, 'tickets')
     const q = query(
-      invoicesRef,
+      ticketsRef,
       where('tenantId', '==', tenantId),
       where('companyId', '==', companyId)
-      // Removido orderBy para evitar problemas de índice
     )
 
     const querySnapshot = await getDocs(q)
-    const invoices = []
+    const tickets: any[] = []
 
     querySnapshot.forEach((doc) => {
       const data = doc.data()
-      invoices.push({
+      tickets.push({
         id: doc.id,
         ...data,
-        // Convertir timestamps a fechas
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
-        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
-        haciendaValidationDate: data.haciendaValidationDate?.toDate ? data.haciendaValidationDate.toDate() : data.haciendaValidationDate
+        // Convertir Timestamps a Date si es necesario
+        createdAt: data.createdAt?.toDate?.() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.() || data.updatedAt
       })
     })
 
-    // Ordenar por fecha de creación (más reciente primero) del lado del cliente
-    invoices.sort((a, b) => {
+    // Ordenar por fecha de creación (más recientes primero)
+    tickets.sort((a, b) => {
       const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt)
       const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt)
       return dateB.getTime() - dateA.getTime()
@@ -57,12 +54,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      invoices,
-      count: invoices.length
+      tickets,
+      count: tickets.length
     })
 
   } catch (error) {
-    console.error('❌ Error al obtener facturas:', error)
+    console.error('Error al obtener tiquetes:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
