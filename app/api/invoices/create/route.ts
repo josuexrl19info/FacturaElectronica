@@ -424,13 +424,26 @@ export async function POST(req: NextRequest) {
               console.log('🎉 Factura APROBADA - Enviando email al cliente...')
               
               try {
-                const emailResult = await InvoiceEmailService.sendApprovalEmail({
+                // Crear la factura completa con todos los datos actualizados
+                const completeInvoiceData = {
                   ...invoiceData,
                   id: docRef.id,
                   status: interpretedStatus.status,
                   statusDescription: interpretedStatus.description,
-                  isFinalStatus: interpretedStatus.isFinal
+                  isFinalStatus: interpretedStatus.isFinal,
+                  haciendaSubmission: statusResult.status,  // ← Incluir la respuesta completa de Hacienda
+                  xmlSigned: signedXml  // ← Asegurar que el XML firmado esté incluido
+                }
+                
+                console.log('📧 Enviando email con factura completa:', {
+                  id: completeInvoiceData.id,
+                  consecutivo: completeInvoiceData.consecutivo,
+                  hasXmlSigned: !!completeInvoiceData.xmlSigned,
+                  hasHaciendaSubmission: !!completeInvoiceData.haciendaSubmission,
+                  hasRespuestaXml: !!completeInvoiceData.haciendaSubmission?.['respuesta-xml']
                 })
+                
+                const emailResult = await InvoiceEmailService.sendApprovalEmail(completeInvoiceData)
 
                 if (emailResult.success) {
                   console.log('✅ Email de aprobación enviado exitosamente')
