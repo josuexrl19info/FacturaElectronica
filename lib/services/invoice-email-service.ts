@@ -1,4 +1,11 @@
 import { Invoice } from '@/lib/invoice-types'
+import { getFirestore, doc, getDoc } from 'firebase/firestore'
+import { initializeApp, getApps } from 'firebase/app'
+import { firebaseConfig } from '@/lib/firebase-config'
+
+// Inicializar Firebase si no está ya inicializado
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+const db = getFirestore(app)
 
 export interface InvoiceEmailData {
   to: string
@@ -37,10 +44,61 @@ export class InvoiceEmailService {
     try {
       console.log('📧 Enviando email de factura aprobada:', invoice.consecutivo)
       
-      // Determinar email del cliente
-      const recipientEmail = clientEmail || invoice.cliente?.email || invoice.cliente?.correoElectronico
+      // Debug: Mostrar estructura de la factura
+      console.log('🔍 Estructura de la factura recibida:', JSON.stringify({
+        consecutivo: invoice.consecutivo,
+        clientId: invoice.clientId,
+        cliente: invoice.cliente,
+        hasClienteEmail: !!invoice.cliente?.email,
+        hasClienteCorreoElectronico: !!invoice.cliente?.correoElectronico,
+        hasClientEmail: !!invoice.clientEmail,
+        hasCustomerEmail: !!invoice.customerEmail,
+        hasEmail: !!invoice.email
+      }, null, 2))
+      
+      let recipientEmail = clientEmail
+      
+      // Si no se proporciona email, intentar obtenerlo de la factura o del cliente
+      if (!recipientEmail) {
+        // Primero intentar desde la factura directamente
+        recipientEmail = invoice.cliente?.email || 
+                        invoice.cliente?.correoElectronico ||
+                        invoice.clientEmail ||
+                        invoice.customerEmail ||
+                        invoice.email
+        
+        // Si no está en la factura y tenemos clientId, obtenerlo desde Firestore
+        if (!recipientEmail && invoice.clientId) {
+          console.log('🔍 Obteniendo datos del cliente desde Firestore:', invoice.clientId)
+          
+          try {
+            const clientRef = doc(db, 'clients', invoice.clientId)
+            const clientSnap = await getDoc(clientRef)
+            
+            if (clientSnap.exists()) {
+              const clientData = clientSnap.data()
+              recipientEmail = clientData.email
+              console.log('✅ Email del cliente obtenido desde Firestore:', recipientEmail)
+              
+              // Actualizar la factura con los datos del cliente para uso posterior
+              if (!invoice.cliente) {
+                invoice.cliente = {
+                  nombre: clientData.name,
+                  email: clientData.email,
+                  identificacion: clientData.identification
+                }
+              }
+            } else {
+              console.error('❌ Cliente no encontrado en Firestore:', invoice.clientId)
+            }
+          } catch (clientError) {
+            console.error('❌ Error obteniendo cliente desde Firestore:', clientError)
+          }
+        }
+      }
       
       if (!recipientEmail) {
+        console.error('❌ No se encontró email del cliente. Campos disponibles:', Object.keys(invoice))
         return {
           success: false,
           error: 'No se encontró email del cliente en la factura'

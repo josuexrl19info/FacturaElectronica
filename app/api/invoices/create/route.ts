@@ -9,6 +9,7 @@ import { HaciendaSubmissionService } from '@/lib/services/hacienda-submission'
 import { HaciendaStatusService } from '@/lib/services/hacienda-status'
 import { InvoiceConsecutiveService } from '@/lib/services/invoice-consecutive'
 import { HaciendaKeyGenerator } from '@/lib/services/hacienda-key-generator'
+import { InvoiceEmailService } from '@/lib/services/invoice-email-service'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -417,6 +418,50 @@ export async function POST(req: NextRequest) {
             })
             
             console.log('✅ Factura actualizada con estado real de Hacienda:', interpretedStatus.status)
+            
+            // 📧 ENVIAR EMAIL SI LA FACTURA ES APROBADA
+            if (interpretedStatus.isFinal && interpretedStatus.status === 'Aceptado') {
+              console.log('🎉 Factura APROBADA - Enviando email al cliente...')
+              
+              try {
+                const emailResult = await InvoiceEmailService.sendApprovalEmail({
+                  ...invoiceData,
+                  id: docRef.id,
+                  status: interpretedStatus.status,
+                  statusDescription: interpretedStatus.description,
+                  isFinalStatus: interpretedStatus.isFinal
+                })
+
+                if (emailResult.success) {
+                  console.log('✅ Email de aprobación enviado exitosamente')
+                  console.log('📧 Message ID:', emailResult.messageId)
+                  
+                  // Actualizar factura con información del email enviado
+                  await updateDoc(docRef, {
+                    emailSent: true,
+                    emailSentAt: serverTimestamp(),
+                    emailMessageId: emailResult.messageId,
+                    emailDeliveredTo: emailResult.deliveredTo
+                  })
+                } else {
+                  console.error('❌ Error enviando email de aprobación:', emailResult.error)
+                  
+                  // Marcar que hubo error enviando email
+                  await updateDoc(docRef, {
+                    emailError: emailResult.error,
+                    emailErrorAt: serverTimestamp()
+                  })
+                }
+              } catch (emailError) {
+                console.error('❌ Error en proceso de email:', emailError)
+                
+                // Marcar error en la factura
+                await updateDoc(docRef, {
+                  emailError: emailError instanceof Error ? emailError.message : 'Error desconocido',
+                  emailErrorAt: serverTimestamp()
+                })
+              }
+            }
           } else {
             console.error('❌ Error al consultar estado de Hacienda:', statusResult.error)
             
