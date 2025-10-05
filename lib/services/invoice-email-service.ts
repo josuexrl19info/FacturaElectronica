@@ -13,6 +13,9 @@ export interface InvoiceEmailData {
   message: string
   xml1_base64?: string  // XML firmado que se envió a Hacienda
   xml2_base64?: string  // XML de respuesta de Hacienda
+  pdf_filename?: string // Nombre del archivo PDF
+  xml1_filename?: string // Nombre del archivo XML firmado
+  xml2_filename?: string // Nombre del archivo XML respuesta
   invoiceData?: {
     id: string
     consecutivo: string
@@ -136,7 +139,7 @@ export class InvoiceEmailService {
    * Crea los datos del email para factura aprobada
    */
   private static createApprovalEmailData(invoice: Invoice, recipientEmail: string): InvoiceEmailData {
-    const subject = `✅ Factura Electrónica ${invoice.consecutivo} - Aprobada por Hacienda`
+    const subject = `Factura Electrónica ${invoice.consecutivo} - Aprobada por Hacienda`
     
     const message = this.createApprovalEmailHTML(invoice)
     
@@ -169,11 +172,36 @@ export class InvoiceEmailService {
       console.warn('⚠️ No se encontró XML de respuesta de Hacienda')
     }
     
+    // Generar nombres de archivo basados en la clave de Hacienda
+    let pdf_filename: string | undefined
+    let xml1_filename: string | undefined
+    let xml2_filename: string | undefined
+    
+    // Obtener la clave de Hacienda para los nombres de archivo
+    const haciendaKey = invoice.haciendaSubmission?.clave || invoice.consecutivo || 'documento'
+    
+    if (xml1_base64) {
+      xml1_filename = `${haciendaKey}.xml`
+      console.log('📄 Nombre XML firmado:', xml1_filename)
+    }
+    
+    if (xml2_base64) {
+      xml2_filename = `${haciendaKey}_respuesta.xml`
+      console.log('📄 Nombre XML respuesta:', xml2_filename)
+    }
+    
+    // El PDF siempre se incluye (aunque no tengamos el contenido base64)
+    pdf_filename = `${haciendaKey}.pdf`
+    console.log('📄 Nombre PDF:', pdf_filename)
+    
     console.log('📧 Preparando email con adjuntos:', {
       hasXml1: !!xml1_base64,
       hasXml2: !!xml2_base64,
       xml1Size: xml1_base64?.length || 0,
-      xml2Size: xml2_base64?.length || 0
+      xml2Size: xml2_base64?.length || 0,
+      pdf_filename,
+      xml1_filename,
+      xml2_filename
     })
     
     return {
@@ -182,6 +210,9 @@ export class InvoiceEmailService {
       message,
       xml1_base64,
       xml2_base64,
+      pdf_filename,
+      xml1_filename,
+      xml2_filename,
       invoiceData: {
         id: invoice.id || '',
         consecutivo: invoice.consecutivo || '',
@@ -204,6 +235,13 @@ export class InvoiceEmailService {
       currency: 'CRC' 
     }) || '₡0'
     const fecha = invoice.fecha?.toLocaleDateString('es-ES') || new Date().toLocaleDateString('es-ES')
+    
+    // Obtener el nombre comercial de la empresa
+    const nombreEmpresa = invoice.emisor?.nombreComercial || 
+                         invoice.emisor?.nombre || 
+                         invoice.companyData?.nombreComercial ||
+                         invoice.companyData?.name ||
+                         'Ketch Corporation SA' // Fallback por si no se encuentra
 
     return `
       <!DOCTYPE html>
@@ -413,24 +451,11 @@ export class InvoiceEmailService {
               <h4 style="color: #166534;">📎 Documentos Adjuntos</h4>
               <p style="margin: 15px 0; font-size: 15px; line-height: 1.6; color: #166534;">
                 Adjunto a este correo encontrará un <strong>Comprobante Electrónico en formato XML</strong> y su correspondiente 
-                <strong>representación en formato PDF</strong>, por concepto de facturación de <strong>Ketch Corporation SA</strong>. 
+                <strong>representación en formato PDF</strong>, por concepto de facturación de <strong>${nombreEmpresa}</strong>. 
                 Lo anterior con base en las especificaciones del <strong>Ministerio de Hacienda</strong>.
               </p>
             </div>
 
-            <!-- Información Importante -->
-            <div class="info-box">
-              <h4>📌 Información Importante</h4>
-              <ul>
-                <li><strong>Válida Fiscalmente:</strong> Esta factura es completamente válida para efectos fiscales</li>
-                <li><strong>Registro Hacienda:</strong> El documento está registrado en los sistemas oficiales</li>
-                <li><strong>XMLs Adjuntos:</strong> Este correo incluye los archivos XML oficiales</li>
-                <li><strong>XML Firmado:</strong> Documento firmado digitalmente enviado a Hacienda</li>
-                <li><strong>XML Respuesta:</strong> Confirmación oficial de Hacienda</li>
-                <li><strong>Descarga:</strong> Puede descargar su factura desde su cuenta de cliente</li>
-                <li><strong>Archivo:</strong> Conserve este correo como comprobante de entrega</li>
-              </ul>
-            </div>
 
 
             <p>
