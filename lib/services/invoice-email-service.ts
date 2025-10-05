@@ -11,6 +11,8 @@ export interface InvoiceEmailData {
   to: string
   subject: string
   message: string
+  xml1_base64?: string  // XML firmado que se envió a Hacienda
+  xml2_base64?: string  // XML de respuesta de Hacienda
   invoiceData?: {
     id: string
     consecutivo: string
@@ -138,10 +140,48 @@ export class InvoiceEmailService {
     
     const message = this.createApprovalEmailHTML(invoice)
     
+    // Preparar XMLs en base64
+    let xml1_base64: string | undefined
+    let xml2_base64: string | undefined
+    
+    // XML1: XML firmado que se envió a Hacienda
+    if (invoice.xmlSigned) {
+      try {
+        xml1_base64 = Buffer.from(invoice.xmlSigned, 'utf8').toString('base64')
+        console.log('📄 XML firmado convertido a base64:', xml1_base64.length, 'caracteres')
+      } catch (error) {
+        console.error('❌ Error convirtiendo XML firmado a base64:', error)
+      }
+    } else {
+      console.warn('⚠️ No se encontró XML firmado en la factura')
+    }
+    
+    // XML2: XML de respuesta de Hacienda
+    if (invoice.haciendaSubmission && invoice.haciendaSubmission['respuesta-xml']) {
+      try {
+        // El XML de respuesta ya viene en base64 desde Hacienda
+        xml2_base64 = invoice.haciendaSubmission['respuesta-xml']
+        console.log('📄 XML de respuesta de Hacienda obtenido:', xml2_base64.length, 'caracteres')
+      } catch (error) {
+        console.error('❌ Error obteniendo XML de respuesta de Hacienda:', error)
+      }
+    } else {
+      console.warn('⚠️ No se encontró XML de respuesta de Hacienda')
+    }
+    
+    console.log('📧 Preparando email con adjuntos:', {
+      hasXml1: !!xml1_base64,
+      hasXml2: !!xml2_base64,
+      xml1Size: xml1_base64?.length || 0,
+      xml2Size: xml2_base64?.length || 0
+    })
+    
     return {
       to: recipientEmail,
       subject,
       message,
+      xml1_base64,
+      xml2_base64,
       invoiceData: {
         id: invoice.id || '',
         consecutivo: invoice.consecutivo || '',
@@ -322,7 +362,7 @@ export class InvoiceEmailService {
         <div class="container">
           <!-- Header -->
           <div class="header">
-            <h1>✅ Factura Electrónica Aprobada</h1>
+            <h1> Factura Electrónica Aprobada</h1>
             <div class="subtitle">Su factura ha sido aceptada por Hacienda</div>
           </div>
 
@@ -332,9 +372,6 @@ export class InvoiceEmailService {
               ¡Hola <strong>${cliente}</strong>!
             </div>
 
-            <div class="status-badge">
-              🎉 APROBADA POR HACIENDA
-            </div>
 
             <p>
               Nos complace informarle que su <strong>Factura Electrónica ${consecutivo}</strong> 
@@ -371,22 +408,30 @@ export class InvoiceEmailService {
               </div>
             </div>
 
+            <!-- Documentos Adjuntos -->
+            <div class="info-box" style="background-color: #f0fdf4; border: 1px solid #bbf7d0;">
+              <h4 style="color: #166534;">📎 Documentos Adjuntos</h4>
+              <p style="margin: 15px 0; font-size: 15px; line-height: 1.6; color: #166534;">
+                Adjunto a este correo encontrará un <strong>Comprobante Electrónico en formato XML</strong> y su correspondiente 
+                <strong>representación en formato PDF</strong>, por concepto de facturación de <strong>Ketch Corporation SA</strong>. 
+                Lo anterior con base en las especificaciones del <strong>Ministerio de Hacienda</strong>.
+              </p>
+            </div>
+
             <!-- Información Importante -->
             <div class="info-box">
               <h4>📌 Información Importante</h4>
               <ul>
                 <li><strong>Válida Fiscalmente:</strong> Esta factura es completamente válida para efectos fiscales</li>
                 <li><strong>Registro Hacienda:</strong> El documento está registrado en los sistemas oficiales</li>
+                <li><strong>XMLs Adjuntos:</strong> Este correo incluye los archivos XML oficiales</li>
+                <li><strong>XML Firmado:</strong> Documento firmado digitalmente enviado a Hacienda</li>
+                <li><strong>XML Respuesta:</strong> Confirmación oficial de Hacienda</li>
                 <li><strong>Descarga:</strong> Puede descargar su factura desde su cuenta de cliente</li>
                 <li><strong>Archivo:</strong> Conserve este correo como comprobante de entrega</li>
               </ul>
             </div>
 
-            <!-- Acciones -->
-            <div class="actions">
-              <a href="#" class="btn">📄 Ver Factura</a>
-              <a href="#" class="btn">💾 Descargar PDF</a>
-            </div>
 
             <p>
               Si tiene alguna pregunta sobre esta factura, no dude en contactarnos. 
@@ -402,11 +447,11 @@ export class InvoiceEmailService {
           <div class="footer">
             <p>
               Este correo fue enviado automáticamente por nuestro sistema de facturación electrónica.<br>
-              <a href="#">InnoSell Costa Rica</a> | 
+              <a href="#">InvoSell Costa Rica</a> | 
               <a href="#">Soporte Técnico</a>
             </p>
             <p style="margin-top: 15px; font-size: 12px;">
-              © ${new Date().getFullYear()} InnoSell. Todos los derechos reservados.
+              © 2025 InvoSell. Todos los derechos reservados.
             </p>
           </div>
         </div>
