@@ -38,11 +38,11 @@ export interface InvoiceEmailResult {
 
 /**
  * Servicio para enviar emails de facturas aprobadas
- * Usa el endpoint específico en localhost:8000/email
+ * Usa el endpoint de producción en api.innovasmartcr.com/email
  */
 export class InvoiceEmailService {
-  private static readonly EMAIL_ENDPOINT = 'http://localhost:8000/email'
-  private static readonly API_KEY = 'tu-api-key-super-secreta-123'
+  private static readonly EMAIL_ENDPOINT = 'https://api.innovasmartcr.com/email'
+  private static readonly API_KEY = 'ae2cda74a93f34fc9093ea31358ba5b500d43a82ff1fc7a1bae1604e835105d2'
 
   /**
    * Envía email cuando una factura es aprobada por Hacienda

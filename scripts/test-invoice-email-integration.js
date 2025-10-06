@@ -28,7 +28,7 @@ async function testEmailServiceAvailability() {
   log('\n🔍 Verificando disponibilidad del servicio de email...', 'cyan');
   
   try {
-    const response = await fetch('http://localhost:8000/email/health', {
+    const response = await fetch('https://api.innovasmartcr.com/email/health', {
       method: 'GET',
       headers: {
         'X-API-Key': 'tu-api-key-super-secreta-123'
@@ -68,7 +68,7 @@ async function sendTestEmail() {
               <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
                 <h3>📊 Información de la Prueba:</h3>
                 <ul>
-                  <li><strong>Endpoint:</strong> http://localhost:8000/email</li>
+                  <li><strong>Endpoint:</strong> https://api.innovasmartcr.com/email</li>
                   <li><strong>Destinatario:</strong> josuexrl19@gmail.com</li>
                   <li><strong>Fecha:</strong> ${new Date().toLocaleString('es-ES')}</li>
                   <li><strong>Propósito:</strong> Verificar integración de emails de facturas aprobadas</li>
@@ -107,7 +107,7 @@ async function sendTestEmail() {
   };
 
   try {
-    const response = await fetch('http://localhost:8000/email', {
+    const response = await fetch('https://api.innovasmartcr.com/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ async function simulateInvoiceApproval() {
       `
     };
 
-    const response = await fetch('http://localhost:8000/email', {
+    const response = await fetch('https://api.innovasmartcr.com/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -73,7 +73,7 @@ async function testEmailFlow() {
     // 3. Simular llamada directa al endpoint de email
     log('\n🔗 Paso 3: Probando endpoint directo...', 'cyan');
     
-    const directResponse = await fetch('http://localhost:8000/email', {
+    const directResponse = await fetch('https://api.innovasmartcr.com/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ async function testEmailFlow() {
                   <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
                     <h3>📊 Información de la Prueba:</h3>
                     <ul>
-                      <li><strong>Endpoint:</strong> http://localhost:8000/email</li>
+                      <li><strong>Endpoint:</strong> https://api.innovasmartcr.com/email</li>
                       <li><strong>Método:</strong> POST directo</li>
                       <li><strong>Destinatario:</strong> ${testEmail}</li>
                       <li><strong>Fecha:</strong> ${new Date().toLocaleString('es-ES')}</li>

@@ -19,8 +19,8 @@ export interface SigningResponse {
 }
 
 export class DigitalSignatureService {
-  private static readonly SIGNING_API_URL = 'http://localhost:8000/php-signing-service-secure.php'
-  private static readonly API_KEY = process.env.SIGNING_API_KEY || 'tu-api-key-super-secreta-123'
+  private static readonly SIGNING_API_URL = 'https://api.innovasmartcr.com/sign'
+  private static readonly API_KEY = 'ae2cda74a93f34fc9093ea31358ba5b500d43a82ff1fc7a1bae1604e835105d2'
 
   /**
    * Firma un XML usando el servicio de firma digital

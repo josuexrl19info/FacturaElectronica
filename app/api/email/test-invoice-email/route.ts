@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Servicio de email no disponible en localhost:8000/email',
+          error: 'Servicio de email no disponible en api.innovasmartcr.com/email',
           details: 'Verifica que el endpoint esté ejecutándose'
         },
         { status: 503 }
@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const response = await fetch('http://localhost:8000/email', {
+        const response = await fetch('https://api.innovasmartcr.com/email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': 'tu-api-key-super-secreta-123'
+            'X-API-Key': 'ae2cda74a93f34fc9093ea31358ba5b500d43a82ff1fc7a1bae1604e835105d2'
           },
           body: JSON.stringify(emailData)
         })
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         available: true,
-        endpoint: 'http://localhost:8000/email',
+        endpoint: 'https://api.innovasmartcr.com/email',
         message: 'Servicio de email disponible'
       })
     } else {
@@ -148,9 +148,9 @@ export async function GET(request: NextRequest) {
         {
           success: false,
           available: false,
-          endpoint: 'http://localhost:8000/email',
+          endpoint: 'https://api.innovasmartcr.com/email',
           error: 'Servicio de email no disponible',
-          message: 'Verifica que el endpoint esté ejecutándose en localhost:8000'
+          message: 'Verifica que el endpoint esté ejecutándose en api.innovasmartcr.com'
         },
         { status: 503 }
       )
