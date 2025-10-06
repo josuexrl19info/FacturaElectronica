@@ -1,99 +1,51 @@
 import jsPDF from 'jspdf'
+import sharp from 'sharp'
 
-// Función para verificar si un logo es demasiado grande para el PDF
-function isLogoTooBig(logoData: string, maxSizeKB: number = 5000): boolean {
-  const sizeKB = logoData.length / 1024
-  return sizeKB > maxSizeKB
-}
-
-// Función para comprimir logos manteniendo la imagen
+// Función para optimizar logo desde Firebase (base64 puro) usando Sharp
 function optimizeLogoForPDF(logoData: string): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     try {
-      console.log('🖼️ [PDF] Comprimiendo logo manteniendo la imagen...')
+      console.log('🖼️ [PDF] Optimizando logo para el PDF...')
       
+      // El logo desde Firebase viene como base64 puro (sin data:image/ prefix)
       const originalSize = Buffer.byteLength(logoData, 'utf8')
-      const originalSizeMB = originalSize / (1024 * 1024)
+      const originalSizeKB = originalSize / 1024
       
-      console.log(`🖼️ [PDF] Logo original: ${originalSizeMB.toFixed(2)} MB`)
+      console.log(`🖼️ [PDF] Logo original: ${originalSizeKB.toFixed(0)}KB`)
       
-      // Si el logo es muy grande, aplicar compresión de imagen
-      if (originalSizeMB > 0.1) { // 100KB
-        console.log(`🔧 [PDF] Logo grande (${originalSizeMB.toFixed(2)} MB), aplicando compresión de imagen...`)
-        
-        // Crear una versión comprimida del logo como imagen pequeña
-        const compressedLogo = createCompressedImageLogo(logoData)
-        
-        const compressedSize = Buffer.byteLength(compressedLogo, 'utf8')
-        const compressedSizeMB = compressedSize / (1024 * 1024)
-        
-        console.log(`✅ [PDF] Logo comprimido: ${compressedSizeMB.toFixed(2)} MB`)
-        console.log(`📊 [PDF] Reducción: ${((originalSize - compressedSize) / originalSize * 100).toFixed(1)}%`)
-        
-        resolve(compressedLogo)
-      } else {
-        console.log(`✅ [PDF] Logo de tamaño aceptable (${originalSizeMB.toFixed(2)} MB)`)
-        resolve(logoData)
-      }
+      // Convertir base64 a buffer
+      const imageBuffer = Buffer.from(logoData, 'base64')
+      
+      // Redimensionar a máximo 500x500 píxeles para alta calidad
+      const maxSize = 500
+      
+      // Usar Sharp para optimizar la imagen
+      const optimizedBuffer = await sharp(imageBuffer)
+        .resize(maxSize, maxSize, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .png({
+          quality: 90, // Alta calidad pero comprimido
+          compressionLevel: 6 // Balance entre tamaño y calidad
+        })
+        .toBuffer()
+      
+      // Convertir de vuelta a base64
+      const optimizedBase64 = optimizedBuffer.toString('base64')
+      const optimizedSizeKB = Buffer.byteLength(optimizedBase64, 'utf8') / 1024
+      
+      console.log(`✅ [PDF] Logo optimizado de ${originalSizeKB.toFixed(0)}KB a ${optimizedSizeKB.toFixed(0)}KB`)
+      console.log(`📊 [PDF] Reducción: ${((originalSizeKB - optimizedSizeKB) / originalSizeKB * 100).toFixed(1)}%`)
+      
+      resolve(optimizedBase64)
+      
     } catch (error) {
-      console.warn('🖼️ [PDF] Error procesando logo:', error)
-      // En caso de error, crear un logo comprimido
-      resolve(createCompressedImageLogo(logoData))
+      console.warn('🖼️ [PDF] Error optimizando logo:', error)
+      // En caso de error, retornar el logo original
+      resolve(logoData)
     }
   })
-}
-
-// Función para crear un logo comprimido manteniendo la imagen original con calidad reducida
-function createCompressedImageLogo(originalLogo?: string): string {
-  // Si tenemos el logo original, crear una versión muy pequeña pero válida
-  if (originalLogo && originalLogo.startsWith('data:image/')) {
-    try {
-      console.log('🔧 [PDF] Creando versión muy pequeña pero válida del logo...')
-      
-      // En lugar de truncar el base64 (que corrompe la imagen), 
-      // creamos un logo placeholder que representa la empresa
-      const companyLogo = createCompanyLogoPlaceholder()
-      
-      console.log(`📊 [PDF] Logo original omitido, usando placeholder de empresa`)
-      
-      // jsPDF no soporta SVG, retornar cadena vacía para omitir logo
-      return ''
-    } catch (error) {
-      console.warn('🖼️ [PDF] Error procesando logo original:', error)
-    }
-  }
-  
-  // Si no tenemos logo original, crear un logo simple pero visible
-  console.log('🖼️ [PDF] Creando logo simple pero visible')
-  
-  // Crear un logo simple como imagen PNG en base64 (pequeña pero visible)
-  const simpleLogoPNG = createCompanyLogoPlaceholder()
-  
-  // jsPDF no soporta SVG, retornar cadena vacía para omitir logo
-  return ''
-}
-
-// Función para crear un placeholder de logo de empresa
-function createCompanyLogoPlaceholder(): string {
-  // jsPDF no soporta SVG, así que simplemente retornamos cadena vacía
-  // para que se muestre el placeholder de texto "LOGO"
-  return ''
-}
-
-// Función para crear un logo simple pero visible (deprecated)
-function createSimpleLogoPNG(): string {
-  // Crear un logo simple como imagen PNG en base64 (pequeña pero visible)
-  // Esto es un PNG de 100x50 píxeles con un rectángulo y texto
-  const simpleLogoSVG = `
-    <svg width="100" height="50" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="50" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>
-      <text x="50" y="30" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="12" fill="#6c757d">LOGO</text>
-    </svg>
-  `
-  
-  // Convertir SVG a base64
-  const base64Logo = Buffer.from(simpleLogoSVG.trim()).toString('base64')
-  return base64Logo
 }
 
 // Función para convertir colores oklch a hex basado en el CSS de V0
@@ -218,12 +170,13 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   
   // Debug de IVA
   console.log('🔍 [PDF] Debug IVA:', {
-    'invoiceData.invoice?.impuestos': invoiceData.invoice?.impuestos,
-    'invoiceData.impuestos': invoiceData.impuestos,
     'invoiceData.invoice?.totalImpuesto': invoiceData.invoice?.totalImpuesto,
     'invoiceData.totalImpuesto': invoiceData.totalImpuesto,
+    'invoiceData.invoice?.impuestos': invoiceData.invoice?.impuestos,
+    'invoiceData.impuestos': invoiceData.impuestos,
     'invoiceData.invoice?.iva': invoiceData.invoice?.iva,
-    'invoiceData.iva': invoiceData.iva
+    'invoiceData.iva': invoiceData.iva,
+    'IVA final mapeado': invoiceData.invoice?.totalImpuesto || invoiceData.totalImpuesto || invoiceData.invoice?.impuestos || invoiceData.impuestos || 0
   })
   
   // Colores basados en la captura real
@@ -264,41 +217,34 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
       }
       
       if (logoData && logoData.length > 0) {
-        console.log(`🖼️ [PDF] Procesando logo de la empresa...`)
+        console.log(`🖼️ [PDF] Procesando logo de la empresa desde Firebase...`)
         
-        // Optimizar logo antes de agregarlo (usar placeholder si es muy grande)
+        // Optimizar logo antes de agregarlo (redimensionar y comprimir)
         const optimizedLogo = await optimizeLogoForPDF(logoData)
         
         if (optimizedLogo && optimizedLogo !== '') {
           try {
-            // Procesar como imagen (placeholder o original)
-            let format = 'PNG'
-            let base64Data = optimizedLogo
+            // El logo optimizado viene como base64 puro desde Sharp
+            const base64Data = optimizedLogo
+            const format = 'PNG' // Sharp siempre devuelve PNG
             
-            if (optimizedLogo.startsWith('data:image/svg+xml')) {
-              // jsPDF no soporta SVG, omitir logo
-              console.log('🖼️ [PDF] SVG detectado, omitiendo logo (jsPDF no soporta SVG)')
+            // Verificar que el base64 sea válido antes de agregarlo
+            if (base64Data.length > 0 && base64Data.length % 4 === 0) {
+              // Agregar el logo optimizado al PDF
+              doc.addImage(base64Data, format, margin, yPosition, 35, 30)
+              console.log(`🖼️ [PDF] Logo optimizado agregado al PDF (${format}) - Tamaño: ${Math.round(base64Data.length / 1024)}KB`)
+              logoLoaded = true
+            } else {
+              console.log('🖼️ [PDF] Logo base64 inválido, omitiendo')
               logoLoaded = false
-              return
-            } else if (optimizedLogo.startsWith('data:image/')) {
-              const formatMatch = optimizedLogo.match(/data:image\/([^;]+)/)
-              if (formatMatch) {
-                format = formatMatch[1].toUpperCase()
-                base64Data = optimizedLogo.replace(/^data:image\/[^;]+;base64,/, '')
-              }
             }
-            
-            // Agregar el logo (placeholder o original) al PDF
-            doc.addImage(base64Data, format, margin, yPosition, 35, 30)
-            console.log(`🖼️ [PDF] Logo agregado al PDF (${format})`)
-            logoLoaded = true
           } catch (logoError) {
-            console.warn('🖼️ [PDF] Error agregando logo al PDF:', logoError.message)
+            console.warn('🖼️ [PDF] Error agregando logo al PDF:', logoError instanceof Error ? logoError.message : String(logoError))
             // Si hay error, no agregar logo pero continuar
             logoLoaded = false
           }
         } else {
-          console.log('🖼️ [PDF] Logo no se pudo procesar')
+          console.log('🖼️ [PDF] Logo omitido (error en procesamiento)')
           logoLoaded = false
         }
       }
@@ -741,7 +687,7 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     `Total Exento: ${formatCurrency(invoiceData.totalExento || invoiceData.invoice?.totalExento || 0, currency)}`,
     `Subtotal: ${formatCurrency(invoiceData.subtotal || invoiceData.invoice?.subtotal || 0, currency)}`,
     `Descuento: ${formatCurrency(invoiceData.descuentos || invoiceData.invoice?.descuentos || 0, currency)}`,
-    `IVA: ${formatCurrency(invoiceData.invoice?.impuestos || invoiceData.impuestos || 0, currency)}`,
+    `IVA: ${formatCurrency(invoiceData.invoice?.totalImpuesto || invoiceData.totalImpuesto || invoiceData.invoice?.impuestos || invoiceData.impuestos || 0, currency)}`,
     `IVA Devuelto: ${formatCurrency(invoiceData.ivaDevuelto || invoiceData.invoice?.ivaDevuelto || 0, currency)}`
   ]
   
@@ -840,7 +786,7 @@ export async function formatInvoiceDataForPDFOptimized(invoice: any, company: an
     }
   }
 
-  return {
+  const result = {
     invoice: {
       ...invoice,
       tipo: 'Factura Electrónica',

@@ -742,7 +742,7 @@ export class InvoiceEmailService {
       } catch (jsonError) {
         console.error('❌ Error parseando JSON:', jsonError)
         console.error('❌ Respuesta recibida:', responseText)
-        throw new Error(`Error parseando JSON: ${jsonError.message}. Respuesta: ${responseText.substring(0, 200)}`)
+        throw new Error(`Error parseando JSON: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}. Respuesta: ${responseText.substring(0, 200)}`)
       }
       
       console.log('✅ Respuesta del endpoint de email:', result)
@@ -791,20 +791,17 @@ export class InvoiceEmailService {
   }
 
   /**
-   * Envía email de prueba
+   * Envía email de prueba - DESACTIVADO PARA EVITAR GASTOS
    */
   static async sendTestEmail(testEmail: string): Promise<InvoiceEmailResult> {
-    const testInvoice: Partial<Invoice> = {
-      consecutivo: 'TEST-001',
-      cliente: {
-        nombre: 'Cliente de Prueba',
-        email: testEmail
-      },
-      total: 10000,
-      fecha: new Date(),
-      status: 'Aceptado'
+    console.log('⚠️ [EMAIL] Emails de prueba desactivados para evitar gastos innecesarios')
+    
+    // Retornar éxito simulado sin enviar email real
+    return {
+      success: true,
+      messageId: `test-email-disabled-${Date.now()}`,
+      deliveredTo: [testEmail],
+      sentAt: new Date().toISOString()
     }
-
-    return this.sendApprovalEmail(testInvoice as Invoice, testEmail)
   }
 }

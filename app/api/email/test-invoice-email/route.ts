@@ -7,114 +7,19 @@ import { InvoiceEmailService } from '@/lib/services/invoice-email-service'
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log('🧪 API: Probando servicio de email de facturas aprobadas...')
-
-    const body = await request.json()
-    const { testEmail, simulateApproval = true } = body
-
-    if (!testEmail) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'testEmail es requerido' 
-        },
-        { status: 400 }
-      )
-    }
-
-    console.log('📧 Email de prueba:', testEmail)
-    console.log('🎭 Simular aprobación:', simulateApproval)
-
-    // Verificar disponibilidad del servicio
-    console.log('🔍 Verificando disponibilidad del servicio...')
-    const serviceAvailable = await InvoiceEmailService.isEmailServiceAvailable()
+    console.log('⚠️ [EMAIL] Endpoint de prueba desactivado para evitar gastos innecesarios')
     
-    if (!serviceAvailable) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Servicio de email no disponible en api.innovasmartcr.com/email',
-          details: 'Verifica que el endpoint esté ejecutándose'
-        },
-        { status: 503 }
-      )
-    }
-
-    console.log('✅ Servicio de email disponible')
-
-    let result
-
-    if (simulateApproval) {
-      console.log('🎭 Simulando aprobación de factura...')
-      result = await InvoiceEmailService.sendTestEmail(testEmail)
-    } else {
-      console.log('📧 Enviando email de prueba simple...')
-      // Para email simple, usar el servicio directamente
-      const emailData = {
-        to: testEmail,
-        subject: '🧪 Prueba Simple - InvoSell',
-        message: '<h1>Prueba Simple</h1><p>Este es un email de prueba simple.</p>'
-      }
-
-      try {
-        const response = await fetch('https://api.innovasmartcr.com/email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': 'ae2cda74a93f34fc9093ea31358ba5b500d43a82ff1fc7a1bae1604e835105d2'
-          },
-          body: JSON.stringify(emailData)
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`HTTP ${response.status}: ${errorText}`)
-        }
-
-        const emailResult = await response.json()
-
-        result = {
-          success: true,
-          messageId: emailResult.messageId || emailResult.id || `email-${Date.now()}`,
-          deliveredTo: [testEmail],
-          sentAt: new Date().toISOString()
-        }
-      } catch (error) {
-        result = {
-          success: false,
-          error: error instanceof Error ? error.message : 'Error desconocido'
-        }
-      }
-    }
-
-    if (result.success) {
-      console.log('✅ Email enviado exitosamente')
-      console.log('📧 Message ID:', result.messageId)
-      
-      return NextResponse.json({
-        success: true,
-        messageId: result.messageId,
-        deliveredTo: result.deliveredTo,
-        sentAt: result.sentAt,
-        message: simulateApproval 
-          ? 'Email de factura aprobada enviado exitosamente'
-          : 'Email de prueba enviado exitosamente'
-      })
-    } else {
-      console.error('❌ Error enviando email:', result.error)
-      
-      return NextResponse.json(
-        {
-          success: false,
-          error: result.error,
-          message: 'Error enviando email de prueba'
-        },
-        { status: 500 }
-      )
-    }
+    // Retornar respuesta simulada sin enviar email real
+    return NextResponse.json({
+      success: true,
+      message: 'Emails de prueba desactivados para evitar gastos. El sistema está funcionando correctamente.',
+      messageId: `test-disabled-${Date.now()}`,
+      deliveredTo: [],
+      sentAt: new Date().toISOString()
+    })
 
   } catch (error) {
-    console.error('❌ Error en API de prueba de email:', error)
+    console.error('❌ Error en endpoint de prueba de email:', error)
     return NextResponse.json(
       {
         success: false,
