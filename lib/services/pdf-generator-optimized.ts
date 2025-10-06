@@ -216,6 +216,16 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     'paymentMethodName': getPaymentMethodName(formaPago)
   })
   
+  // Debug de IVA
+  console.log('🔍 [PDF] Debug IVA:', {
+    'invoiceData.invoice?.impuestos': invoiceData.invoice?.impuestos,
+    'invoiceData.impuestos': invoiceData.impuestos,
+    'invoiceData.invoice?.totalImpuesto': invoiceData.invoice?.totalImpuesto,
+    'invoiceData.totalImpuesto': invoiceData.totalImpuesto,
+    'invoiceData.invoice?.iva': invoiceData.invoice?.iva,
+    'invoiceData.iva': invoiceData.iva
+  })
+  
   // Colores basados en la captura real
   const colors = {
     background: '#FFFFFF',
@@ -493,7 +503,7 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     `Fecha: ${invoiceData.fechaEmision || invoiceData.invoice?.fechaEmision || invoiceData.haciendaResponse?.fecha || 'N/A'}`,
     `Elaborado por: ${invoiceData.elaboradoPor || invoiceData.invoice?.elaboradoPor || 'Sistema de Facturación v4.4'}`,
     `Moneda: ${getCurrencyName(currency)}`,
-    `Forma de Pago: ${getPaymentMethodName(invoiceData.invoice?.formaPago || invoiceData.formaPago || '01')}`
+    `Forma de Pago: ${getPaymentMethodName(invoiceData.invoice?.paymentMethod || invoiceData.invoice?.formaPago || invoiceData.formaPago || '01')}`
   ]
   
   let docY = yPosition + 8

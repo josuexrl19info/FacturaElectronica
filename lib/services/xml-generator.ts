@@ -81,6 +81,20 @@ export interface FacturaData {
 
 export class XMLGenerator {
   /**
+   * Formatea un número a máximo 5 decimales para cumplir con las especificaciones de Hacienda
+   */
+  private static formatAmount(amount: number | string | null | undefined): string {
+    // Manejar valores nulos o indefinidos
+    if (amount === null || amount === undefined) return '0'
+    
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount
+    if (isNaN(num)) return '0'
+    
+    // Formatear a máximo 5 decimales, eliminando ceros innecesarios
+    return num.toFixed(5).replace(/\.?0+$/, '') || '0'
+  }
+
+  /**
    * Convierte códigos de ubicación completos a códigos relativos para Hacienda
    * Provincia: se mantiene igual
    * Cantón: se resta el prefijo de provincia (ej: 302 - 300 = 02)
@@ -135,23 +149,23 @@ export class XMLGenerator {
   <ResumenFactura>
     <CodigoTipoMoneda>
       <CodigoMoneda>${this.escapeXml(facturaData.codigoMoneda)}</CodigoMoneda>
-      <TipoCambio>${facturaData.tipoCambio}</TipoCambio>
+      <TipoCambio>${this.formatAmount(facturaData.tipoCambio)}</TipoCambio>
     </CodigoTipoMoneda>
-    <TotalServGravados>${facturaData.totalServGravados}</TotalServGravados>
-    <TotalGravado>${facturaData.totalGravado}</TotalGravado>
-    <TotalVenta>${facturaData.totalVenta}</TotalVenta>
-    <TotalVentaNeta>${facturaData.totalVentaNeta}</TotalVentaNeta>
+    <TotalServGravados>${this.formatAmount(facturaData.totalServGravados)}</TotalServGravados>
+    <TotalGravado>${this.formatAmount(facturaData.totalGravado)}</TotalGravado>
+    <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>
     <TotalDesgloseImpuesto>
       <Codigo>${this.escapeXml(facturaData.totalDesgloseImpuesto.codigo)}</Codigo>
       <CodigoTarifaIVA>${this.escapeXml(facturaData.totalDesgloseImpuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
-      <TotalMontoImpuesto>${facturaData.totalDesgloseImpuesto.totalMontoImpuesto}</TotalMontoImpuesto>
+      <TotalMontoImpuesto>${this.formatAmount(facturaData.totalDesgloseImpuesto.totalMontoImpuesto)}</TotalMontoImpuesto>
     </TotalDesgloseImpuesto>
-    <TotalImpuesto>${facturaData.totalImpuesto}</TotalImpuesto>
+    <TotalImpuesto>${this.formatAmount(facturaData.totalImpuesto)}</TotalImpuesto>
     <MedioPago>
       <TipoMedioPago>${this.escapeXml(facturaData.tipoMedioPago)}</TipoMedioPago>
-      <TotalMedioPago>${facturaData.totalMedioPago}</TotalMedioPago>
+      <TotalMedioPago>${this.formatAmount(facturaData.totalMedioPago)}</TotalMedioPago>
     </MedioPago>
-    <TotalComprobante>${facturaData.totalComprobante}</TotalComprobante>
+    <TotalComprobante>${this.formatAmount(facturaData.totalComprobante)}</TotalComprobante>
   </ResumenFactura>
   
   <Otros>
@@ -234,22 +248,22 @@ export class XMLGenerator {
     return `<LineaDetalle>
   <NumeroLinea>${linea.numeroLinea}</NumeroLinea>
   <CodigoCABYS>${this.escapeXml(linea.codigoCABYS)}</CodigoCABYS>
-  <Cantidad>${linea.cantidad}</Cantidad>
+  <Cantidad>${this.formatAmount(linea.cantidad)}</Cantidad>
   <UnidadMedida>${this.escapeXml(linea.unidadMedida)}</UnidadMedida>
   <Detalle>${this.escapeXml(linea.detalle)}</Detalle>
-  <PrecioUnitario>${linea.precioUnitario}</PrecioUnitario>
-  <MontoTotal>${linea.montoTotal}</MontoTotal>
-  <SubTotal>${linea.subTotal}</SubTotal>
-  <BaseImponible>${linea.baseImponible}</BaseImponible>
+  <PrecioUnitario>${this.formatAmount(linea.precioUnitario)}</PrecioUnitario>
+  <MontoTotal>${this.formatAmount(linea.montoTotal)}</MontoTotal>
+  <SubTotal>${this.formatAmount(linea.subTotal)}</SubTotal>
+  <BaseImponible>${this.formatAmount(linea.baseImponible)}</BaseImponible>
   <Impuesto>
     <Codigo>${this.escapeXml(linea.impuesto.codigo)}</Codigo>
     <CodigoTarifaIVA>${this.escapeXml(linea.impuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
-    <Tarifa>${linea.impuesto.tarifa}</Tarifa>
-    <Monto>${linea.impuesto.monto}</Monto>
+    <Tarifa>${this.formatAmount(linea.impuesto.tarifa)}</Tarifa>
+    <Monto>${this.formatAmount(linea.impuesto.monto)}</Monto>
   </Impuesto>
-  <ImpuestoAsumidoEmisorFabrica>${linea.impuestoAsumidoEmisorFabrica}</ImpuestoAsumidoEmisorFabrica>
-  <ImpuestoNeto>${linea.impuestoNeto}</ImpuestoNeto>
-  <MontoTotalLinea>${linea.montoTotalLinea}</MontoTotalLinea>
+  <ImpuestoAsumidoEmisorFabrica>${this.formatAmount(linea.impuestoAsumidoEmisorFabrica)}</ImpuestoAsumidoEmisorFabrica>
+  <ImpuestoNeto>${this.formatAmount(linea.impuestoNeto)}</ImpuestoNeto>
+  <MontoTotalLinea>${this.formatAmount(linea.montoTotalLinea)}</MontoTotalLinea>
 </LineaDetalle>`
   }
 
