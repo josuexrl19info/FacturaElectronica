@@ -323,6 +323,7 @@ export class InvoiceEmailService {
       pdf_filename,
       xml1_filename,
       xml2_filename,
+      bcc: bccRecipients,  // ✅ Agregar BCC al objeto de retorno
       invoiceData: {
         id: invoice.id || '',
         consecutivo: invoice.consecutivo || '',

@@ -458,9 +458,30 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.setFontSize(9) // Reducido a 9 para igualar con empresa y cliente
   doc.setFont('times', 'normal')
   
+  // Extraer consecutivo de Hacienda (posiciones 21-41 de la clave, 20 caracteres)
+  const claveHacienda = invoiceData.haciendaResponse?.clave || invoiceData.clave || invoiceData.invoice?.clave || ''
+  const consecutivoHacienda = claveHacienda.length >= 41 ? claveHacienda.substring(21, 41) : (invoiceData.consecutivo || invoiceData.invoice?.consecutivo || 'N/A')
+  
+  // Formatear fecha al formato de Costa Rica (DD/MM/YYYY HH:MM)
+  const fechaRaw = invoiceData.fechaEmision || invoiceData.invoice?.fechaEmision || invoiceData.haciendaResponse?.fecha || ''
+  let fechaFormateada = 'N/A'
+  if (fechaRaw) {
+    try {
+      const fecha = new Date(fechaRaw)
+      const dia = String(fecha.getDate()).padStart(2, '0')
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+      const anio = fecha.getFullYear()
+      const horas = String(fecha.getHours()).padStart(2, '0')
+      const minutos = String(fecha.getMinutes()).padStart(2, '0')
+      fechaFormateada = `${dia}/${mes}/${anio} ${horas}:${minutos}`
+    } catch (e) {
+      fechaFormateada = fechaRaw
+    }
+  }
+  
   const documentInfo = [
-    `Consecutivo: ${invoiceData.consecutivo || invoiceData.invoice?.consecutivo || 'N/A'}`,
-    `Fecha: ${invoiceData.fechaEmision || invoiceData.invoice?.fechaEmision || invoiceData.haciendaResponse?.fecha || 'N/A'}`,
+    `Consecutivo: ${consecutivoHacienda}`,
+    `Fecha: ${fechaFormateada}`,
     `Elaborado por: ${invoiceData.elaboradoPor || invoiceData.invoice?.elaboradoPor || 'Sistema de Facturación v4.4'}`,
     `Moneda: ${getCurrencyName(currency)}`,
     `Forma de Pago: ${getPaymentMethodName(invoiceData.invoice?.paymentMethod || invoiceData.invoice?.formaPago || invoiceData.formaPago || '01')}`
