@@ -14,6 +14,10 @@ export function getBaseUrl(): string {
   if (typeof window !== 'undefined') {
     return ''
   }
+  // Prefiere una variable solo de servidor si está definida
+  if (process.env.SITE_URL) {
+    return process.env.SITE_URL
+  }
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return process.env.NEXT_PUBLIC_SITE_URL
   }
