@@ -12,6 +12,8 @@ export interface InvoiceEmailData {
   to: string
   subject: string
   message: string
+  /** Destinatarios en copia oculta */
+  bcc?: string[]
   xml1_base64?: string  // XML firmado que se envió a Hacienda
   xml2_base64?: string  // XML de respuesta de Hacienda
   pdf_base64?: string   // PDF de la factura en base64
@@ -252,6 +254,13 @@ export class InvoiceEmailService {
       console.warn('⚠️ Continuando sin PDF adjunto')
     }
     
+    // Determinar BCC (correo de la empresa u otros)
+    const bccRecipients: string[] = []
+    const companyEmail = (companyData as any)?.email || (companyData as any)?.correo || (companyData as any)?.emailAddress
+    if (companyEmail && typeof companyEmail === 'string') {
+      bccRecipients.push(companyEmail)
+    }
+
     // Generar nombres de archivo basados en la clave de Hacienda
     let pdf_filename: string | undefined
     let xml1_filename: string | undefined
