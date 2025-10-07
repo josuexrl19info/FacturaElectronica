@@ -468,11 +468,13 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   if (fechaRaw) {
     try {
       const fecha = new Date(fechaRaw)
-      const dia = String(fecha.getDate()).padStart(2, '0')
-      const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-      const anio = fecha.getFullYear()
-      const horas = String(fecha.getHours()).padStart(2, '0')
-      const minutos = String(fecha.getMinutes()).padStart(2, '0')
+      // Convertir a zona horaria de Costa Rica (America/Costa_Rica)
+      const fechaCostaRica = new Date(fecha.toLocaleString('en-US', { timeZone: 'America/Costa_Rica' }))
+      const dia = String(fechaCostaRica.getDate()).padStart(2, '0')
+      const mes = String(fechaCostaRica.getMonth() + 1).padStart(2, '0')
+      const anio = fechaCostaRica.getFullYear()
+      const horas = String(fechaCostaRica.getHours()).padStart(2, '0')
+      const minutos = String(fechaCostaRica.getMinutes()).padStart(2, '0')
       fechaFormateada = `${dia}/${mes}/${anio} ${horas}:${minutos}`
     } catch (e) {
       fechaFormateada = fechaRaw
