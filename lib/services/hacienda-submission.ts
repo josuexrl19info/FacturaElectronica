@@ -112,6 +112,30 @@ export class HaciendaSubmissionService {
         isBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(submissionRequest.comprobanteXml)
       })
 
+      // Debug del token antes del envío
+      console.log('🔍 Debug del token de autorización:')
+      console.log('  - Token completo:', accessToken)
+      console.log('  - Longitud del token:', accessToken?.length)
+      console.log('  - Primeros 50 caracteres:', accessToken?.substring(0, 50))
+      console.log('  - Últimos 50 caracteres:', accessToken?.substring(accessToken.length - 50))
+      console.log('  - Header Authorization completo:', `Bearer ${accessToken}`)
+
+      // Log de la URL que se está usando
+      console.log('🌐 URL de recepción que se está usando:', companyData.atvCredentials.receptionUrl)
+      console.log('🔍 Validando URL...')
+      
+      // Validar que la URL sea válida
+      try {
+        new URL(companyData.atvCredentials.receptionUrl)
+        console.log('✅ URL válida')
+      } catch (urlError) {
+        console.error('❌ URL inválida:', companyData.atvCredentials.receptionUrl)
+        return {
+          success: false,
+          error: `URL de recepción inválida: ${companyData.atvCredentials.receptionUrl}`
+        }
+      }
+
       // Realizar el envío a Hacienda
       const response = await fetch(companyData.atvCredentials.receptionUrl, {
         method: 'POST',
@@ -187,9 +211,22 @@ export class HaciendaSubmissionService {
 
     } catch (error) {
       console.error('❌ Error al enviar documento a Hacienda:', error)
+      
+      let errorMessage = 'Error desconocido al enviar documento'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('unknown scheme')) {
+          errorMessage = 'URL de recepción de Hacienda inválida. Verifica que la URL esté configurada correctamente.'
+        } else if (error.message.includes('fetch failed')) {
+          errorMessage = 'No se pudo conectar con el servicio de Hacienda. Verifica la URL y tu conexión a internet.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido al enviar documento'
+        error: errorMessage
       }
     }
   }

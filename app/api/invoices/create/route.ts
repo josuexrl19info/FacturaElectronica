@@ -370,8 +370,8 @@ export async function POST(req: NextRequest) {
           }
         } else {
           console.error('❌ Error al enviar documento a Hacienda:', submissionResult.error)
-          // Si falla el envío, marcar como error
-          invoiceData.status = 'Error Envío Hacienda'
+          // Si falla el envío, lanzar error para que se propague al frontend
+          throw new Error(`Error al enviar documento a Hacienda: ${submissionResult.error}`)
         }
       } else {
         console.log('⚠️ Saltando envío a Hacienda - faltan XML firmado, token o receptionUrl')

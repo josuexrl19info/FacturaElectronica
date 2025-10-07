@@ -10,9 +10,9 @@ const nextConfig = {
     unoptimized: true,
   },
   // Configuración para Firebase Hosting
-  output: 'export',
+  // output: 'export', // Comentado para desarrollo - permite API routes dinámicas
   trailingSlash: true,
-  distDir: 'out',
+  // distDir: 'out', // Comentado para desarrollo
 }
 
 export default nextConfig

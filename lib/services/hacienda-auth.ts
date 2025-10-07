@@ -100,6 +100,10 @@ export class HaciendaAuthService {
       console.log('✅ Autenticación exitosa')
       console.log('🎫 Token obtenido:', tokenResponse.access_token.substring(0, 50) + '...')
       console.log('⏰ Expira en:', tokenResponse.expires_in, 'segundos')
+      console.log('🔍 Token completo:', tokenResponse.access_token)
+      console.log('🔍 Token type:', tokenResponse.token_type)
+      console.log('🔍 Scope:', tokenResponse.scope)
+      console.log('🔍 Session state:', tokenResponse.session_state)
 
       return {
         success: true,

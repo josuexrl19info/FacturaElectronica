@@ -23,9 +23,8 @@ export default function SelectCompanyPage() {
   }
 
   const handleCompanyEdit = (companyId: string) => {
-    // TODO: Implementar edición de empresa
     console.log('Edit company:', companyId)
-    // router.push(`/dashboard/settings/company/${companyId}`)
+    router.push(`/onboarding/company?edit=${companyId}`)
   }
 
   const handleAddCompany = () => {

@@ -86,8 +86,9 @@ export function useInvoices(): UseInvoicesReturn {
       return result.invoiceId
     } catch (err) {
       console.error('Error al crear factura:', err)
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-      return null
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage) // Propagar el error para que el modal lo maneje
     } finally {
       setLoading(false)
     }

@@ -29,6 +29,7 @@ import {
 import { InvoiceFormData, InvoiceItemFormData, CONDICIONES_VENTA, METODOS_PAGO, TIPOS_IMPUESTO, TARIFAS_IMPUESTO, calculateInvoiceTotals } from '@/lib/invoice-types'
 import { useClients } from '@/hooks/use-clients'
 import { useProducts } from '@/hooks/use-products'
+import { useToastNotification } from '@/components/providers/toast-provider'
 
 interface InvoiceCreationModalProps {
   onClose: () => void
@@ -48,6 +49,7 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
   
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedClient, setSelectedClient] = useState<any>(null)
+  const toast = useToastNotification()
   const [showProductSelector, setShowProductSelector] = useState(false)
 
   // Hooks para obtener datos
@@ -134,15 +136,48 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
 
   const handleSubmit = async () => {
     if (!formData.clientId || formData.items.length === 0) {
+      toast.error('Datos incompletos', 'Por favor selecciona un cliente y agrega al menos un producto.')
       return
     }
 
     setIsSubmitting(true)
     try {
       await onSubmit(formData)
+      toast.success('Factura creada', 'La factura se ha creado exitosamente.')
       onClose()
     } catch (error) {
       console.error('Error al crear factura:', error)
+      
+      // Mostrar error específico al usuario
+      let errorMessage = 'Error desconocido al crear la factura'
+      let errorTitle = 'Error al crear factura'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Personalizar mensajes según el tipo de error
+        if (error.message.includes('Error al enviar documento a Hacienda')) {
+          errorTitle = 'Error de envío a Hacienda'
+          errorMessage = 'La factura se creó localmente pero no se pudo enviar a Hacienda. Verifica la configuración de las credenciales ATV y las URLs.'
+        } else if (error.message.includes('fetch failed') && error.message.includes('unknown scheme')) {
+          errorTitle = '🔧 URL de Hacienda Incorrecta'
+          errorMessage = 'La URL de recepción de Hacienda no es válida. Para sandbox debe ser: https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
+        } else if (error.message.includes('fetch failed')) {
+          errorTitle = '🌐 Error de conexión con Hacienda'
+          errorMessage = 'No se pudo conectar con el servicio de Hacienda. Verifica tu conexión a internet y las credenciales ATV.'
+        } else if (error.message.includes('unknown scheme')) {
+          errorTitle = '🔧 Error de configuración de URL'
+          errorMessage = 'La URL de recepción de Hacienda no es válida. Verifica que esté configurada correctamente en las credenciales ATV.'
+        } else if (error.message.includes('403')) {
+          errorTitle = '🔑 Error de autorización'
+          errorMessage = 'Las credenciales ATV no son válidas o han expirado. Verifica tu configuración.'
+        } else if (error.message.includes('XML')) {
+          errorTitle = '📄 Error en el documento'
+          errorMessage = 'Hubo un problema al generar o firmar el XML del documento.'
+        }
+      }
+      
+      toast.error(errorTitle, errorMessage)
     } finally {
       setIsSubmitting(false)
     }
