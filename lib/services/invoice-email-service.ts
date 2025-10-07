@@ -309,7 +309,8 @@ export class InvoiceEmailService {
       pdfSize: pdf_base64?.length || 0,
       pdf_filename,
       xml1_filename,
-      xml2_filename
+      xml2_filename,
+      bcc: bccRecipients  // ✅ Agregar BCC al log
     })
     
     return {
