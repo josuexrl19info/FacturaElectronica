@@ -225,7 +225,8 @@ export class InvoiceEmailService {
       }
       
       // Generar PDF en base64 usando el endpoint optimizado
-      const response = await fetch('http://localhost:3000/api/generate-pdf-optimized', {
+      const { getBaseUrl } = await import('../utils')
+      const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
