@@ -110,7 +110,9 @@ export class PDFGeneratorService {
       console.log('📄 Generando PDF final optimizado en base64 para:', invoiceData.number)
       
       // Llamar al endpoint API final optimizado para generar el PDF
-      const response = await fetch('http://localhost:3000/api/generate-pdf-optimized', {
+      // En server usamos base absoluta; en cliente sería relativo
+      const { getBaseUrl } = await import('../utils')
+      const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
