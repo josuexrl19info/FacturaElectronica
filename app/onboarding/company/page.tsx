@@ -105,9 +105,9 @@ export default function CompanyOnboardingPage() {
     atvCredentials: {
       username: "",
       password: "",
-      clientId: "api-stag",
-      receptionUrl: "https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion",
-      loginUrl: "https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token",
+      clientId: "api-prod",
+      receptionUrl: "https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/",
+      loginUrl: "https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token",
     },
     certificate: {
       p12File: null,
@@ -246,12 +246,25 @@ export default function CompanyOnboardingPage() {
   const validateATVCredentials = async () => {
     setIsValidating(true)
     try {
-      const { username, password, clientId } = formData.atvCredentials
+      const { username, password, clientId, loginUrl, receptionUrl } = formData.atvCredentials
+      
+      console.log('🔍 Enviando validación ATV con:', {
+        username,
+        clientId,
+        authUrl: loginUrl,
+        receptionUrl
+      });
       
       const response = await fetch('/api/company/validate-atv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, clientId })
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          clientId, 
+          authUrl: loginUrl,
+          receptionUrl 
+        })
       })
 
       const result = await response.json()
@@ -404,9 +417,9 @@ export default function CompanyOnboardingPage() {
       return `${numbers.slice(0, 1)}-${numbers.slice(1, 5)}-${numbers.slice(5, 9)}`
     } else {
       // Cédula jurídica: 10 dígitos - formato 3-101-123456
-      if (numbers.length <= 3) return numbers
-      if (numbers.length <= 6) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`
+      if (numbers.length <= 1) return numbers
+      if (numbers.length <= 4) return `${numbers.slice(0, 1)}-${numbers.slice(1)}`
+      return `${numbers.slice(0, 1)}-${numbers.slice(1, 4)}-${numbers.slice(4, 10)}`
     }
   }
 

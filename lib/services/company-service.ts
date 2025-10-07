@@ -93,6 +93,13 @@ export class CompanyService {
         certPasswordOriginal: certificate.password
       })
 
+      // Determinar ambiente basado en clientId
+      const environment = atvCredentials.clientId === 'api-stag' ? 'sandbox' : 'production'
+      console.log('🌍 Configurando ambiente:', {
+        clientId: atvCredentials.clientId,
+        environment: environment
+      })
+
       const encryptedAtvPassword = await EncryptionService.encrypt(
         atvCredentials.password,
         masterPassword
@@ -158,7 +165,7 @@ export class CompanyService {
           username: atvCredentials.username,
           password: encryptedAtvPassword,
           clientId: atvCredentials.clientId,
-          environment: 'sandbox', // Por defecto sandbox
+          environment: environment,
           receptionUrl: atvCredentials.receptionUrl,
           authUrl: atvCredentials.loginUrl, // authUrl en lugar de loginUrl
         },

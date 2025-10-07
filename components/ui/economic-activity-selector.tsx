@@ -41,6 +41,7 @@ export function EconomicActivitySelector({
       }
     } else {
       // Limpiar datos si no hay taxId válido
+      setError(null) // Limpiar error también
       setCompanyInfo(null)
       setActivities([])
       stableOnChange(undefined)
@@ -56,7 +57,7 @@ export function EconomicActivitySelector({
     }
 
     setIsLoading(true)
-    setError(null)
+    setError(null) // Limpiar error al inicio
     setCompanyInfo(null)
     setActivities([])
     stableOnChange(undefined)
@@ -69,6 +70,8 @@ export function EconomicActivitySelector({
         throw new Error(data.message || 'Error al consultar información')
       }
 
+      // Si llegamos aquí, la consulta fue exitosa
+      setError(null) // Limpiar cualquier error previo
       setCompanyInfo(data)
       setActivities(data.actividades || [])
       

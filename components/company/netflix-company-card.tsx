@@ -40,12 +40,34 @@ export function NetflixCompanyCard({ company, onSelect, onEdit }: NetflixCompany
   const [imageError, setImageError] = useState(false)
   
   console.log('🎯 NetflixCompanyCard - company:', company)
+  console.log('🎯 NetflixCompanyCard - createdAt:', company.createdAt, typeof company.createdAt)
+  console.log('🎯 NetflixCompanyCard - atvCredentials:', company.atvCredentials)
+  console.log('🎯 NetflixCompanyCard - environment:', company.atvCredentials?.environment)
   console.log('🎯 NetflixCompanyCard - onSelect:', onSelect)
   
   // Convertir fecha de creación
-  const createdAt = company.createdAt?.toDate ? company.createdAt.toDate() : 
-                   company.createdAt ? new Date(company.createdAt) : new Date()
-  const formattedDate = createdAt instanceof Date && !isNaN(createdAt.getTime()) 
+  let createdAt: Date | null = null
+  
+  if (company.createdAt) {
+    // Si ya es un objeto Date (procesado por la API)
+    if (company.createdAt instanceof Date) {
+      createdAt = company.createdAt
+    }
+    // Si es un Timestamp de Firestore (fallback)
+    else if (typeof company.createdAt.toDate === 'function') {
+      createdAt = company.createdAt.toDate()
+    }
+    // Si es un string o número
+    else if (typeof company.createdAt === 'string' || typeof company.createdAt === 'number') {
+      createdAt = new Date(company.createdAt)
+    }
+    // Si es un objeto serializado de Firestore (fallback)
+    else if (company.createdAt._seconds) {
+      createdAt = new Date(company.createdAt._seconds * 1000)
+    }
+  }
+  
+  const formattedDate = createdAt && !isNaN(createdAt.getTime()) 
     ? createdAt.toLocaleDateString('es-CR', {
         year: 'numeric',
         month: 'short',
@@ -103,13 +125,17 @@ export function NetflixCompanyCard({ company, onSelect, onEdit }: NetflixCompany
         </button>
       </div>
 
-      {/* Status badge */}
+      {/* Environment badge */}
       <div className="absolute top-3 left-3 z-10">
         <Badge 
-          variant={company.status === 'Activa' ? 'default' : 'secondary'}
-          className="bg-background/80 backdrop-blur-sm text-xs"
+          variant={company.atvCredentials?.environment === 'sandbox' ? 'secondary' : 'default'}
+          className={`text-xs bg-background/80 backdrop-blur-sm ${
+            company.atvCredentials?.environment === 'sandbox' 
+              ? 'text-orange-800 border-orange-200' 
+              : 'text-green-800 border-green-200'
+          }`}
         >
-          {company.status}
+          {company.atvCredentials?.environment === 'sandbox' ? 'Empresa de Pruebas' : 'Empresa Productiva'}
         </Badge>
       </div>
 

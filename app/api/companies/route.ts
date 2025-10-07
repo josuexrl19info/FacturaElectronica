@@ -33,10 +33,31 @@ export async function GET(req: NextRequest) {
     )
 
     const querySnapshot = await getDocs(q)
-    const companies = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
+    const companies = querySnapshot.docs.map(doc => {
+      const data = doc.data()
+      
+      // Procesar createdAt si existe
+      let processedCreatedAt = data.createdAt
+      if (data.createdAt) {
+        // Si es un Timestamp de Firestore
+        if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+          processedCreatedAt = data.createdAt.toDate()
+        }
+        // Si es un objeto serializado de Firestore
+        else if (data.createdAt._seconds) {
+          processedCreatedAt = new Date(data.createdAt._seconds * 1000)
+        }
+      }
+      
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: processedCreatedAt
+      }
+    })
+
+    console.log('🔍 API Companies - empresas procesadas:', companies.length)
+    console.log('🔍 API Companies - primera empresa createdAt:', companies[0]?.createdAt, typeof companies[0]?.createdAt)
 
     return NextResponse.json(companies, { status: 200 })
 
