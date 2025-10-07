@@ -75,15 +75,31 @@ export class CompanyService {
       // Encriptar datos sensibles
       const masterPassword = EncryptionService.getMasterPassword()
       
-      // Debug: Verificar datos del certificado
-      console.log('🔍 Debug certificado:', {
-        certificateInfo: certificate.certificateInfo,
-        hasCertificateInfo: !!certificate.certificateInfo,
-        subject: certificate.certificateInfo?.subject,
-        validFrom: certificate.certificateInfo?.validFrom,
-        validTo: certificate.certificateInfo?.validTo
-      })
+        // Debug: Verificar datos del certificado
+        console.log('🔍 Debug certificado completo:', {
+          certificate: certificate,
+          certificateInfo: certificate.certificateInfo,
+          hasCertificateInfo: !!certificate.certificateInfo,
+          subject: certificate.certificateInfo?.subject,
+          issuer: certificate.certificateInfo?.issuer,
+          serialNumber: certificate.certificateInfo?.serialNumber,
+          validFrom: certificate.certificateInfo?.validFrom,
+          validTo: certificate.certificateInfo?.validTo
+        })
       
+      console.log('🔐 Debug encriptación:', {
+        masterPassword: masterPassword ? 'Definida' : 'No definida',
+        atvPasswordOriginal: atvCredentials.password,
+        certPasswordOriginal: certificate.password
+      })
+
+      // Determinar ambiente basado en clientId
+      const environment = atvCredentials.clientId === 'api-stag' ? 'sandbox' : 'production'
+      console.log('🌍 Configurando ambiente:', {
+        clientId: atvCredentials.clientId,
+        environment: environment
+      })
+
       const encryptedAtvPassword = await EncryptionService.encrypt(
         atvCredentials.password,
         masterPassword
@@ -92,6 +108,13 @@ export class CompanyService {
         certificate.password,
         masterPassword
       )
+
+      console.log('🔐 Resultado encriptación:', {
+        atvPasswordEncrypted: encryptedAtvPassword,
+        certPasswordEncrypted: encryptedCertPassword,
+        atvPasswordLength: encryptedAtvPassword?.length,
+        certPasswordLength: encryptedCertPassword?.length
+      })
 
       // Usar tenantId del usuario o generar uno nuevo
       const tenantId = userData.tenantId || this.generateTenantId()
@@ -142,7 +165,7 @@ export class CompanyService {
           username: atvCredentials.username,
           password: encryptedAtvPassword,
           clientId: atvCredentials.clientId,
-          environment: 'sandbox', // Por defecto sandbox
+          environment: environment,
           receptionUrl: atvCredentials.receptionUrl,
           authUrl: atvCredentials.loginUrl, // authUrl en lugar de loginUrl
         },

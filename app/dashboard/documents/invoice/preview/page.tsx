@@ -1,10 +1,13 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { InvoicePDFTemplate } from "@/components/pdf/invoice-pdf-template"
 import { Button } from "@/components/ui/button"
 import { Download, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { PDFGeneratorService, PDFInvoiceData } from "@/lib/services/pdf-generator"
+import { toast } from "@/hooks/use-toast"
 
 // Mock data for preview
 const mockInvoiceData = {
@@ -64,11 +67,119 @@ const mockInvoiceData = {
 
 export default function InvoicePreviewPage() {
   const pdfRef = useRef<HTMLDivElement>(null)
+  const searchParams = useSearchParams()
+  const [invoiceData, setInvoiceData] = useState<PDFInvoiceData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleDownloadPDF = () => {
-    console.log("[v0] Downloading PDF...")
-    // Implement PDF generation logic using html2pdf or similar
-    alert("Función de descarga PDF en desarrollo")
+  // Obtener ID de la factura desde los parámetros de URL
+  const invoiceId = searchParams.get('id')
+
+  useEffect(() => {
+    if (invoiceId) {
+      loadInvoiceData(invoiceId)
+    } else {
+      // Usar datos mock si no hay ID
+      setInvoiceData(mockInvoiceData as PDFInvoiceData)
+      setLoading(false)
+    }
+  }, [invoiceId])
+
+  const loadInvoiceData = async (id: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Obtener datos de la factura desde la API
+      const response = await fetch(`/api/invoices/get-by-id?id=${id}`)
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener datos de la factura')
+      }
+
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Error al cargar datos')
+      }
+
+      // Debug: Ver qué datos están llegando
+      console.log('🔍 DEBUG - Company data loaded:', !!data.company)
+      console.log('🔍 DEBUG - Logo available:', !!data.company?.logo?.fileData)
+
+      // Convertir datos de Firestore a formato PDF
+      const pdfData = PDFGeneratorService.convertInvoiceToPDFData(
+        data.invoice,
+        data.company,
+        data.client
+      )
+
+      console.log('🔍 DEBUG - PDF Data logo processed:', !!pdfData.company.logo)
+
+      setInvoiceData(pdfData)
+      setLoading(false)
+    } catch (err) {
+      console.error('Error al cargar datos de la factura:', err)
+      setError('Error al cargar los datos de la factura')
+      setLoading(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!invoiceData) {
+      toast({
+        title: "Error",
+        description: "No hay datos de factura disponibles",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      await PDFGeneratorService.generateAndDownloadPDF(
+        invoiceData, 
+        `Factura_${invoiceData.number}.pdf`
+      )
+      
+      toast({
+        title: "Éxito",
+        description: "PDF descargado correctamente",
+      })
+    } catch (error) {
+      console.error('Error al generar PDF:', error)
+      toast({
+        title: "Error",
+        description: "Error al generar el PDF",
+        variant: "destructive"
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando datos de la factura...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !invoiceData) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error || 'No se encontraron datos de la factura'}</p>
+          <Button asChild>
+            <Link href="/dashboard/documents">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver a Documentos
+            </Link>
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -83,7 +194,7 @@ export default function InvoicePreviewPage() {
             </Button>
             <div>
               <h1 className="text-xl font-bold">Vista Previa de Factura</h1>
-              <p className="text-sm text-muted-foreground">Factura No. {mockInvoiceData.number}</p>
+              <p className="text-sm text-muted-foreground">Factura No. {invoiceData.number}</p>
             </div>
           </div>
           <Button onClick={handleDownloadPDF} className="gap-2 gradient-primary text-white">
@@ -95,7 +206,7 @@ export default function InvoicePreviewPage() {
 
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <InvoicePDFTemplate ref={pdfRef} data={mockInvoiceData} />
+          <InvoicePDFTemplate ref={pdfRef} data={invoiceData} />
         </div>
       </div>
     </div>

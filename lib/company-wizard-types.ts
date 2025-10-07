@@ -2,6 +2,14 @@
  * Tipos para el wizard de creación de empresas
  */
 
+// Tipo para manejar tanto archivos nuevos como datos existentes
+export type LogoData = File | {
+  fileName: string
+  type: string
+  size: number
+  fileData?: string
+} | null
+
 export interface CompanyWizardData {
   // Paso 1: Información Personal
   personalInfo: {
@@ -16,7 +24,7 @@ export interface CompanyWizardData {
     canton: string // Cantón
     district: string // Distrito
     barrio?: string // Barrio (opcional)
-    logo?: File | null // Logo de la empresa
+    logo?: LogoData // Logo de la empresa
     economicActivity?: EconomicActivity // Actividad económica seleccionada
   }
   

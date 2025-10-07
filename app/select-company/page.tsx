@@ -1,21 +1,30 @@
 "use client"
 
-import { useAuth, useCompanies } from "@/lib/firebase-client"
-import { CompanyCard } from "@/components/company/company-card"
+import { useAuth } from "@/lib/firebase-client"
+import { NetflixCompanyCard } from "@/components/company/netflix-company-card"
 import { AddCompanyCard } from "@/components/company/add-company-card"
+import { CompanyLoadingAnimation } from "@/components/ui/company-loading-animation"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { LogOut } from "lucide-react"
+import { LogOut, Plus, TrendingUp, Users, Calendar } from "lucide-react"
+import { useCompanies } from "@/hooks/use-companies"
+import { useCompanySelection } from "@/hooks/use-company-selection"
+import { motion } from "framer-motion"
 
 export default function SelectCompanyPage() {
   const { user, signOut } = useAuth()
-  const { companies, loading } = useCompanies(user?.id)
+  const { companies, loading, error } = useCompanies()
+  const { isLoading, selectedCompany, selectCompany } = useCompanySelection()
   const router = useRouter()
 
-  const handleCompanySelect = (companyId: string) => {
-    // Store selected company in session/context
-    localStorage.setItem("selectedCompanyId", companyId)
-    router.push("/dashboard")
+  const handleCompanySelect = async (company: any) => {
+    console.log('🎯 handleCompanySelect called with:', company)
+    await selectCompany(company)
+  }
+
+  const handleCompanyEdit = (companyId: string) => {
+    console.log('Edit company:', companyId)
+    router.push(`/onboarding/company?edit=${companyId}`)
   }
 
   const handleAddCompany = () => {
@@ -25,6 +34,17 @@ export default function SelectCompanyPage() {
   const handleSignOut = async () => {
     await signOut()
     router.push("/")
+  }
+
+  // Mostrar animación de carga si se está seleccionando una empresa
+  if (isLoading && selectedCompany) {
+    return (
+      <CompanyLoadingAnimation
+        companyName={selectedCompany.nombreComercial}
+        companyLogo={selectedCompany.logo}
+        brandColor={selectedCompany.brandColor}
+      />
+    )
   }
 
   if (loading) {
@@ -61,89 +81,113 @@ export default function SelectCompanyPage() {
               </div>
             </div>
             <h2 className="text-4xl font-bold mb-2">¿Con cuál empresa desea trabajar?</h2>
-            <p className="text-lg text-muted-foreground">Bienvenido, {user?.name || user?.email}</p>
-          </div>
-          <Button variant="outline" onClick={handleSignOut} className="gap-2 bg-transparent hover:bg-destructive/10 hover:text-destructive">
-            <LogOut className="w-4 h-4" />
-            Cerrar sesión
-          </Button>
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="max-w-7xl mx-auto mb-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-6 hover:bg-card/80 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 border-2 border-primary/20 flex items-center justify-center">
+                {user?.profileImage ? (
+                  <img 
+                    src={user.profileImage} 
+                    alt={user?.name || user?.email} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-lg font-bold text-primary">
+                    {(user?.name || user?.email)?.charAt(0)?.toUpperCase()}
+                  </span>
+                )}
               </div>
-              <h3 className="font-semibold">Empresas Activas</h3>
-            </div>
-            <p className="text-2xl font-bold text-primary">{companies.length}</p>
-            <p className="text-sm text-muted-foreground">Disponibles para trabajar</p>
-          </div>
-
-          <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-6 hover:bg-card/80 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div>
+                <p className="text-lg font-semibold">Bienvenido, {user?.name || user?.email}</p>
+                <p className="text-sm text-muted-foreground">Selecciona una empresa para continuar</p>
               </div>
-              <h3 className="font-semibold">Estado del Sistema</h3>
             </div>
-            <p className="text-2xl font-bold text-green-500">Online</p>
-            <p className="text-sm text-muted-foreground">Todo funcionando perfectamente</p>
-          </div>
-
-          <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-6 hover:bg-card/80 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold">Última Actividad</h3>
-            </div>
-            <p className="text-2xl font-bold text-blue-500">Hoy</p>
-            <p className="text-sm text-muted-foreground">Sistema actualizado y listo</p>
           </div>
         </div>
       </div>
 
-      {/* Company grid */}
+      {/* Subtle System Info */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-green-600 font-medium">Sistema operativo</span>
+            <span className="text-xs text-muted-foreground">•</span>
+            <span className="text-sm text-muted-foreground">{companies.length} empresas disponibles</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Company grid - Netflix Style */}
       <div className="max-w-7xl mx-auto">
-        {companies.length === 0 ? (
+        {error ? (
           <div className="text-center py-16">
-            <div className="w-24 h-24 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <svg className="w-12 h-12 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
+            <div className="w-24 h-24 bg-destructive/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-12 h-12 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">No tiene empresas registradas</h2>
-            <p className="text-muted-foreground mb-8">Comience creando su primera empresa para empezar a facturar</p>
-            <Button size="lg" onClick={handleAddCompany} className="gap-2">
+            <h2 className="text-2xl font-bold mb-2 text-destructive">Error al cargar empresas</h2>
+            <p className="text-muted-foreground mb-8">{error}</p>
+            <Button size="lg" onClick={() => window.location.reload()} variant="outline" className="gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Crear primera empresa
+              Reintentar
+            </Button>
+          </div>
+        ) : companies.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Users className="w-12 h-12 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">¡Bienvenido a InvoSell!</h2>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+              Comience creando su primera empresa para empezar a facturar y gestionar su negocio de manera profesional.
+            </p>
+            <Button size="lg" onClick={handleAddCompany} className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
+              <Plus className="w-5 h-5" />
+              Crear mi primera empresa
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {companies.map((company) => (
-              <CompanyCard key={company.id} company={company} onClick={() => handleCompanySelect(company.id)} />
-            ))}
-            <AddCompanyCard onClick={handleAddCompany} />
-          </div>
+          <>
+            {/* Section Header */}
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold mb-2">Mis Empresas</h3>
+              <p className="text-muted-foreground">
+                Selecciona una empresa para comenzar a trabajar o edita la información existente.
+              </p>
+            </div>
+
+            {/* Netflix-style grid */}
+            <motion.div 
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, staggerChildren: 0.1 }}
+            >
+              {companies.map((company, index) => (
+                <motion.div
+                  key={company.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                >
+                  <NetflixCompanyCard 
+                    company={company} 
+                    onSelect={() => handleCompanySelect(company)}
+                    onEdit={() => handleCompanyEdit(company.id)}
+                  />
+                </motion.div>
+              ))}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: companies.length * 0.1 }}
+              >
+                <AddCompanyCard onClick={handleAddCompany} />
+              </motion.div>
+            </motion.div>
+          </>
         )}
       </div>
 
@@ -195,6 +239,18 @@ export default function SelectCompanyPage() {
               <h4 className="font-semibold mb-2">Multi-Empresa</h4>
               <p className="text-sm text-muted-foreground">Gestiona múltiples empresas desde una sola cuenta</p>
             </div>
+          </div>
+
+          {/* Logout Button */}
+          <div className="mt-12 flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={handleSignOut} 
+              className="gap-2 bg-transparent hover:bg-destructive/10 hover:text-destructive border-destructive/20 hover:border-destructive/40"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar sesión
+            </Button>
           </div>
 
           <div className="mt-8 text-center">

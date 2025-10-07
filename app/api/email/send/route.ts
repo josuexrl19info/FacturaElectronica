@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getEmailService } from '@/lib/email/email-service'
+import { getSMTPService } from '@/lib/email/smtp-service'
+import { getHybridEmailService } from '@/lib/email/hybrid-email-service'
 import { EmailMessage } from '@/lib/email/types'
 
 /**
@@ -15,22 +17,7 @@ import { EmailMessage } from '@/lib/email/types'
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verificar que el servicio esté configurado
-    const emailService = getEmailService()
-    
-    // Validar configuración
-    const isConfigValid = await emailService.validateConfig()
-    if (!isConfigValid) {
-      return NextResponse.json(
-        { 
-          error: 'Servicio de correos no configurado correctamente',
-          details: 'Verifica las variables de entorno de Office 365'
-        },
-        { status: 500 }
-      )
-    }
-
-    // Parsear el cuerpo de la petición
+    // Parsear el cuerpo de la petición para obtener el proveedor preferido
     const body = await request.json()
     const { 
       to, 
@@ -44,8 +31,44 @@ export async function POST(request: NextRequest) {
       isReadReceiptRequested,
       isDeliveryReceiptRequested,
       templateId,
-      variables
+      variables,
+      provider = 'hybrid' // 'graph', 'smtp', 'hybrid'
     } = body
+
+    // Seleccionar el servicio según el proveedor
+    let emailService: any
+    let serviceName: string
+
+    switch (provider) {
+      case 'smtp':
+        emailService = getSMTPService()
+        serviceName = 'SMTP'
+        break
+      case 'graph':
+        emailService = getEmailService()
+        serviceName = 'Microsoft Graph'
+        break
+      case 'hybrid':
+      default:
+        emailService = getHybridEmailService()
+        serviceName = 'Hybrid (Graph + SMTP)'
+        break
+    }
+
+    console.log(`📧 Usando servicio: ${serviceName}`)
+    
+    // Validar configuración
+    const isConfigValid = await emailService.validateConfig()
+    if (!isConfigValid) {
+      return NextResponse.json(
+        { 
+          error: `Servicio ${serviceName} no configurado correctamente`,
+          details: 'Verifica las variables de entorno correspondientes',
+          provider: serviceName
+        },
+        { status: 500 }
+      )
+    }
 
     // Validaciones básicas
     if (!to || !Array.isArray(to) || to.length === 0) {
@@ -106,14 +129,17 @@ export async function POST(request: NextRequest) {
         messageId: result.messageId,
         sentAt: result.sentAt,
         deliveredTo: result.deliveredTo,
-        message: 'Correo enviado exitosamente'
+        provider: serviceName,
+        message: `Correo enviado exitosamente usando ${serviceName}`
       })
     } else {
       return NextResponse.json(
         {
           success: false,
           error: result.error,
-          message: 'Error enviando el correo'
+          provider: serviceName,
+          message: `Error enviando el correo con ${serviceName}`,
+          providerAnalysis: result.providerAnalysis
         },
         { status: 500 }
       )

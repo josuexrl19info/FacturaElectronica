@@ -12,11 +12,14 @@ export class ATVValidator {
   static async validateCredentials(
     username: string,
     password: string,
-    clientId: string = 'api-stag'
+    clientId: string,
+    authUrl: string
   ): Promise<ATVValidationResult> {
     try {
-      // URL del endpoint de autenticación de Hacienda
-      const authUrl = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
+      console.log('🔍 Validando credenciales ATV con:');
+      console.log('   - Username:', username);
+      console.log('   - Client ID:', clientId);
+      console.log('   - Auth URL:', authUrl);
       
       // Preparar datos para la solicitud
       const formData = new URLSearchParams()
@@ -120,7 +123,7 @@ export class ATVValidator {
   /**
    * Valida el formato de las credenciales antes de enviarlas a Hacienda
    */
-  static validateCredentialFormat(username: string, password: string, clientId: string): ATVValidationResult {
+  static validateCredentialFormat(username: string, password: string, clientId: string, authUrl: string): ATVValidationResult {
     const errors: string[] = []
 
     // Validar usuario
@@ -138,6 +141,13 @@ export class ATVValidator {
     // Validar client ID
     if (!clientId || clientId.trim().length === 0) {
       errors.push('El Client ID es requerido')
+    }
+
+    // Validar auth URL
+    if (!authUrl || authUrl.trim().length === 0) {
+      errors.push('La URL de autenticación es requerida')
+    } else if (!authUrl.startsWith('https://')) {
+      errors.push('La URL de autenticación debe ser HTTPS')
     }
 
     if (errors.length > 0) {

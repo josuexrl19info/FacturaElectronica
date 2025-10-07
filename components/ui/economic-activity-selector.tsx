@@ -2,7 +2,7 @@
  * Componente para seleccionar actividad económica desde la API de Hacienda
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -29,6 +29,9 @@ export function EconomicActivitySelector({
   const [companyInfo, setCompanyInfo] = useState<HaciendaCompanyInfo | null>(null)
   const [activities, setActivities] = useState<EconomicActivity[]>([])
 
+  // Estabilizar la función onChange para evitar bucles infinitos
+  const stableOnChange = useCallback(onChange, [onChange])
+
   // Buscar automáticamente cuando cambie el taxId
   useEffect(() => {
     if (taxId && taxId.length >= 9) {
@@ -38,11 +41,12 @@ export function EconomicActivitySelector({
       }
     } else {
       // Limpiar datos si no hay taxId válido
+      setError(null) // Limpiar error también
       setCompanyInfo(null)
       setActivities([])
-      onChange(undefined)
+      stableOnChange(undefined)
     }
-  }, [taxId])
+  }, [taxId, stableOnChange])
 
   const searchCompanyInfo = async (cleanTaxId?: string) => {
     const taxIdToUse = cleanTaxId || taxId.replace(/[-\s]/g, '')
@@ -53,10 +57,10 @@ export function EconomicActivitySelector({
     }
 
     setIsLoading(true)
-    setError(null)
+    setError(null) // Limpiar error al inicio
     setCompanyInfo(null)
     setActivities([])
-    onChange(undefined)
+    stableOnChange(undefined)
 
     try {
       const response = await fetch(`/api/hacienda/company-info?identificacion=${taxIdToUse}`)
@@ -66,6 +70,8 @@ export function EconomicActivitySelector({
         throw new Error(data.message || 'Error al consultar información')
       }
 
+      // Si llegamos aquí, la consulta fue exitosa
+      setError(null) // Limpiar cualquier error previo
       setCompanyInfo(data)
       setActivities(data.actividades || [])
       
@@ -82,7 +88,7 @@ export function EconomicActivitySelector({
   }
 
   const selectActivity = (activity: EconomicActivity) => {
-    onChange(activity)
+    stableOnChange(activity)
   }
 
 

@@ -38,6 +38,39 @@ let currentUser: User | null = null
 let authStateListeners: Array<(user: User | null) => void> = []
 let logoutTimer: NodeJS.Timeout | null = null
 
+// Cargar usuario desde localStorage al inicio (solo en el cliente)
+function loadUserFromStorage() {
+  // Verificar que estamos en el cliente
+  if (typeof window === 'undefined') {
+    return
+  }
+  
+  try {
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      const userData = JSON.parse(storedUser)
+      // Verificar que el usuario tenga los campos requeridos
+      if (userData.id && userData.tenantId) {
+        currentUser = userData
+        console.log('✅ Usuario cargado desde localStorage:', currentUser)
+        // Notificar a los listeners inmediatamente
+        authStateListeners.forEach(listener => listener(currentUser))
+      } else {
+        console.log('❌ Datos de usuario incompletos en localStorage, limpiando...')
+        localStorage.removeItem('user')
+      }
+    }
+  } catch (error) {
+    console.error('Error cargando usuario desde localStorage:', error)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+    }
+  }
+}
+
+// Cargar usuario al inicializar
+loadUserFromStorage()
+
 // Listen to auth state changes
 onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
   if (firebaseUser) {
@@ -66,6 +99,12 @@ onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
             }
           }
         }
+        
+        // Guardar datos del usuario en localStorage para persistencia (solo en cliente)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(currentUser))
+          console.log('✅ Usuario guardado en localStorage:', currentUser)
+        }
       } else {
         console.error('User document not found in Firestore')
         currentUser = null
@@ -81,6 +120,11 @@ onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     }
   } else {
     currentUser = null
+    // Limpiar localStorage cuando el usuario se desloguea (solo en cliente)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+      console.log('🗑️ Usuario eliminado de localStorage')
+    }
     // Clear auto logout timer when user logs out
     clearAutoLogout()
   }
@@ -101,10 +145,12 @@ function setupAutoLogout() {
     console.log('Auto logout: 24 hours expired')
     try {
       await auth.signOut()
-      // Clear localStorage to ensure clean logout
-      localStorage.clear()
-      // Redirect to login page
-      window.location.href = '/'
+      // Clear localStorage to ensure clean logout (solo en cliente)
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        // Redirect to login page
+        window.location.href = '/'
+      }
     } catch (error) {
       console.error('Error during auto logout:', error)
     }

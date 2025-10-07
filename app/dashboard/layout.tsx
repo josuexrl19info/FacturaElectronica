@@ -18,18 +18,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!loading && user) {
       // Get selected company from localStorage
       const companyId = localStorage.getItem("selectedCompanyId")
+      const companyData = localStorage.getItem("selectedCompanyData")
+      
       if (!companyId) {
         router.push("/select-company")
         return
       }
 
-      const mockCompany = {
-        id: companyId,
-        name: "TechCorp CR",
-        logo: "/placeholder.svg?key=p4zn6",
-        primaryColor: "#14b8a6", // Turquoise color
+      if (companyData) {
+        try {
+          const parsedCompany = JSON.parse(companyData)
+          // Convertir logo base64 a URL si existe
+          if (parsedCompany.logo?.fileData) {
+            parsedCompany.logoUrl = `data:${parsedCompany.logo.type};base64,${parsedCompany.logo.fileData}`
+          }
+          setCompany(parsedCompany)
+        } catch (error) {
+          console.error('Error parsing company data:', error)
+          router.push("/select-company")
+        }
+      } else {
+        // Fallback si no hay datos completos
+        setCompany({
+          id: companyId,
+          nombreComercial: "Empresa",
+          name: "Sin nombre",
+          logoUrl: null,
+          brandColor: "#14b8a6"
+        })
       }
-      setCompany(mockCompany)
     }
   }, [router, user, loading])
 

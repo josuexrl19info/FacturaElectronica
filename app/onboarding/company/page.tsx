@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToastNotification } from "@/components/providers/toast-provider"
 import { useAuthGuard } from "@/hooks/use-auth-redirect"
-import { CompanyWizardData } from "@/lib/company-wizard-types"
+import { CompanyWizardData, LogoData } from "@/lib/company-wizard-types"
 import { ATVValidator } from "@/lib/atv-validator"
 import { CertificateValidator } from "@/lib/certificate-validator"
 import { CompanySummary } from "@/components/company/company-summary"
@@ -67,10 +68,14 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 
 export default function CompanyOnboardingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const toast = useToastNotification()
   const { user, loading } = useAuthGuard()
   const [currentStep, setCurrentStep] = useState(1)
   const [isValidating, setIsValidating] = useState(false)
+  const [isLoadingCompany, setIsLoadingCompany] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [companyId, setCompanyId] = useState<string | null>(null)
   const [validationResults, setValidationResults] = useState<{
     atv?: any
     certificate?: any
@@ -99,14 +104,14 @@ export default function CompanyOnboardingPage() {
       canton: "",
       district: "",
       barrio: "",
-      logo: null,
+      logo: null as LogoData,
       economicActivity: undefined,
     },
     atvCredentials: {
       username: "",
       password: "",
       clientId: "api-stag",
-      receptionUrl: "https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion",
+      receptionUrl: "https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/",
       loginUrl: "https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token",
     },
     certificate: {
@@ -121,6 +126,101 @@ export default function CompanyOnboardingPage() {
     certificate: false,
   })
   const [haciendaCompanyInfo, setHaciendaCompanyInfo] = useState<HaciendaCompanyInfo | null>(null)
+
+  // Cargar datos de la empresa si estamos editando
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (editId && user) {
+      setIsEditMode(true)
+      setCompanyId(editId)
+      loadCompanyData(editId)
+    }
+  }, [searchParams, user])
+
+  const loadCompanyData = async (id: string) => {
+    try {
+      setIsLoadingCompany(true)
+      console.log('🔍 Cargando datos de empresa con ID:', id)
+      
+      const response = await fetch(`/api/companies/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      console.log('🔍 Respuesta de la API:', response.status, response.statusText)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('🔍 Error response:', errorText)
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      console.log('🔍 Datos recibidos:', data)
+
+      // Mapear los datos de la empresa al formato del wizard
+      setFormData({
+        personalInfo: {
+          name: data.nombreComercial || '',
+          legalName: data.name || '',
+          taxId: data.identification || '',
+          taxIdType: data.identificationType === '01' ? 'fisica' : 'juridica',
+          email: data.email || '',
+          phone: data.phone || '',
+          phoneCountryCode: data.phoneCountryCode ? `+${data.phoneCountryCode}` : '+506',
+          province: data.province || '',
+          canton: data.canton || '',
+          district: data.district || '',
+          barrio: data.otrasSenas || '',
+          logo: data.logo ? {
+            fileName: data.logo.fileName || 'logo.png',
+            type: data.logo.type || 'image/png',
+            size: data.logo.size || 0,
+            fileData: data.logo.fileData || null
+          } : null,
+          economicActivity: data.economicActivity || undefined,
+        },
+        atvCredentials: {
+          username: data.atvCredentials?.username || '',
+          password: '', // No cargamos la contraseña por seguridad
+          clientId: data.atvCredentials?.clientId || 'api-stag',
+          receptionUrl: data.atvCredentials?.receptionUrl || 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/',
+          loginUrl: data.atvCredentials?.authUrl || 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token',
+        },
+        certificate: {
+          p12File: null, // No cargamos el certificado por seguridad
+          password: '', // No cargamos la contraseña por seguridad
+          certificateInfo: data.certificadoDigital ? {
+            subject: data.certificadoDigital.subject,
+            issuer: data.certificadoDigital.issuer,
+            serialNumber: data.certificadoDigital.serialNumber,
+            validFrom: data.certificadoDigital.validFrom,
+            validTo: data.certificadoDigital.validTo
+          } : undefined
+        },
+      })
+
+      // Cargar información de ubicación
+      if (data.province && data.canton && data.district) {
+        // Aquí podrías cargar los objetos completos de provincia, cantón y distrito
+        // Por simplicidad, solo establecemos los códigos
+        setSelectedLocation({
+          provincia: { codigo: parseInt(data.province), nombre: '' } as Provincia,
+          canton: { codigo: parseInt(data.canton), nombre: '' } as Canton,
+          distrito: { codigo: parseInt(data.district), nombre: '' } as Distrito
+        })
+      }
+
+      toast.success('Datos de la empresa cargados correctamente')
+    } catch (error) {
+      console.error('Error loading company data:', error)
+      toast.error('Error al cargar los datos de la empresa')
+    } finally {
+      setIsLoadingCompany(false)
+    }
+  }
 
   // TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETURN CONDICIONAL
   const updateField = useCallback((section: keyof CompanyWizardData, field: string, value: any) => {
@@ -149,6 +249,10 @@ export default function CompanyOnboardingPage() {
       canton: { nombre: location.canton?.nombre, codigo: location.canton?.codigo },
       distrito: { nombre: location.distrito?.nombre, codigo: location.distrito?.codigo }
     })
+  }, [updateField])
+
+  const handleEconomicActivityChange = useCallback((activity: any) => {
+    updateField('personalInfo', 'economicActivity', activity)
   }, [updateField])
 
   // RETURNS CONDICIONALES DESPUÉS DE TODOS LOS HOOKS
@@ -242,12 +346,25 @@ export default function CompanyOnboardingPage() {
   const validateATVCredentials = async () => {
     setIsValidating(true)
     try {
-      const { username, password, clientId } = formData.atvCredentials
+      const { username, password, clientId, loginUrl, receptionUrl } = formData.atvCredentials
+      
+      console.log('🔍 Enviando validación ATV con:', {
+        username,
+        clientId,
+        authUrl: loginUrl,
+        receptionUrl
+      });
       
       const response = await fetch('/api/company/validate-atv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, clientId })
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          clientId, 
+          authUrl: loginUrl,
+          receptionUrl 
+        })
       })
 
       const result = await response.json()
@@ -332,8 +449,11 @@ export default function CompanyOnboardingPage() {
       let logoBase64 = ''
       let certificateBase64 = ''
       
-      if (formData.personalInfo.logo) {
+      if (formData.personalInfo.logo && formData.personalInfo.logo instanceof File) {
         logoBase64 = await convertFileToBase64(formData.personalInfo.logo)
+      } else if (formData.personalInfo.logo && !(formData.personalInfo.logo instanceof File) && formData.personalInfo.logo.fileData) {
+        // Si es un logo existente, usar el fileData existente
+        logoBase64 = formData.personalInfo.logo.fileData
       }
       
       if (formData.certificate.p12File) {
@@ -361,9 +481,16 @@ export default function CompanyOnboardingPage() {
       console.log('🔍 Debug certificateInfo:', formData.certificate.certificateInfo)
       console.log('📦 Datos enviados:', companyData)
 
-      // Crear empresa via API
-      const response = await fetch('/api/company/create', {
-        method: 'POST',
+      // Determinar si es creación o actualización
+      const isUpdate = isEditMode && companyId
+      const url = isUpdate ? `/api/companies/${companyId}` : '/api/company/create'
+      const method = isUpdate ? 'PUT' : 'POST'
+
+      console.log(`🔄 ${isUpdate ? 'Actualizando' : 'Creando'} empresa:`, url)
+
+      // Crear o actualizar empresa via API
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -373,14 +500,19 @@ export default function CompanyOnboardingPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.message || 'Error al crear la empresa')
+        throw new Error(result.message || `Error al ${isUpdate ? 'actualizar' : 'crear'} la empresa`)
       }
 
-      toast.success('Empresa creada', 'La empresa se ha registrado exitosamente')
+      const successMessage = isUpdate ? 'Empresa actualizada' : 'Empresa creada'
+      const successDescription = isUpdate ? 'La empresa se ha actualizado exitosamente' : 'La empresa se ha registrado exitosamente'
+      
+      toast.success(successMessage, successDescription)
       router.push("/select-company")
     } catch (error: any) {
-      console.error('Error creating company:', error)
-      toast.error('Error', error.message || 'No se pudo crear la empresa')
+      const isUpdate = isEditMode && companyId
+      console.error(`Error ${isUpdate ? 'updating' : 'creating'} company:`, error)
+      const errorMessage = isUpdate ? 'No se pudo actualizar la empresa' : 'No se pudo crear la empresa'
+      toast.error('Error', error.message || errorMessage)
     } finally {
       setIsValidating(false)
     }
@@ -400,10 +532,22 @@ export default function CompanyOnboardingPage() {
       return `${numbers.slice(0, 1)}-${numbers.slice(1, 5)}-${numbers.slice(5, 9)}`
     } else {
       // Cédula jurídica: 10 dígitos - formato 3-101-123456
-      if (numbers.length <= 3) return numbers
-      if (numbers.length <= 6) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`
+      if (numbers.length <= 1) return numbers
+      if (numbers.length <= 4) return `${numbers.slice(0, 1)}-${numbers.slice(1)}`
+      return `${numbers.slice(0, 1)}-${numbers.slice(1, 4)}-${numbers.slice(4, 10)}`
     }
+  }
+
+  // Mostrar indicador de carga si se están cargando los datos de la empresa
+  if (isLoadingCompany) {
+    return (
+      <div className="min-h-screen p-8 bg-gradient-to-br from-background to-muted/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg text-muted-foreground">Cargando datos de la empresa...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -413,7 +557,7 @@ export default function CompanyOnboardingPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Crear Nueva Empresa
+              {isEditMode ? 'Editar Empresa' : 'Crear Nueva Empresa'}
             </h1>
             <p className="text-lg text-muted-foreground">
               Complete la información para registrar su empresa en el sistema de facturación
@@ -540,7 +684,7 @@ export default function CompanyOnboardingPage() {
                   <EconomicActivitySelector
                     taxId={formData.personalInfo.taxId}
                     value={formData.personalInfo.economicActivity}
-                    onChange={(activity) => updateField('personalInfo', 'economicActivity', activity)}
+                    onChange={handleEconomicActivityChange}
                     onCompanyInfo={setHaciendaCompanyInfo}
                   />
                   <p className="text-sm text-muted-foreground">
@@ -583,7 +727,13 @@ export default function CompanyOnboardingPage() {
                       <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-6 h-32 flex items-center justify-center bg-muted/10">
                         {formData.personalInfo.logo ? (
                           <img
-                            src={URL.createObjectURL(formData.personalInfo.logo)}
+                            src={
+                              formData.personalInfo.logo instanceof File
+                                ? URL.createObjectURL(formData.personalInfo.logo)
+                                : (formData.personalInfo.logo && !(formData.personalInfo.logo instanceof File) && formData.personalInfo.logo.fileData)
+                                  ? formData.personalInfo.logo.fileData
+                                  : '/placeholder-logo.png'
+                            }
                             alt="Logo preview"
                             className="max-w-full max-h-full object-contain rounded"
                           />
@@ -905,7 +1055,7 @@ export default function CompanyOnboardingPage() {
                 {currentStep === 4 ? (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Crear Empresa
+                    {isEditMode ? 'Actualizar Empresa' : 'Crear Empresa'}
                   </>
                 ) : (
                   <>

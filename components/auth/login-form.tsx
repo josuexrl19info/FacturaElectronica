@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/firebase-client"
 import { useRouter } from "next/navigation"
+import { motion } from "framer-motion"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -59,7 +60,12 @@ export function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-8">
+    <motion.div 
+      className="w-full max-w-md space-y-8"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.8 }}
+    >
       {/* Mobile header - only visible on small screens */}
       <div className="text-center lg:hidden">
         <div className="flex items-center justify-center gap-2 mb-6">
@@ -131,6 +137,6 @@ export function LoginForm() {
           </a>
         </div>
       </form>
-    </div>
+    </motion.div>
   )
 }
