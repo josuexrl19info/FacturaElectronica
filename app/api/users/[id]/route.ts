@@ -34,6 +34,16 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const db = getFirestore(app)
 
 /**
+ * generateStaticParams - Requerido para Next.js con output: export
+ * Genera parámetros estáticos para las rutas dinámicas
+ */
+export async function generateStaticParams() {
+  // Para APIs dinámicas, retornamos un array vacío
+  // ya que los parámetros se generan en tiempo de ejecución
+  return []
+}
+
+/**
  * GET /api/users/[id]
  * Obtiene un usuario específico por ID
  */
