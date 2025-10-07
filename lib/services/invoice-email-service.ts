@@ -178,15 +178,14 @@ export class InvoiceEmailService {
     }
     
     // PDF: Generar PDF de la factura
+    // Declarar fuera del try para usarlos después (ej. BCC)
+    let companyData: any = invoice.companyData
+    let clientData: any = invoice.cliente
     try {
       console.log('📄 Generando PDF de la factura...')
       
-      // Obtener datos de la empresa y cliente para el PDF
-      let companyData = invoice.companyData || {}
-      let clientData = invoice.cliente || {}
-      
       // Si no tenemos datos completos, intentar obtenerlos desde Firestore
-      if (!companyData || !clientData || Object.keys(companyData).length === 0) {
+      if (!companyData || !clientData || Object.keys(companyData || {}).length === 0) {
         console.log('🔍 Obteniendo datos completos para PDF...')
         
         // Obtener datos de la empresa
@@ -204,7 +203,7 @@ export class InvoiceEmailService {
         }
         
         // Obtener datos del cliente
-        if (invoice.clientId) {
+        if (!clientData && invoice.clientId) {
           try {
             const clientRef = doc(db, 'clients', invoice.clientId)
             const clientSnap = await getDoc(clientRef)
@@ -256,7 +255,7 @@ export class InvoiceEmailService {
     
     // Determinar BCC (correo de la empresa u otros)
     const bccRecipients: string[] = []
-    const companyEmail = (companyData as any)?.email || (companyData as any)?.correo || (companyData as any)?.emailAddress
+    const companyEmail = (companyData as any)?.email || (companyData as any)?.correo || (companyData as any)?.emailAddress || invoice.emisor?.correoElectronico
     if (companyEmail && typeof companyEmail === 'string') {
       bccRecipients.push(companyEmail)
     }
