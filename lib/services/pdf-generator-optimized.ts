@@ -399,11 +399,25 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.setFontSize(9) // Reducido a 9 para evitar traslapes
   doc.setFont('times', 'normal')
   
+  // Mapear campos del cliente (pueden venir en español o inglés)
+  const clientName = invoiceData.client?.name || invoiceData.client?.nombre || 'N/A'
+  const clientId = invoiceData.client?.identification || invoiceData.client?.identificacion || invoiceData.client?.cedula || invoiceData.client?.taxId || 'N/A'
+  const clientPhone = invoiceData.client?.phone || invoiceData.client?.telefono || invoiceData.client?.phoneNumber || 'N/A'
+  const clientEmail = invoiceData.client?.email || invoiceData.client?.correo || 'N/A'
+
+  console.log('🔍 [PDF] Client data mapped:', {
+    hasClient: !!invoiceData.client,
+    name: clientName,
+    identification: clientId,
+    phone: clientPhone,
+    email: clientEmail
+  })
+
   const clientInfo = [
-    `Nombre: ${invoiceData.client?.name || 'N/A'}`,
-    `Cédula: ${invoiceData.client?.identification || 'N/A'}`,
-    `Teléfono: ${invoiceData.client?.phone || 'N/A'}`,
-    `Correo: ${invoiceData.client?.email || 'N/A'}`
+    `Nombre: ${clientName}`,
+    `Cédula: ${clientId}`,
+    `Teléfono: ${clientPhone}`,
+    `Correo: ${clientEmail}`
   ]
   
   let clientY = yPosition + 7
@@ -658,9 +672,19 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   
   let infoY = yPosition + 8
   
+  // Obtener notas desde diferentes posibles ubicaciones
+  const notes = invoiceData.invoice?.notes || invoiceData.notes || invoiceData.notas || ''
+  
+  console.log('📝 [PDF] Debug Notas:', {
+    'invoiceData.invoice?.notes': invoiceData.invoice?.notes,
+    'invoiceData.notes': invoiceData.notes,
+    'invoiceData.notas': invoiceData.notas,
+    'notes final': notes || 'Sin comentarios'
+  })
+  
   // Notas si existen
-  if (invoiceData.notas && invoiceData.notas.trim() !== '') {
-    const notesLines = splitTextToLines(doc, invoiceData.notas, summaryColumnWidth - 5, 11)
+  if (notes && notes.trim() !== '') {
+    const notesLines = splitTextToLines(doc, notes, summaryColumnWidth - 5, 11)
     notesLines.forEach(line => {
       doc.text(line, margin, infoY)
       infoY += 3.5

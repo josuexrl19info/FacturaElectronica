@@ -19,8 +19,22 @@ export interface SigningResponse {
 }
 
 export class DigitalSignatureService {
-  private static readonly SIGNING_API_URL = 'https://api.innovasmartcr.com/sign'
-  private static readonly API_KEY = 'ae2cda74a93f34fc9093ea31358ba5b500d43a82ff1fc7a1bae1604e835105d2'
+  // Permite configurar por variables de entorno; fallback a valores por defecto
+  private static get SIGNING_API_URL(): string {
+    return (
+      process.env.SIGNING_API_URL ||
+      process.env.NEXT_PUBLIC_EXTERNAL_XML_SIGNING_URL ||
+      'https://api.innovasmartcr.com/sign'
+    )
+  }
+
+  private static get API_KEY(): string | undefined {
+    return (
+      process.env.SIGNING_API_KEY ||
+      process.env.NEXT_PUBLIC_EXTERNAL_API_KEY ||
+      undefined
+    )
+  }
 
   /**
    * Firma un XML usando el servicio de firma digital
@@ -41,6 +55,10 @@ export class DigitalSignatureService {
       console.log('📄 Tamaño del XML:', xml.length, 'caracteres')
       console.log('🔑 Certificado disponible:', !!certificateBase64)
       console.log('🔒 Contraseña disponible:', !!password)
+
+      if (!this.API_KEY) {
+        throw new Error('Falta SIGNING_API_KEY en variables de entorno')
+      }
 
       const response = await fetch(this.SIGNING_API_URL, {
         method: 'POST',
@@ -108,6 +126,10 @@ export class DigitalSignatureService {
       console.log('📄 Tamaño del XML:', xml.length, 'caracteres')
       console.log('🔑 Certificado disponible:', !!certificateBase64)
       console.log('🔒 Password encriptado disponible:', !!encryptedPassword)
+
+      if (!this.API_KEY) {
+        throw new Error('Falta SIGNING_API_KEY en variables de entorno')
+      }
 
       const response = await fetch(this.SIGNING_API_URL, {
         method: 'POST',

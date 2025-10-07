@@ -52,6 +52,10 @@ export class InvoiceEmailService {
   static async sendApprovalEmail(invoice: Invoice, clientEmail?: string): Promise<InvoiceEmailResult> {
     try {
       console.log('📧 Enviando email de factura aprobada:', invoice.consecutivo)
+  console.log('📝 Debug invoice notes:', {
+    'invoice.notes': invoice.notes,
+    'invoice.notas': (invoice as any).notas
+  })
       
       // Debug: Mostrar estructura de la factura
       console.log('🔍 Estructura de la factura recibida:', JSON.stringify({
@@ -94,7 +98,9 @@ export class InvoiceEmailService {
                 invoice.cliente = {
                   nombre: clientData.name,
                   email: clientData.email,
-                  identificacion: clientData.identification
+                  identificacion: clientData.identification,
+                  telefono: clientData.phone || clientData.telefono,  // ✅ Agregar teléfono
+                  economicActivity: clientData.economicActivity || clientData.actividadEconomica  // ✅ Agregar actividad económica
                 }
               }
             } else {
@@ -184,36 +190,39 @@ export class InvoiceEmailService {
     try {
       console.log('📄 Generando PDF de la factura...')
       
-      // Si no tenemos datos completos, intentar obtenerlos desde Firestore
-      if (!companyData || !clientData || Object.keys(companyData || {}).length === 0) {
-        console.log('🔍 Obteniendo datos completos para PDF...')
-        
-        // Obtener datos de la empresa
-        if (invoice.companyId) {
-          try {
-            const companyRef = doc(db, 'companies', invoice.companyId)
-            const companySnap = await getDoc(companyRef)
-            if (companySnap.exists()) {
-              companyData = companySnap.data()
-              console.log('✅ Datos de empresa obtenidos para PDF')
-            }
-          } catch (error) {
-            console.error('❌ Error obteniendo datos de empresa:', error)
+      // Obtener datos de la empresa si no existen
+      if ((!companyData || Object.keys(companyData || {}).length === 0) && invoice.companyId) {
+        console.log('🔍 Obteniendo datos de empresa para PDF...')
+        try {
+          const companyRef = doc(db, 'companies', invoice.companyId)
+          const companySnap = await getDoc(companyRef)
+          if (companySnap.exists()) {
+            companyData = companySnap.data()
+            console.log('✅ Datos de empresa obtenidos para PDF')
           }
+        } catch (error) {
+          console.error('❌ Error obteniendo datos de empresa:', error)
         }
-        
-        // Obtener datos del cliente
-        if (!clientData && invoice.clientId) {
-          try {
-            const clientRef = doc(db, 'clients', invoice.clientId)
-            const clientSnap = await getDoc(clientRef)
-            if (clientSnap.exists()) {
-              clientData = clientSnap.data()
-              console.log('✅ Datos de cliente obtenidos para PDF')
-            }
-          } catch (error) {
-            console.error('❌ Error obteniendo datos de cliente:', error)
+      }
+      
+      // Obtener datos del cliente si no existen
+      if ((!clientData || Object.keys(clientData || {}).length === 0) && invoice.clientId) {
+        console.log('🔍 Obteniendo datos de cliente para PDF...')
+        try {
+          const clientRef = doc(db, 'clients', invoice.clientId)
+          const clientSnap = await getDoc(clientRef)
+          if (clientSnap.exists()) {
+            clientData = clientSnap.data()
+            console.log('✅ Datos de cliente obtenidos para PDF:', clientData?.name || clientData?.nombre)
+            console.log('📞 Debug client fields from Firestore:', {
+              keys: Object.keys(clientData || {}),
+              phone: clientData?.phone,
+              telefono: clientData?.telefono,
+              hasPhone: 'phone' in (clientData || {})
+            })
           }
+        } catch (error) {
+          console.error('❌ Error obteniendo datos de cliente:', error)
         }
       }
       
@@ -224,6 +233,15 @@ export class InvoiceEmailService {
         client: clientData,
         haciendaResponse: invoice.haciendaSubmission
       }
+      
+      console.log('📄 Datos para PDF:', {
+        hasCompany: !!companyData,
+        companyName: companyData?.name || companyData?.nombreComercial,
+        hasClient: !!clientData,
+        clientName: clientData?.name || clientData?.nombre,
+        hasNotes: !!(invoice.notes || invoice.notas),
+        notes: invoice.notes || invoice.notas || 'Sin notas'
+      })
       
       // Generar PDF en base64 usando el endpoint optimizado
       const { getBaseUrl } = await import('../utils')

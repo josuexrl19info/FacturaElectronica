@@ -6,6 +6,27 @@ export async function POST(request: NextRequest) {
     const invoiceData = await request.json()
     
     console.log('📄 Generando PDF optimizado para:', invoiceData.invoice?.consecutivo || 'N/A')
+
+    // Log de datos recibidos
+    console.log('🏢 Company recibida:', {
+      hasCompany: !!invoiceData.company,
+      name: invoiceData.company?.name || invoiceData.company?.nombreComercial
+    })
+    console.log('👤 Client recibido:', {
+      hasClient: !!invoiceData.client,
+      name: invoiceData.client?.name || invoiceData.client?.nombre,
+      identification: invoiceData.client?.identification || invoiceData.client?.identificacion || invoiceData.client?.cedula,
+      email: invoiceData.client?.email || invoiceData.client?.correo,
+      phone: invoiceData.client?.phone || invoiceData.client?.telefono
+    })
+    console.log('👤 Client RAW keys:', Object.keys(invoiceData.client || {}))
+    console.log('👤 Client RAW data:', {
+      nombre: invoiceData.client?.nombre,
+      identificacion: invoiceData.client?.identificacion,
+      email: invoiceData.client?.email,
+      phone: invoiceData.client?.phone,
+      telefono: invoiceData.client?.telefono
+    })
     
     // Generar PDF usando la implementación optimizada
     const doc = await generateInvoicePDFOptimized(invoiceData)

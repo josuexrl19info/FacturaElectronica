@@ -180,6 +180,11 @@ export async function POST(req: NextRequest) {
 
       const clientData = clientDoc.data()
       console.log('👤 Datos de cliente obtenidos:', clientData.name)
+      console.log('📞 Campos del cliente desde Firestore:', {
+        keys: Object.keys(clientData),
+        phone: clientData.phone,
+        hasPhone: 'phone' in clientData
+      })
 
       // Generar clave de Hacienda usando el método original que funciona
       console.log('🔑 Generando clave de Hacienda para XML y envío...')
@@ -384,15 +389,24 @@ export async function POST(req: NextRequest) {
       docRef = await addDoc(collection(db, 'invoices'), invoiceData)
       console.log('✅ Factura creada en Firestore:', docRef.id)
 
-      // Actualizar la factura con el XML y token de Hacienda (sin submission aún)
+      // Actualizar la factura con el XML, token de Hacienda y datos completos del cliente y empresa
+      console.log('💾 Guardando clientData en factura:', {
+        hasPhone: 'phone' in clientData,
+        phone: clientData.phone,
+        keys: Object.keys(clientData),
+        clientDataComplete: clientData
+      })
+      
       await updateDoc(docRef, {
         xml: xml,
         xmlSigned: signedXml,
         haciendaToken: haciendaToken,
+        cliente: clientData,  // Agregar datos completos del cliente
+        companyData: companyData, // Agregar datos completos de la empresa
         updatedAt: serverTimestamp()
       })
 
-      console.log('✅ Factura actualizada con XML y token de Hacienda')
+      console.log('✅ Factura actualizada con XML, token y datos completos')
 
       // 7. CONSULTAR ESTADO REAL DE HACIENDA DESPUÉS DE 10 SEGUNDOS (solo si se envió a Hacienda)
       if (haciendaSubmissionResult && (haciendaSubmissionResult as any).location) {

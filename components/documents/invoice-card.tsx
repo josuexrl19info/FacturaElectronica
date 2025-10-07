@@ -59,9 +59,9 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
     URL.revokeObjectURL(url)
   }
 
-  const handleDownloadBothXMLs = () => {
+  const handleDownloadSignedXML = () => {
     if (!invoice.haciendaSubmission || !invoice.haciendaSubmission.clave) {
-      console.error('No hay clave de Hacienda disponible para descargar archivos')
+      console.error('No hay clave de Hacienda disponible para descargar XML firmado')
       return
     }
 
@@ -70,7 +70,18 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
     // Descargar XML firmado si existe
     if (invoice.xmlSigned) {
       downloadXMLFile(invoice.xmlSigned, `${clave}.xml`)
+    } else {
+      console.error('No hay XML firmado disponible')
     }
+  }
+
+  const handleDownloadResponseXML = () => {
+    if (!invoice.haciendaSubmission || !invoice.haciendaSubmission.clave) {
+      console.error('No hay clave de Hacienda disponible para descargar XML de respuesta')
+      return
+    }
+
+    const clave = invoice.haciendaSubmission.clave
     
     // Descargar XML de respuesta de Hacienda si existe
     if (invoice.haciendaSubmission['respuesta-xml']) {
@@ -79,8 +90,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
         const decodedXML = atob(invoice.haciendaSubmission['respuesta-xml'])
         downloadXMLFile(decodedXML, `${clave}_respuesta.xml`)
       } catch (error) {
-        console.error('Error al decodificar XML de Hacienda:', error)
+        console.error('Error al decodificar XML de respuesta de Hacienda:', error)
       }
+    } else {
+      console.error('No hay XML de respuesta de Hacienda disponible')
     }
   }
 
@@ -89,9 +102,113 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
            invoice.haciendaSubmission['ind-estado'] === 'aceptado'
   }
 
-  const handleViewPDF = () => {
-    // Navegar a la página de preview con el ID de la factura
-    router.push(`/dashboard/documents/invoice/preview?id=${invoice.id}`)
+  const handleDownloadPDF = async () => {
+    try {
+      // Cargar company y client desde Firestore si no vienen en la factura
+      let companyData = invoice.companyData
+      let clientData = invoice.cliente
+
+      // Si no tenemos companyData, cargar desde Firestore
+      if (!companyData && invoice.companyId) {
+        const companyResponse = await fetch(`/api/companies/${invoice.companyId}`)
+        if (companyResponse.ok) {
+          companyData = await companyResponse.json()
+          console.log('✅ Company cargada:', companyData?.name)
+        }
+      }
+
+      // Si no tenemos clientData, cargar desde Firestore
+      if (!clientData && invoice.clientId && invoice.tenantId) {
+        const clientResponse = await fetch(`/api/clients?tenantId=${invoice.tenantId}&companyId=${invoice.companyId}`)
+        if (clientResponse.ok) {
+          const result = await clientResponse.json()
+          const clients = result.clients || []
+          clientData = clients.find((c: any) => c.id === invoice.clientId)
+        }
+      }
+
+      // Fallback a emisor/receptor si aún no hay datos
+      if (!companyData && invoice.emisor) {
+        companyData = {
+          name: invoice.emisor.nombreComercial || invoice.emisor.nombre,
+          identification: (invoice.emisor as any)?.identificacion?.numero || (invoice.emisor as any)?.numero,
+          email: (invoice.emisor as any)?.correoElectronico,
+          phone: (invoice.emisor as any)?.telefono,
+          provincia: (invoice.emisor as any)?.ubicacion?.provinciaNombre,
+          canton: (invoice.emisor as any)?.ubicacion?.cantonNombre,
+          distrito: (invoice.emisor as any)?.ubicacion?.distritoNombre,
+          otrasSenas: (invoice.emisor as any)?.ubicacion?.otrasSenas
+        }
+      }
+
+      if (!clientData && (invoice as any).receptor) {
+        const receptor = (invoice as any).receptor
+        clientData = {
+          name: receptor.nombre || receptor.nombreCompleto,
+          identification: receptor?.identificacion?.numero || receptor.cedula,
+          email: receptor.email || receptor.correoElectronico,
+          phone: receptor.telefono,
+          provincia: receptor?.ubicacion?.provinciaNombre,
+          canton: receptor?.ubicacion?.cantonNombre,
+          distrito: receptor?.ubicacion?.distritoNombre,
+          direccion: receptor?.ubicacion?.otrasSenas
+        }
+      }
+
+      console.log('📤 Enviando a PDF:', {
+        hasCompany: !!companyData,
+        companyName: companyData?.name || companyData?.nombreComercial,
+        hasClient: !!clientData,
+        clientName: clientData?.name || clientData?.nombre
+      })
+
+      // Usar el mismo servicio que se usa para el email
+      const response = await fetch('/api/generate-pdf-optimized', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          invoice: invoice,
+          company: companyData,
+          client: clientData,
+          haciendaResponse: invoice.haciendaSubmission
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error generando PDF: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error generando PDF')
+      }
+
+      // Descargar el PDF
+      const pdfData = atob(result.pdf_base64)
+      const pdfBytes = new Uint8Array(pdfData.length)
+      for (let i = 0; i < pdfData.length; i++) {
+        pdfBytes[i] = pdfData.charCodeAt(i)
+      }
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      // Usar la clave de Hacienda si está disponible, sino usar consecutivo o ID
+      const fileName = invoice.haciendaSubmission?.clave || invoice.consecutivo || invoice.id
+      link.download = `${fileName}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+    } catch (error) {
+      console.error('Error descargando PDF:', error)
+      // Fallback: navegar a la página de preview
+      router.push(`/dashboard/documents/invoice/preview?id=${invoice.id}`)
+    }
   }
 
   const formatDate = (date: Date | string) => {
@@ -242,34 +359,41 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                 {isHaciendaAccepted() && (
                   <>
                     {/* Botón PDF */}
+                    {/* Botón para descargar PDF */}
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       className="h-7 w-7" 
-                      onClick={handleViewPDF}
-                      title="Ver y descargar PDF"
+                      onClick={handleDownloadPDF}
+                      title="Descargar PDF"
                     >
                       <FileDown className="w-3 h-3" />
                     </Button>
                     
-                    {/* Botón para descargar ambos XML */}
+                    {/* Botón para descargar XML firmado */}
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       className="h-7 w-7" 
-                      onClick={handleDownloadBothXMLs}
-                      title="Descargar XML firmado y respuesta de Hacienda"
-                      disabled={!invoice.haciendaSubmission?.clave}
+                      onClick={handleDownloadSignedXML}
+                      title="Descargar XML firmado"
+                      disabled={!invoice.xmlSigned || !invoice.haciendaSubmission?.clave}
                     >
-                      <FileText className="w-3 h-3" />
+                      <FileText className="w-3 h-3 text-blue-600" />
+                    </Button>
+                    
+                    {/* Botón para descargar XML de respuesta de Hacienda */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7" 
+                      onClick={handleDownloadResponseXML}
+                      title="Descargar XML de respuesta de Hacienda"
+                      disabled={!invoice.haciendaSubmission?.['respuesta-xml']}
+                    >
+                      <FileText className="w-3 h-3 text-green-600" />
                     </Button>
                   </>
-                )}
-                
-                {onEdit && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(invoice)}>
-                    <Edit className="w-3 h-3" />
-                  </Button>
                 )}
               </motion.div>
             </div>
