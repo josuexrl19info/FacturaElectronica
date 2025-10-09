@@ -146,12 +146,18 @@ export class InvoiceEmailService {
   }
 
   /**
-   * Crea los datos del email para factura aprobada
+   * Crea los datos del email para factura/NC aprobada
    */
   private static async createApprovalEmailData(invoice: Invoice, recipientEmail: string): Promise<InvoiceEmailData> {
-    const subject = `Factura Electrónica ${invoice.consecutivo} - Aprobada por Hacienda`
+    // Detectar si es Nota de Crédito
+    const isNotaCredito = (invoice as any).tipo === 'nota-credito' || 
+                          (invoice as any).tipoNotaCredito ||
+                          (invoice as any).referenciaFactura
     
-    const message = this.createApprovalEmailHTML(invoice)
+    const tipoDocumento = isNotaCredito ? 'Nota de Crédito Electrónica' : 'Factura Electrónica'
+    const subject = `${tipoDocumento} ${invoice.consecutivo} - Aprobada por Hacienda`
+    
+    const message = this.createApprovalEmailHTML(invoice, isNotaCredito)
     
     // Preparar XMLs en base64
     let xml1_base64: string | undefined
@@ -338,7 +344,7 @@ export class InvoiceEmailService {
   /**
    * Crea el HTML del email de aprobación
    */
-  private static createApprovalEmailHTML(invoice: Invoice): string {
+  private static createApprovalEmailHTML(invoice: Invoice, isNotaCredito: boolean = false): string {
     const cliente = invoice.cliente?.nombre || invoice.cliente?.razonSocial || 'Cliente'
     const consecutivo = invoice.consecutivo || 'N/A'
     // Obtener la moneda de la factura
@@ -360,6 +366,10 @@ export class InvoiceEmailService {
                          invoice.companyData?.nombreComercial ||
                          invoice.companyData?.name ||
                          'la empresa emisora' // Fallback por si no se encuentra
+    
+    // Texto dinámico según el tipo de documento
+    const tipoDocumento = isNotaCredito ? 'Nota de Crédito Electrónica' : 'Factura Electrónica'
+    const colorPrincipal = isNotaCredito ? '#9333EA' : '#3B82F6' // Morado para NC, Azul para Factura
 
     return `
       <!DOCTYPE html>
@@ -367,7 +377,7 @@ export class InvoiceEmailService {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Factura Electrónica Aprobada</title>
+        <title>${tipoDocumento} Aprobada</title>
         <style>
           body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -386,7 +396,7 @@ export class InvoiceEmailService {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           }
           .header {
-            background: linear-gradient(135deg, #10b981, #059669);
+            background: linear-gradient(135deg, ${colorPrincipal}, ${isNotaCredito ? '#7C3AED' : '#2563EB'});
             color: white;
             padding: 30px;
             text-align: center;
@@ -518,8 +528,8 @@ export class InvoiceEmailService {
         <div class="container">
           <!-- Header -->
           <div class="header">
-            <h1> Factura Electrónica Aprobada</h1>
-            <div class="subtitle">Su factura ha sido aceptada por Hacienda</div>
+            <h1>${tipoDocumento} Aprobada</h1>
+            <div class="subtitle">Su ${isNotaCredito ? 'nota de crédito' : 'factura'} ha sido aceptada por Hacienda</div>
           </div>
 
           <!-- Content -->
@@ -530,16 +540,16 @@ export class InvoiceEmailService {
 
 
             <p>
-              Nos complace informarle que su <strong>Factura Electrónica ${consecutivo}</strong> 
+              Nos complace informarle que su <strong>${tipoDocumento} ${consecutivo}</strong> 
               ha sido <strong>aceptada y aprobada</strong> por el Ministerio de Hacienda de Costa Rica.
             </p>
 
-            <!-- Detalles de la Factura -->
+            <!-- Detalles del Documento -->
             <div class="invoice-details">
-              <h3>📋 Detalles de la Factura</h3>
+              <h3>📋 Detalles ${isNotaCredito ? 'de la Nota de Crédito' : 'de la Factura'}</h3>
               
               <div class="detail-row">
-                <span class="detail-label">Número de Factura:</span>
+                <span class="detail-label">Número ${isNotaCredito ? 'de NC' : 'de Factura'}:</span>
                 <span class="detail-value">${consecutivo}</span>
               </div>
               

@@ -9,6 +9,7 @@ import { HaciendaAuthService } from '@/lib/services/hacienda-auth'
 import { HaciendaSubmissionService } from '@/lib/services/hacienda-submission'
 import { HaciendaStatusService } from '@/lib/services/hacienda-status'
 import { XMLParser } from '@/lib/services/xml-parser'
+import { InvoiceEmailService } from '@/lib/services/invoice-email-service'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -409,6 +410,65 @@ export async function POST(request: NextRequest) {
           })
           
           console.log('✅ Nota de Crédito actualizada con estado real de Hacienda:', interpretedStatus.status)
+          
+          // Si la NC fue aceptada, enviar email al cliente
+          if (interpretedStatus.status === 'aceptado' || estadoHacienda === 'aceptado') {
+            console.log('🎉 Nota de Crédito APROBADA - Enviando email al cliente...')
+            
+            try {
+              // Crear la NC completa con todos los datos actualizados
+              const completeCreditNoteData = {
+                ...creditNoteRecord,
+                id: docRef.id,
+                status: interpretedStatus.status,
+                statusDescription: interpretedStatus.description,
+                isFinalStatus: interpretedStatus.isFinal,
+                haciendaSubmission: statusResult.status,
+                xmlSigned: signedXml,
+                tipo: 'nota-credito' // Identificar como NC para el email
+              }
+              
+              console.log('📧 Enviando email con NC completa:', {
+                id: completeCreditNoteData.id,
+                consecutivo: completeCreditNoteData.consecutivo,
+                hasXmlSigned: !!completeCreditNoteData.xmlSigned,
+                hasHaciendaSubmission: !!completeCreditNoteData.haciendaSubmission,
+                hasRespuestaXml: !!completeCreditNoteData.haciendaSubmission?.['respuesta-xml']
+              })
+              
+              // Usar el mismo servicio de email (adaptado para NC)
+              const emailResult = await InvoiceEmailService.sendApprovalEmail(completeCreditNoteData as any)
+              
+              if (emailResult.success) {
+                console.log('✅ Email de aprobación enviado exitosamente')
+                console.log('📧 Message ID:', emailResult.messageId)
+                
+                // Actualizar NC con información del email enviado
+                await updateDoc(docRef, {
+                  emailSent: true,
+                  emailSentAt: serverTimestamp(),
+                  emailMessageId: emailResult.messageId,
+                  emailDeliveredTo: emailResult.deliveredTo
+                })
+              } else {
+                console.error('❌ Error enviando email de aprobación:', emailResult.error)
+                
+                // Marcar que hubo error enviando email
+                await updateDoc(docRef, {
+                  emailError: emailResult.error,
+                  emailErrorAt: serverTimestamp()
+                })
+              }
+            } catch (emailError) {
+              console.error('❌ Error en proceso de email:', emailError)
+              
+              // Marcar error en la NC
+              await updateDoc(docRef, {
+                emailError: emailError instanceof Error ? emailError.message : 'Error desconocido',
+                emailErrorAt: serverTimestamp()
+              })
+            }
+          }
         } else {
           console.error('❌ Error al consultar estado de Hacienda:', statusResult.error)
           await updateDoc(docRef, {
