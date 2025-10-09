@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { InvoiceCard } from "@/components/documents/invoice-card"
 import { InvoiceCreationModal } from "@/components/documents/invoice-creation-modal"
+import CreditNoteCreationModal from "@/components/documents/credit-note-creation-modal"
 import { HaciendaStatusModal } from "@/components/documents/hacienda-status-modal"
 import { useDocuments } from "@/hooks/use-documents"
 import { useToast } from "@/hooks/use-toast"
@@ -13,6 +14,7 @@ import { InvoiceFormData, Invoice } from "@/lib/invoice-types"
 import { DocumentType } from "@/components/documents/document-type-tabs"
 import { Plus, Search, FileText, DollarSign, TrendingUp, RefreshCw, Receipt, CreditCard } from "lucide-react"
 import { useState } from "react"
+import { useAuth } from "@/lib/firebase-client"
 
 interface DocumentContentProps {
   documentType: DocumentType
@@ -98,6 +100,7 @@ export function DocumentContent({
 }: DocumentContentProps) {
   const { documents, loading, error, isReady, fetchDocuments } = useDocuments(documentType)
   const { toast } = useToast()
+  const { user } = useAuth()
   const [showHaciendaModal, setShowHaciendaModal] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   
@@ -325,7 +328,7 @@ export function DocumentContent({
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                 >
                   <InvoiceCard 
-                    invoice={document}
+                    invoice={document as any}
                     onView={(document) => console.log('Ver documento:', document)}
                     onEdit={(document) => console.log('Editar documento:', document)}
                     onDelete={(documentId) => console.log('Eliminar documento:', documentId)}
@@ -339,10 +342,24 @@ export function DocumentContent({
       </AnimatePresence>
 
       {/* Modal de Creación */}
-      {showCreateModal && (
+      {showCreateModal && documentType === 'facturas' && (
         <InvoiceCreationModal
           onClose={() => onShowCreateModal(false)}
           onSubmit={onCreateDocument}
+        />
+      )}
+
+      {/* Modal de Nota de Crédito */}
+      {showCreateModal && documentType === 'notas-credito' && user && (
+        <CreditNoteCreationModal
+          isOpen={showCreateModal}
+          onClose={() => onShowCreateModal(false)}
+          companyId={typeof window !== 'undefined' ? localStorage.getItem('selectedCompanyId') || '' : ''}
+          tenantId={user.tenantId || ''}
+          onSuccess={() => {
+            fetchDocuments()
+            onRefresh()
+          }}
         />
       )}
 

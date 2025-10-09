@@ -25,6 +25,7 @@ interface Company {
     codigo: string
     descripcion: string
   }
+  consecutiveNT?: number
 }
 
 export function useCompanies() {

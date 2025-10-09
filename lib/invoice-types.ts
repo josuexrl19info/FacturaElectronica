@@ -7,7 +7,7 @@ export interface Invoice {
   id?: string
   // Información básica de la factura
   consecutivo: string
-  status: 'draft' | 'pending' | 'accepted' | 'rejected' | 'error'
+  status: 'draft' | 'pending' | 'accepted' | 'rejected' | 'error' | 'aceptado'
   createdAt: Date | any
   updatedAt: Date | any
   
@@ -31,6 +31,22 @@ export interface Invoice {
   
   // Notas
   notes: string
+  
+  // Fecha de emisión
+  fecha?: Date | any
+  
+  // Clave de Hacienda
+  clave?: string
+  
+  // Cliente (para compatibilidad)
+  cliente?: {
+    nombre: string
+    commercialName?: string
+    identificacion: string
+    email?: string
+    telefono?: string
+    [key: string]: any
+  }
   
   // Respuesta de Hacienda
   haciendaStatus?: 'aceptado' | 'rechazado' | 'error'

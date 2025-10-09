@@ -9,6 +9,10 @@
  * - Posiciones 8-9:   Año de emisión (últimos 2 dígitos del año actual)
  * - Posiciones 10-21: Cédula del emisor (12 dígitos, rellenada con ceros)
  * - Posiciones 22-41: Consecutivo (20 dígitos: 0010000101XXXXXXXXXX)
+ *   - Posiciones 22-24: Casa matriz, sucursales (001)
+ *   - Posiciones 25-29: Terminal o punto de venta (00001)
+ *   - Posiciones 30-31: Tipo de comprobante (01=Factura, 03=Nota Crédito, etc.)
+ *   - Posiciones 32-41: Numeración del comprobante electrónico (10 dígitos)
  * - Posición 42:      Situación (1=Normal, siempre normal)
  * - Posiciones 43-50: Código de seguridad (8 dígitos aleatorios)
  */
@@ -20,6 +24,7 @@ export interface HaciendaKeyData {
   situacion?: '1' | '2' | '3' // Normal, Contingencia, Sin internet
   codigoSeguridad?: string
   pais?: string // Código de país extraído de la empresa
+  tipoComprobante?: '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' // Tipo de comprobante
 }
 
 export interface HaciendaKeyResult {
@@ -115,7 +120,7 @@ export class HaciendaKeyGenerator {
     console.log('🔍 Cédula formateada (12 dígitos):', cedula)
 
     // f) Consecutivo (20 dígitos) - formato específico: 0010000101XXXXXXXXXX
-    const consecutivo = this.formatConsecutiveForKey(keyData.consecutivo)
+    const consecutivo = this.formatConsecutiveForKey(keyData.consecutivo, keyData.tipoComprobante)
     console.log('🔍 Consecutivo original recibido:', keyData.consecutivo)
     console.log('🔍 Consecutivo formateado (20 dígitos):', consecutivo)
     console.log('🔍 Longitud del consecutivo original:', keyData.consecutivo.length)
@@ -184,7 +189,7 @@ export class HaciendaKeyGenerator {
   /**
    * Formatea el consecutivo para la clave con el formato específico: 0010000101XXXXXXXXXX
    */
-  private static formatConsecutiveForKey(consecutivo: string): string {
+  private static formatConsecutiveForKey(consecutivo: string, tipoComprobante: string = '01'): string {
     console.log('🔍 ENTRADA A formatConsecutiveForKey:')
     console.log('   - Parámetro recibido:', consecutivo)
     console.log('   - Tipo:', typeof consecutivo)
@@ -203,9 +208,13 @@ export class HaciendaKeyGenerator {
     }
     
     // Formato: 0010000101XXXXXXXXXX (20 dígitos)
-    // - 0010000101: Parte fija (10 dígitos)
-    // - XXXXXXXXXX: Número consecutivo (exactamente 10 dígitos)
-    const parteFija = '0010000101'
+    // - Posiciones 1-3: Casa matriz, sucursales (001)
+    // - Posiciones 4-8: Terminal o punto de venta (00001)
+    // - Posiciones 9-10: Tipo de comprobante (01, 02, 03, etc.)
+    // - Posiciones 11-20: Numeración del comprobante electrónico (10 dígitos)
+    const casaMatriz = '001'
+    const terminal = '00001'
+    const tipoComprobanteFormateado = tipoComprobante.padStart(2, '0')
     
     // Tomar los últimos 10 dígitos del número consecutivo
     let numeroFormateado = numeroConsecutivo
@@ -221,10 +230,12 @@ export class HaciendaKeyGenerator {
     console.log('   - Consecutivo original:', consecutivo)
     console.log('   - Número sin FAC:', numeroConsecutivo)
     console.log('   - Número formateado:', numeroFormateado, '(10 dígitos)')
-    console.log('   - Parte fija:', parteFija, '(10 dígitos)')
-    console.log('   - Consecutivo final:', parteFija + numeroFormateado, '(20 dígitos)')
+    console.log('   - Casa matriz:', casaMatriz, '(3 dígitos)')
+    console.log('   - Terminal:', terminal, '(5 dígitos)')
+    console.log('   - Tipo comprobante:', tipoComprobanteFormateado, '(2 dígitos)')
+    console.log('   - Consecutivo final:', casaMatriz + terminal + tipoComprobanteFormateado + numeroFormateado, '(20 dígitos)')
     
-    return parteFija + numeroFormateado
+    return casaMatriz + terminal + tipoComprobanteFormateado + numeroFormateado
   }
 
   /**

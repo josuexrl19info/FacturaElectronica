@@ -12,7 +12,17 @@ interface Document {
   status: string
   total: number
   createdAt: any
+  updatedAt?: any
   documentType?: string
+  companyId: string
+  tenantId: string
+  subtotal: number
+  totalImpuesto: number
+  totalDescuento: number
+  exchangeRate: number
+  currency: string
+  items: any[]
+  [key: string]: any // Permitir propiedades adicionales
 }
 
 export function useDocuments(documentType: DocumentType) {
@@ -21,7 +31,6 @@ export function useDocuments(documentType: DocumentType) {
   const [error, setError] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
   const { user } = useAuth()
-  const { selectedCompanyId } = useCompanySelection()
 
   const checkAuthData = useCallback(() => {
     try {
@@ -66,17 +75,28 @@ export function useDocuments(documentType: DocumentType) {
         filterValue = user.tenantId
       }
 
-      // Para notas de crédito y débito, no mostrar nada por ahora
-      if (documentType === 'notas-credito' || documentType === 'notas-debito') {
+      // Para notas de crédito
+      if (documentType === 'notas-credito') {
+        collectionName = 'creditNotes'
+        filterField = 'tenantId'
+        filterValue = user.tenantId
+      }
+
+      // Para notas de débito, no mostrar nada por ahora
+      if (documentType === 'notas-debito') {
         setDocuments([])
         setLoading(false)
         return
       }
 
       // Construir la URL del API
-      const apiUrl = documentType === 'tiquetes' 
-        ? `/api/tickets?tenantId=${user.tenantId}&companyId=${selectedCompanyId}`
-        : `/api/invoices?tenantId=${user.tenantId}&companyId=${selectedCompanyId}`
+      let apiUrl = `/api/invoices?tenantId=${user.tenantId}&companyId=${selectedCompanyId}`
+      
+      if (documentType === 'tiquetes') {
+        apiUrl = `/api/tickets?tenantId=${user.tenantId}&companyId=${selectedCompanyId}`
+      } else if (documentType === 'notas-credito') {
+        apiUrl = `/api/credit-notes?tenantId=${user.tenantId}&companyId=${selectedCompanyId}`
+      }
 
       const response = await fetch(apiUrl)
       
@@ -87,7 +107,7 @@ export function useDocuments(documentType: DocumentType) {
       const data = await response.json()
       
       // Para facturas, filtrar por documentType si existe
-      let filteredDocuments = data.documents || data.invoices || []
+      let filteredDocuments = data.documents || data.invoices || data.creditNotes || []
       
       if (documentType === 'facturas') {
         // Mostrar solo facturas (documentType === 'facturas' o undefined para compatibilidad)
