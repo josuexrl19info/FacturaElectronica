@@ -129,18 +129,30 @@ export function DocumentContent({
     setSelectedInvoice(null)
   }
 
+  // Filtrar documentos aceptados por Hacienda
+  const acceptedDocuments = filteredDocuments.filter(document => 
+    document.haciendaSubmission && 
+    document.haciendaSubmission['ind-estado'] === 'aceptado'
+  )
+
+  // Calcular totales separados por moneda (solo documentos aceptados)
   const stats = {
     totalDocuments: filteredDocuments.length,
-    totalAmount: filteredDocuments.reduce((sum, document) => sum + document.total, 0),
-    acceptedDocuments: filteredDocuments.filter(document => document.status === 'accepted').length,
+    totalAmountCRC: acceptedDocuments
+      .filter(document => document.currency === 'CRC' || !document.currency)
+      .reduce((sum, document) => sum + (document.total || 0), 0),
+    totalAmountUSD: acceptedDocuments
+      .filter(document => document.currency === 'USD')
+      .reduce((sum, document) => sum + (document.total || 0), 0),
+    acceptedDocuments: acceptedDocuments.length,
     pendingDocuments: filteredDocuments.filter(document => document.status === 'pending').length
   }
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: string = 'CRC') => {
     return new Intl.NumberFormat('es-CR', {
       style: 'currency',
-      currency: 'CRC',
-      minimumFractionDigits: 0
+      currency: currency,
+      minimumFractionDigits: currency === 'USD' ? 2 : 0
     }).format(amount)
   }
 
@@ -166,7 +178,7 @@ export function DocumentContent({
     >
       {/* Stats Cards */}
       <motion.div 
-        className="grid grid-cols-1 md:grid-cols-4 gap-4"
+        className="grid grid-cols-1 md:grid-cols-5 gap-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
@@ -181,11 +193,25 @@ export function DocumentContent({
           </div>
         </Card>
 
+        {/* Monto en Colones (Solo Aceptados) */}
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground">{config.stats.amount}</p>
-              <p className="text-lg font-bold">{formatCurrency(stats.totalAmount)}</p>
+              <p className="text-xs font-medium text-muted-foreground">Monto Total (₡)</p>
+              <p className="text-xs text-green-600 mb-1">Solo Aceptados</p>
+              <p className="text-lg font-bold">{formatCurrency(stats.totalAmountCRC, 'CRC')}</p>
+            </div>
+            <DollarSign className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </Card>
+
+        {/* Monto en Dólares (Solo Aceptados) */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Monto Total ($)</p>
+              <p className="text-xs text-green-600 mb-1">Solo Aceptados</p>
+              <p className="text-lg font-bold">{formatCurrency(stats.totalAmountUSD, 'USD')}</p>
             </div>
             <DollarSign className="h-5 w-5 text-muted-foreground" />
           </div>

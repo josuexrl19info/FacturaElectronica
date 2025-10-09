@@ -46,6 +46,13 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Ordenar por fecha de creación (más reciente primero)
+    creditNotes.sort((a, b) => {
+      const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt)
+      const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt)
+      return dateB.getTime() - dateA.getTime()
+    })
+
     console.log(`✅ ${creditNotes.length} notas de crédito encontradas`)
 
     return NextResponse.json({

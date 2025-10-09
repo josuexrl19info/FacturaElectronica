@@ -565,8 +565,17 @@ export default function CreditNoteCreationModal({
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-semibold text-green-600">
-                                {invoice.currency === 'USD' ? '$' : '₡'}{invoice.total?.toLocaleString() || '0'}
+                              <div className="font-semibold text-green-600 mb-1">
+                                {invoice.currency === 'USD' ? '$' : '₡'}{(invoice.total || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-xs text-gray-500 mb-1">
+                                Monto Total
+                              </div>
+                              <div className="font-semibold text-blue-600 mb-1">
+                                {invoice.currency === 'USD' ? '$' : '₡'}{(invoice.subtotal || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-xs text-gray-500 mb-2">
+                                Monto sin IVA
                               </div>
                               <div className="text-xs text-gray-500">
                                 {invoice.fecha ? (
@@ -574,9 +583,6 @@ export default function CreditNoteCreationModal({
                                     invoice.fecha.toDate().toLocaleDateString('es-CR') :
                                     new Date(invoice.fecha).toLocaleDateString('es-CR')
                                 ) : 'N/A'}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {invoice.currency || 'CRC'}
                               </div>
                             </div>
                           </div>
@@ -632,12 +638,15 @@ export default function CreditNoteCreationModal({
                     <span className="text-gray-600">Monto Total:</span>{' '}
                     <span className="font-semibold text-green-600">
                       {formData.facturaData.resumen.codigoMoneda === 'USD' ? '$' : '₡'}
-                      {formData.facturaData.resumen.totalComprobante.toLocaleString()}
+                      {formData.facturaData.resumen.totalComprobante.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Moneda:</span>{' '}
-                    <span className="font-medium">{formData.facturaData.resumen.codigoMoneda}</span>
+                    <span className="text-gray-600">Monto sin IVA:</span>{' '}
+                    <span className="font-semibold text-blue-600">
+                      {formData.facturaData.resumen.codigoMoneda === 'USD' ? '$' : '₡'}
+                      {formData.facturaData.resumen.totalVentaNeta.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Cliente:</span>{' '}
@@ -749,11 +758,11 @@ export default function CreditNoteCreationModal({
                       <div className="flex-1">
                         <div className="text-sm font-medium">{item.detalle}</div>
                         <div className="text-xs text-gray-600">
-                          Cantidad: {item.cantidad} | Precio: {formData.facturaData?.resumen.codigoMoneda === 'USD' ? '$' : '₡'}{item.precioUnitario.toLocaleString()}
+                          Cantidad: {item.cantidad} | Precio: {formData.facturaData?.resumen.codigoMoneda === 'USD' ? '$' : '₡'}{item.precioUnitario.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </div>
                       <div className="text-sm font-semibold">
-                        {formData.facturaData?.resumen.codigoMoneda === 'USD' ? '$' : '₡'}{item.montoTotal.toLocaleString()}
+                        {formData.facturaData?.resumen.codigoMoneda === 'USD' ? '$' : '₡'}{item.montoTotal.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </div>
                   ))}

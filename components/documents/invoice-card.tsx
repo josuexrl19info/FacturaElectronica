@@ -42,9 +42,13 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('es-CR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount)
+  }
+
+  const getCurrencySymbol = (currency: string) => {
+    return currency === 'USD' ? '$' : '₡'
   }
 
   const downloadXMLFile = (content: string, filename: string) => {
@@ -399,7 +403,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
             </div>
 
             {/* Información de totales */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
               <motion.div 
                 className="flex items-center gap-2"
                 whileHover={{ scale: 1.05 }}
@@ -407,9 +411,22 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
               >
                 <div>
                   <p className="font-semibold text-green-600 text-xs">
-                    ₡{formatAmount(invoice.total)}
+                    {getCurrencySymbol(invoice.currency)}{formatAmount(invoice.total)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Total</p>
+                  <p className="text-xs text-muted-foreground">Monto Total</p>
+                </div>
+              </motion.div>
+
+              <motion.div 
+                className="flex items-center gap-2"
+                whileHover={{ scale: 1.05 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div>
+                  <p className="font-semibold text-blue-600 text-xs">
+                    {getCurrencySymbol(invoice.currency)}{formatAmount(invoice.subtotal || 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Monto sin IVA</p>
                 </div>
               </motion.div>
 
@@ -457,12 +474,9 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
               <div className="mt-2 pt-2 border-t border-border/50">
                 <div className="space-y-1">
                   {invoice.items.map((item, index) => (
-                    <div key={index} className="flex justify-between text-xs">
-                      <span className="text-muted-foreground truncate flex-1 mr-2">
+                    <div key={index} className="text-xs">
+                      <span className="text-muted-foreground truncate">
                         {item.detalle}
-                      </span>
-                      <span className="font-medium">
-                        ₡{formatAmount(item.montoTotalLinea)}
                       </span>
                     </div>
                   ))}
