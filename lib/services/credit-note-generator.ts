@@ -103,6 +103,11 @@ export interface CreditNoteData {
     totalVenta: number
     totalDescuentos?: number
     totalVentaNeta: number
+    totalDesgloseImpuesto?: {
+      codigo: string
+      codigoTarifaIVA: string
+      totalMontoImpuesto: number
+    }
     totalImpuesto: number
     totalIVADevuelto?: number
     totalOtrosCargos?: number
@@ -165,9 +170,17 @@ ${data.items.map(item => this.generateLineaDetalleXML(item)).join('\n')}
     <TotalVenta>${data.resumen.totalVenta}</TotalVenta>
     ${data.resumen.totalDescuentos ? `<TotalDescuentos>${data.resumen.totalDescuentos}</TotalDescuentos>` : ''}
     <TotalVentaNeta>${data.resumen.totalVentaNeta}</TotalVentaNeta>
+    ${data.resumen.totalDesgloseImpuesto ? `<TotalDesgloseImpuesto>
+      <Codigo>${data.resumen.totalDesgloseImpuesto.codigo}</Codigo>
+      <CodigoTarifaIVA>${data.resumen.totalDesgloseImpuesto.codigoTarifaIVA}</CodigoTarifaIVA>
+      <TotalMontoImpuesto>${data.resumen.totalDesgloseImpuesto.totalMontoImpuesto}</TotalMontoImpuesto>
+    </TotalDesgloseImpuesto>` : ''}
     <TotalImpuesto>${data.resumen.totalImpuesto}</TotalImpuesto>
     ${data.resumen.totalIVADevuelto ? `<TotalIVADevuelto>${data.resumen.totalIVADevuelto}</TotalIVADevuelto>` : ''}
     ${data.resumen.totalOtrosCargos ? `<TotalOtrosCargos>${data.resumen.totalOtrosCargos}</TotalOtrosCargos>` : ''}
+    ${data.medioPago ? `<MedioPago>
+      <TipoMedioPago>${data.medioPago}</TipoMedioPago>
+    </MedioPago>` : ''}
     <TotalComprobante>${data.resumen.totalComprobante}</TotalComprobante>
   </ResumenFactura>
   <InformacionReferencia>

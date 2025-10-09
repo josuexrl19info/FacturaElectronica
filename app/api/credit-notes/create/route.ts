@@ -8,6 +8,7 @@ import { DigitalSignatureService } from '@/lib/services/digital-signature'
 import { HaciendaAuthService } from '@/lib/services/hacienda-auth'
 import { HaciendaSubmissionService } from '@/lib/services/hacienda-submission'
 import { HaciendaStatusService } from '@/lib/services/hacienda-status'
+import { XMLParser } from '@/lib/services/xml-parser'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -17,20 +18,21 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
-      referenciaFactura,
+      facturaData: facturaDataFromFrontend,
+      xmlFacturaOriginal,
       tipoNotaCredito,
       razon,
       esAnulacionTotal,
       itemsAfectados,
       companyId,
-      tenantId,
-      invoiceId
+      tenantId
     } = body
 
     console.log('📝 Creando Nota de Crédito...')
-    console.log('📋 Referencia a factura:', referenciaFactura.consecutivo)
     console.log('📋 Tipo NC:', tipoNotaCredito)
     console.log('📋 Es anulación total:', esAnulacionTotal)
+    console.log('📄 XML original disponible:', !!xmlFacturaOriginal)
+    console.log('📊 Datos parseados del frontend disponibles:', !!facturaDataFromFrontend)
 
     // 1. Obtener datos de la empresa
     const companyDoc = await getDoc(doc(db, 'companies', companyId))
@@ -43,18 +45,43 @@ export async function POST(request: NextRequest) {
 
     const companyData = companyDoc.data()
     console.log('🏢 Empresa obtenida:', companyData.name)
-    console.log('🔍 Campos de la empresa:', Object.keys(companyData))
     console.log('🔑 Certificado disponible:', !!companyData.certificadoDigital?.fileData)
     console.log('🔒 Password certificado disponible:', !!companyData.certificadoDigital?.password)
 
-    // 2. Obtener datos de la factura original (si viene de la BD)
-    let invoiceData: any = null
-    if (invoiceId) {
-      const invoiceDoc = await getDoc(doc(db, 'invoices', invoiceId))
-      if (invoiceDoc.exists()) {
-        invoiceData = { id: invoiceDoc.id, ...invoiceDoc.data() }
-        console.log('📄 Factura original obtenida:', invoiceData.consecutivo)
-      }
+    // 2. Usar datos parseados del frontend o parsear XML en el backend
+    let facturaData
+    if (facturaDataFromFrontend) {
+      console.log('📊 Usando datos parseados del frontend')
+      facturaData = facturaDataFromFrontend
+      console.log('✅ Factura:', facturaData.consecutivo)
+      console.log('🔍 Datos del frontend:', {
+        tieneEmisor: !!facturaData.emisor,
+        tieneReceptor: !!facturaData.receptor,
+        tieneCondicionVenta: !!facturaData.condicionVenta,
+        tieneMedioPago: !!facturaData.medioPago,
+        cantidadItems: facturaData.items?.length || 0,
+        primerItem: facturaData.items?.[0] ? {
+          tieneCodigoCABYS: !!facturaData.items[0].codigoCABYS,
+          tieneUnidadMedida: !!facturaData.items[0].unidadMedida,
+          tieneSubtotal: !!facturaData.items[0].subtotal,
+          tieneBaseImponible: !!facturaData.items[0].baseImponible,
+          tieneMontoTotalLinea: !!facturaData.items[0].montoTotalLinea
+        } : null,
+        resumen: {
+          tieneTipoCambio: facturaData.resumen?.tipoCambio !== undefined,
+          tieneTotalGravado: facturaData.resumen?.totalGravado !== undefined,
+          tieneTotalVentaNeta: facturaData.resumen?.totalVentaNeta !== undefined
+        }
+      })
+    } else if (xmlFacturaOriginal) {
+      console.log('📄 Parseando XML de factura original en backend...')
+      facturaData = XMLParser.parseInvoiceXML(xmlFacturaOriginal)
+      console.log('✅ Factura parseada:', facturaData.consecutivo)
+    } else {
+      return NextResponse.json(
+        { error: 'No se proporcionó XML ni datos de la factura original' },
+        { status: 400 }
+      )
     }
 
     // 3. Generar consecutivo para la NC usando consecutiveNT de la empresa
@@ -97,164 +124,110 @@ export async function POST(request: NextRequest) {
     const consecutivo20Digitos = claveNC.substring(21, 41)
     console.log('✅ Consecutivo 20 dígitos extraído:', consecutivo20Digitos)
 
-    // 5. Preparar datos para el XML de NC
-    const clientData = invoiceData?.cliente || referenciaFactura.datosFactura?.emisor
-    
-    // Determinar items a incluir en la NC
+    // 5. Determinar items a incluir en la NC (desde el XML parseado)
     let itemsNC = []
-    if (esAnulacionTotal && invoiceData) {
-      // Si es anulación total, incluir todos los items de la factura original
-      itemsNC = invoiceData.items || []
-      console.log('📦 Items de la factura original:', JSON.stringify(itemsNC[0], null, 2))
-    } else if (!esAnulacionTotal && itemsAfectados && invoiceData) {
-      // Si es parcial, solo los items seleccionados
-      itemsNC = invoiceData.items.filter((item: any) => itemsAfectados.includes(item.id || `item-${item.numeroLinea}`))
-      console.log('📦 Items seleccionados:', JSON.stringify(itemsNC[0], null, 2))
-    } else if (referenciaFactura.datosFactura?.items) {
-      // Si viene de XML subido, usar esos items
-      itemsNC = referenciaFactura.datosFactura.items
-      console.log('📦 Items del XML subido:', JSON.stringify(itemsNC[0], null, 2))
+    if (esAnulacionTotal) {
+      // Si es anulación total, incluir todos los items de la factura
+      itemsNC = facturaData.items
+      console.log('📦 Items de la factura (anulación total):', itemsNC.length)
+    } else if (itemsAfectados && itemsAfectados.length > 0) {
+      // Si es parcial, solo los items seleccionados por número de línea
+      itemsNC = facturaData.items.filter((item: any) => 
+        itemsAfectados.includes(item.numeroLinea)
+      )
+      console.log('📦 Items seleccionados (parcial):', itemsNC.length)
+    } else {
+      // Por defecto, todos los items
+      itemsNC = facturaData.items
+      console.log('📦 Items por defecto:', itemsNC.length)
+    }
+    
+    if (itemsNC.length > 0) {
+      console.log('📦 Primer item:', JSON.stringify(itemsNC[0], null, 2))
     }
 
-    // 6. Construir datos de la NC
+    // 6. Construir datos de la NC usando datos parseados del XML
     const creditNoteData: CreditNoteData = {
       referenciaFactura: {
         tipoDoc: '01', // Factura electrónica
-        numero: referenciaFactura.clave,
-        fechaEmision: referenciaFactura.fechaEmision,
+        numero: facturaData.clave,
+        fechaEmision: facturaData.fechaEmision,
         codigo: tipoNotaCredito,
         razon: razon
       },
       clave: claveNC,
       consecutivo: consecutivo20Digitos, // Consecutivo de 20 dígitos
       fechaEmision: fechaCostaRica,
+      // Emisor: usar datos del XML parseado (quien emitió la factura original)
       emisor: {
-        nombre: companyData.name || '',
-        identificacion: (companyData.identification || '').replace(/-/g, ''),
-        tipoIdentificacion: companyData.identificationType || '02',
-        nombreComercial: companyData.commercialName || companyData.name || '',
-        ubicacion: {
-          provincia: companyData.provincia || companyData.province || '1',
-          canton: companyData.canton || '01',
-          distrito: companyData.distrito || companyData.district || '01',
-          otrasSenas: companyData.otrasSenas || companyData.address || ''
-        },
-        telefono: {
-          codigoPais: companyData.phoneCountryCode?.replace('+', '') || '506',
-          numero: companyData.phone || ''
-        },
-        correoElectronico: companyData.email || ''
+        nombre: facturaData.emisor.nombre,
+        identificacion: facturaData.emisor.identificacion,
+        tipoIdentificacion: facturaData.emisor.tipoIdentificacion,
+        nombreComercial: facturaData.emisor.nombreComercial,
+        ubicacion: facturaData.emisor.ubicacion,
+        telefono: facturaData.emisor.telefono,
+        correoElectronico: facturaData.emisor.correoElectronico
       },
-      receptor: clientData ? {
-        nombre: clientData.nombre || clientData.name || '',
-        identificacion: (clientData.identificacion || clientData.identification || '').replace(/-/g, ''),
-        tipoIdentificacion: clientData.tipoIdentificacion || clientData.identificationType || '01',
-        nombreComercial: clientData.nombreComercial || clientData.commercialName || clientData.nombre || clientData.name,
-        ubicacion: {
-          provincia: clientData.provincia || clientData.province || '1',
-          canton: clientData.canton || '01',
-          distrito: clientData.distrito || clientData.district || '01',
-          otrasSenas: clientData.otrasSenas || clientData.direccion || ''
+      // Receptor: usar datos parseados del XML (el receptor de la factura original)
+      receptor: {
+        nombre: facturaData.receptor.nombre || '',
+        identificacion: facturaData.receptor.identificacion || '',
+        tipoIdentificacion: facturaData.receptor.tipoIdentificacion || '01',
+        nombreComercial: facturaData.receptor.nombreComercial || facturaData.receptor.nombre || '',
+        ubicacion: facturaData.receptor.ubicacion || {
+          provincia: '1',
+          canton: '01',
+          distrito: '01',
+          otrasSenas: ''
         },
-        telefono: clientData.telefono || clientData.phone ? {
-          codigoPais: clientData.phoneCountryCode?.replace('+', '') || '506',
-          numero: clientData.telefono || clientData.phone || ''
-        } : undefined,
-        correoElectronico: clientData.email || clientData.correo
-      } : undefined,
+        telefono: facturaData.receptor.telefono,
+        correoElectronico: facturaData.receptor.correoElectronico || ''
+      },
       actividadEconomicaEmisor: companyData.economicActivity?.codigo,
-      actividadEconomicaReceptor: clientData?.economicActivity?.codigo,
-      condicionVenta: invoiceData?.condicionVenta || '01',
-      medioPago: invoiceData?.paymentMethod || '01',
-      items: itemsNC.map((item: any, index: number) => {
-        // Calcular valores base
-        const cantidad = item.cantidad || 1
-        const precioUnitario = item.precioUnitario || item.precio || 0
-        const montoTotal = item.montoTotal || (cantidad * precioUnitario)
-        const subtotal = item.subtotal || montoTotal
-        const baseImponible = item.baseImponible || subtotal
-        
-        // Determinar impuesto
-        let impuestoData = null
-        let impuestoNeto = 0
-        
-        // El impuesto puede venir como array o como objeto
-        const impuestoItem = Array.isArray(item.impuesto) ? item.impuesto[0] : item.impuesto
-        
-        if (impuestoItem && impuestoItem.monto !== undefined) {
-          // Si ya tiene impuesto definido, usarlo
-          impuestoData = {
-            codigo: impuestoItem.codigo || '02',
-            codigoTarifa: impuestoItem.codigoTarifa || impuestoItem.codigoTarifaIVA || '08',
-            tarifa: impuestoItem.tarifa || 13,
-            monto: impuestoItem.monto
-          }
-          impuestoNeto = impuestoItem.monto
-        } else if (item.impuestoNeto && item.impuestoNeto > 0) {
-          // Si tiene impuestoNeto, calcular desde ahí
-          impuestoNeto = item.impuestoNeto
-          const tarifa = item.taxRate || 13
-          impuestoData = {
-            codigo: '02',
-            codigoTarifa: tarifa === 13 ? '08' : '01',
-            tarifa: tarifa,
-            monto: impuestoNeto
-          }
-        } else if (item.taxRate && item.taxRate > 0) {
-          // Si tiene taxRate, calcular el impuesto
-          const tarifa = item.taxRate
-          impuestoNeto = (baseImponible * tarifa) / 100
-          impuestoData = {
-            codigo: '02',
-            codigoTarifa: tarifa === 13 ? '08' : '01',
-            tarifa: tarifa,
-            monto: impuestoNeto
-          }
-        }
-        
-        const montoTotalLinea = item.montoTotalLinea || (subtotal + impuestoNeto)
-        
-        console.log(`📦 Item ${index + 1} mapeado:`, {
-          impuestoOriginal: item.impuesto,
-          impuestoItem: impuestoItem,
-          impuestoData: impuestoData,
-          impuestoNeto: impuestoNeto
-        })
-        
-        return {
-          numeroLinea: index + 1,
-          codigoCABYS: item.codigoCABYS || '8399000000000',
-          cantidad,
-          unidadMedida: item.unidadMedida || 'Sp',
-          detalle: item.detalle || item.descripcion || item.description,
-          precioUnitario,
-          montoTotal,
-          subtotal,
-          baseImponible,
-          impuesto: impuestoData,
-          impuestoNeto,
-          montoTotalLinea
-        }
-      }),
+      actividadEconomicaReceptor: undefined, // No disponible en XML
+      condicionVenta: facturaData.condicionVenta,
+      medioPago: facturaData.medioPago,
+      // Items: ya vienen parseados del XML con la estructura correcta, agregar valores por defecto
+      items: itemsNC.map((item: any, index: number) => ({
+        numeroLinea: index + 1,
+        codigoCABYS: item.codigoCABYS || '8399000000000',
+        cantidad: item.cantidad || 1,
+        unidadMedida: item.unidadMedida || 'Sp',
+        detalle: item.detalle || '',
+        precioUnitario: item.precioUnitario || 0,
+        montoTotal: item.montoTotal || 0,
+        subtotal: item.subtotal || item.montoTotal || 0,
+        baseImponible: item.baseImponible || item.subtotal || item.montoTotal || 0,
+        impuesto: item.impuesto, // Ya viene con la estructura correcta del XML
+        impuestoNeto: item.impuestoNeto || 0,
+        montoTotalLinea: item.montoTotalLinea || (item.subtotal || item.montoTotal || 0) + (item.impuestoNeto || 0)
+      })),
+      // Resumen: usar datos parseados del XML de la factura original con valores por defecto
       resumen: {
         codigoTipoMoneda: {
-          codigoMoneda: invoiceData?.currency || 'CRC',
-          tipoCambio: invoiceData?.exchangeRate || 1
+          codigoMoneda: facturaData.resumen.codigoMoneda || 'CRC',
+          tipoCambio: facturaData.resumen.tipoCambio || 1
         },
-        totalServGravados: itemsNC.reduce((sum: number, item: any) => sum + (item.impuestoNeto || 0), 0),
-        totalServExentos: 0,
-        totalServExonerado: 0,
-        totalMercanciasGravadas: 0,
-        totalMercanciasExentas: 0,
-        totalMercanciasExoneradas: 0,
-        totalGravado: itemsNC.reduce((sum: number, item: any) => sum + (item.baseImponible || 0), 0),
-        totalExento: 0,
-        totalExonerado: 0,
-        totalVenta: itemsNC.reduce((sum: number, item: any) => sum + (item.montoTotalLinea || 0), 0),
-        totalDescuentos: 0,
-        totalVentaNeta: itemsNC.reduce((sum: number, item: any) => sum + (item.montoTotalLinea || 0), 0),
-        totalImpuesto: itemsNC.reduce((sum: number, item: any) => sum + (item.impuestoNeto || 0), 0),
-        totalComprobante: itemsNC.reduce((sum: number, item: any) => sum + (item.montoTotalLinea || 0), 0)
+        totalServGravados: facturaData.resumen.totalServGravados || 0,
+        totalServExentos: facturaData.resumen.totalServExentos || 0,
+        totalServExonerado: facturaData.resumen.totalServExonerado || 0,
+        totalMercanciasGravadas: facturaData.resumen.totalMercanciasGravadas || 0,
+        totalMercanciasExentas: facturaData.resumen.totalMercanciasExentas || 0,
+        totalMercanciasExoneradas: facturaData.resumen.totalMercanciasExoneradas || 0,
+        totalGravado: facturaData.resumen.totalGravado || 0,
+        totalExento: facturaData.resumen.totalExento || 0,
+        totalExonerado: facturaData.resumen.totalExonerado || 0,
+        totalVenta: facturaData.resumen.totalVenta || 0,
+        totalDescuentos: facturaData.resumen.totalDescuentos || 0,
+        totalVentaNeta: facturaData.resumen.totalVentaNeta || 0,
+        // Agregar TotalDesgloseImpuesto si hay impuestos
+        totalDesgloseImpuesto: (facturaData.resumen.totalImpuesto || 0) > 0 ? {
+          codigo: '01', // IVA
+          codigoTarifaIVA: '08', // 13%
+          totalMontoImpuesto: facturaData.resumen.totalImpuesto || 0
+        } : undefined,
+        totalImpuesto: facturaData.resumen.totalImpuesto || 0,
+        totalComprobante: facturaData.resumen.totalComprobante || 0
       }
     }
 
@@ -316,12 +289,12 @@ export async function POST(request: NextRequest) {
       clave: claveNC,
       fecha: fechaCostaRica,
       emisor: {
-        tipoIdentificacion: companyData.identificationType || '02',
-        numeroIdentificacion: (companyData.identification || '').replace(/-/g, '')
+        tipoIdentificacion: facturaData.emisor.tipoIdentificacion,
+        numeroIdentificacion: facturaData.emisor.identificacion
       },
       receptor: {
-        tipoIdentificacion: invoiceData?.cliente?.tipoIdentificacion || '02',
-        numeroIdentificacion: (invoiceData?.cliente?.identificacion || '').replace(/-/g, '')
+        tipoIdentificacion: facturaData.receptor.tipoIdentificacion,
+        numeroIdentificacion: facturaData.receptor.identificacion
       }
     }
     
@@ -351,21 +324,21 @@ export async function POST(request: NextRequest) {
       razon,
       esAnulacionTotal,
       referenciaFactura: {
-        facturaId: invoiceId,
-        clave: referenciaFactura.clave,
-        consecutivo: referenciaFactura.consecutivo
+        clave: facturaData.clave,
+        consecutivo: facturaData.consecutivo,
+        fechaEmision: facturaData.fechaEmision
       },
       companyId,
       tenantId,
-      clientId: invoiceData?.clientId,
-      cliente: clientData,
+      cliente: facturaData.receptor, // Receptor de la factura original
       xml,
       xmlSigned: signedXml,
+      xmlFacturaOriginal, // Guardar el XML original de la factura
       items: itemsNC,
       total: creditNoteData.resumen.totalComprobante,
       subtotal: creditNoteData.resumen.totalVenta,
       totalImpuesto: creditNoteData.resumen.totalImpuesto,
-      currency: invoiceData?.currency || 'CRC',
+      currency: facturaData.resumen.codigoMoneda,
       status: 'Enviando Hacienda',
       haciendaSubmission: submissionResult.response,
       createdAt: serverTimestamp(),

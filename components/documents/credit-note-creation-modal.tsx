@@ -12,18 +12,91 @@ import { Upload, Search, FileText, CheckCircle, XCircle, AlertCircle } from 'luc
 import { useToastNotification } from '@/components/providers/toast-provider'
 import { Invoice } from '@/lib/invoice-types'
 
-interface CreditNoteFormData {
-  referenciaFactura: {
-    clave: string
-    consecutivo: string
-    fechaEmision: string
-    xmlOriginal?: string
-    datosFactura?: any
+interface ParsedFacturaData {
+  clave: string
+  consecutivo: string
+  fechaEmision: string
+  condicionVenta: string
+  medioPago: string
+  emisor: {
+    nombre: string
+    identificacion: string
+    tipoIdentificacion: string
+    nombreComercial: string
+    ubicacion: {
+      provincia: string
+      canton: string
+      distrito: string
+      otrasSenas: string
+    }
+    telefono: {
+      codigoPais: string
+      numero: string
+    }
+    correoElectronico: string
   }
+  receptor: {
+    nombre: string
+    identificacion: string
+    tipoIdentificacion: string
+    nombreComercial: string
+    ubicacion: {
+      provincia: string
+      canton: string
+      distrito: string
+      otrasSenas: string
+    }
+    telefono?: {
+      codigoPais: string
+      numero: string
+    }
+    correoElectronico: string
+  }
+  items: Array<{
+    numeroLinea: number
+    codigoCABYS: string
+    cantidad: number
+    unidadMedida: string
+    detalle: string
+    precioUnitario: number
+    montoTotal: number
+    subtotal: number
+    baseImponible: number
+    impuesto?: {
+      codigo: string
+      codigoTarifa: string
+      tarifa: number
+      monto: number
+    }
+    impuestoNeto: number
+    montoTotalLinea: number
+  }>
+  resumen: {
+    codigoMoneda: string
+    tipoCambio: number
+    totalServGravados: number
+    totalServExentos: number
+    totalServExonerado: number
+    totalMercanciasGravadas: number
+    totalMercanciasExentas: number
+    totalMercanciasExoneradas: number
+    totalGravado: number
+    totalExento: number
+    totalExonerado: number
+    totalVenta: number
+    totalDescuentos: number
+    totalVentaNeta: number
+    totalImpuesto: number
+    totalComprobante: number
+  }
+}
+
+interface CreditNoteFormData {
+  facturaData: ParsedFacturaData | null // Datos parseados del XML
   tipoNotaCredito: '01' | '02' | '06' | '' // 01: Anulación, 02: Corrección, 06: Devolución
   razon: string
   esAnulacionTotal: boolean
-  itemsAfectados: string[] // IDs de los items afectados (si es parcial)
+  itemsAfectados: number[] // Números de línea de los items afectados (si es parcial)
 }
 
 interface CreditNoteCreationModalProps {
@@ -52,16 +125,179 @@ export default function CreditNoteCreationModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [formData, setFormData] = useState<CreditNoteFormData>({
-    referenciaFactura: {
-      clave: '',
-      consecutivo: '',
-      fechaEmision: ''
-    },
+    facturaData: null,
     tipoNotaCredito: '',
     razon: '',
     esAnulacionTotal: true,
     itemsAfectados: []
   })
+
+  // Función para parsear XML de factura
+  const parseFacturaXML = (xmlString: string): ParsedFacturaData | null => {
+    try {
+      // Helper para extraer texto de un tag
+      const getTagValue = (xml: string, tagName: string, defaultValue: string = ''): string => {
+        const regex = new RegExp(`<${tagName}>([^<]*)<\/${tagName}>`, 'i')
+        const match = xml.match(regex)
+        return match ? match[1].trim() : defaultValue
+      }
+
+      // Helper para extraer número
+      const getTagNumber = (xml: string, tagName: string, defaultValue: number = 0): number => {
+        const value = getTagValue(xml, tagName, String(defaultValue))
+        return parseFloat(value) || defaultValue
+      }
+
+      // Extraer datos básicos
+      const clave = getTagValue(xmlString, 'Clave')
+      const consecutivo = getTagValue(xmlString, 'NumeroConsecutivo')
+      const fechaEmision = getTagValue(xmlString, 'FechaEmision')
+
+      // Extraer condición de venta y medio de pago
+      const condicionVenta = getTagValue(xmlString, 'CondicionVenta', '01')
+      const medioPago = getTagValue(xmlString, 'MedioPago', '01')
+
+      // Extraer emisor
+      const emisorMatch = xmlString.match(/<Emisor>([\s\S]*?)<\/Emisor>/i)
+      const emisorXML = emisorMatch ? emisorMatch[1] : ''
+      
+      const ubicacionEmisorMatch = emisorXML.match(/<Ubicacion>([\s\S]*?)<\/Ubicacion>/i)
+      const ubicacionEmisorXML = ubicacionEmisorMatch ? ubicacionEmisorMatch[1] : ''
+      
+      const telefonoEmisorMatch = emisorXML.match(/<Telefono>([\s\S]*?)<\/Telefono>/i)
+      const telefonoEmisorXML = telefonoEmisorMatch ? telefonoEmisorMatch[1] : ''
+      
+      // Formatear cantón del emisor a 2 dígitos
+      const cantonEmisorRaw = getTagValue(ubicacionEmisorXML, 'Canton', '01')
+      const cantonEmisor = cantonEmisorRaw.length > 2 
+        ? cantonEmisorRaw.substring(cantonEmisorRaw.length - 2) 
+        : cantonEmisorRaw.padStart(2, '0')
+      
+      const emisor = {
+        nombre: getTagValue(emisorXML, 'Nombre'),
+        identificacion: getTagValue(emisorXML, 'Numero'),
+        tipoIdentificacion: getTagValue(emisorXML, 'Tipo', '02'),
+        nombreComercial: getTagValue(emisorXML, 'NombreComercial'),
+        ubicacion: {
+          provincia: getTagValue(ubicacionEmisorXML, 'Provincia', '1'),
+          canton: cantonEmisor,
+          distrito: getTagValue(ubicacionEmisorXML, 'Distrito', '01'),
+          otrasSenas: getTagValue(ubicacionEmisorXML, 'OtrasSenas', '')
+        },
+        telefono: {
+          codigoPais: getTagValue(telefonoEmisorXML, 'CodigoPais', '506'),
+          numero: getTagValue(telefonoEmisorXML, 'NumTelefono', '')
+        },
+        correoElectronico: getTagValue(emisorXML, 'CorreoElectronico', '')
+      }
+
+      // Extraer receptor
+      const receptorMatch = xmlString.match(/<Receptor>([\s\S]*?)<\/Receptor>/i)
+      const receptorXML = receptorMatch ? receptorMatch[1] : ''
+      
+      const ubicacionMatch = receptorXML.match(/<Ubicacion>([\s\S]*?)<\/Ubicacion>/i)
+      const ubicacionXML = ubicacionMatch ? ubicacionMatch[1] : ''
+      
+      const telefonoMatch = receptorXML.match(/<Telefono>([\s\S]*?)<\/Telefono>/i)
+      const telefonoXML = telefonoMatch ? telefonoMatch[1] : ''
+      
+      // Formatear cantón a 2 dígitos (si viene con 3, tomar los últimos 2)
+      const cantonRaw = getTagValue(ubicacionXML, 'Canton', '01')
+      const canton = cantonRaw.length > 2 ? cantonRaw.substring(cantonRaw.length - 2) : cantonRaw.padStart(2, '0')
+      
+      const receptor = {
+        nombre: getTagValue(receptorXML, 'Nombre'),
+        identificacion: getTagValue(receptorXML, 'Numero'),
+        tipoIdentificacion: getTagValue(receptorXML, 'Tipo', '01'),
+        nombreComercial: getTagValue(receptorXML, 'NombreComercial'),
+        ubicacion: {
+          provincia: getTagValue(ubicacionXML, 'Provincia', '1'),
+          canton: canton,
+          distrito: getTagValue(ubicacionXML, 'Distrito', '01'),
+          otrasSenas: getTagValue(ubicacionXML, 'OtrasSenas', '')
+        },
+        telefono: telefonoXML ? {
+          codigoPais: getTagValue(telefonoXML, 'CodigoPais', '506'),
+          numero: getTagValue(telefonoXML, 'NumTelefono', '')
+        } : undefined,
+        correoElectronico: getTagValue(receptorXML, 'CorreoElectronico', '')
+      }
+
+      // Extraer items
+      const detalleMatch = xmlString.match(/<DetalleServicio>([\s\S]*?)<\/DetalleServicio>/i)
+      const detalleXML = detalleMatch ? detalleMatch[1] : ''
+      const lineaDetalleMatches = detalleXML.match(/<LineaDetalle>([\s\S]*?)<\/LineaDetalle>/gi) || []
+      
+      const items = lineaDetalleMatches.map((lineaXML) => {
+        // Extraer impuesto si existe
+        const impuestoMatch = lineaXML.match(/<Impuesto>([\s\S]*?)<\/Impuesto>/i)
+        let impuesto = undefined
+        
+        if (impuestoMatch) {
+          const impuestoXML = impuestoMatch[1]
+          impuesto = {
+            codigo: getTagValue(impuestoXML, 'Codigo', '02'),
+            codigoTarifa: getTagValue(impuestoXML, 'CodigoTarifaIVA', '08'),
+            tarifa: getTagNumber(impuestoXML, 'Tarifa', 13),
+            monto: getTagNumber(impuestoXML, 'Monto', 0)
+          }
+        }
+
+        return {
+          numeroLinea: getTagNumber(lineaXML, 'NumeroLinea', 1),
+          codigoCABYS: getTagValue(lineaXML, 'CodigoCABYS', '8399000000000'),
+          cantidad: getTagNumber(lineaXML, 'Cantidad', 1),
+          unidadMedida: getTagValue(lineaXML, 'UnidadMedida', 'Sp'),
+          detalle: getTagValue(lineaXML, 'Detalle'),
+          precioUnitario: getTagNumber(lineaXML, 'PrecioUnitario', 0),
+          montoTotal: getTagNumber(lineaXML, 'MontoTotal', 0),
+          subtotal: getTagNumber(lineaXML, 'SubTotal', 0),
+          baseImponible: getTagNumber(lineaXML, 'BaseImponible', 0),
+          impuesto,
+          impuestoNeto: getTagNumber(lineaXML, 'ImpuestoNeto', 0),
+          montoTotalLinea: getTagNumber(lineaXML, 'MontoTotalLinea', 0)
+        }
+      })
+
+      // Extraer resumen
+      const resumenMatch = xmlString.match(/<ResumenFactura>([\s\S]*?)<\/ResumenFactura>/i)
+      const resumenXML = resumenMatch ? resumenMatch[1] : ''
+      
+      const resumen = {
+        codigoMoneda: getTagValue(resumenXML, 'CodigoMoneda', 'CRC'),
+        tipoCambio: getTagNumber(resumenXML, 'TipoCambio', 1),
+        totalServGravados: getTagNumber(resumenXML, 'TotalServGravados', 0),
+        totalServExentos: getTagNumber(resumenXML, 'TotalServExentos', 0),
+        totalServExonerado: getTagNumber(resumenXML, 'TotalServExonerado', 0),
+        totalMercanciasGravadas: getTagNumber(resumenXML, 'TotalMercanciasGravadas', 0),
+        totalMercanciasExentas: getTagNumber(resumenXML, 'TotalMercanciasExentas', 0),
+        totalMercanciasExoneradas: getTagNumber(resumenXML, 'TotalMercanciasExoneradas', 0),
+        totalGravado: getTagNumber(resumenXML, 'TotalGravado', 0),
+        totalExento: getTagNumber(resumenXML, 'TotalExento', 0),
+        totalExonerado: getTagNumber(resumenXML, 'TotalExonerado', 0),
+        totalVenta: getTagNumber(resumenXML, 'TotalVenta', 0),
+        totalDescuentos: getTagNumber(resumenXML, 'TotalDescuentos', 0),
+        totalVentaNeta: getTagNumber(resumenXML, 'TotalVentaNeta', 0),
+        totalImpuesto: getTagNumber(resumenXML, 'TotalImpuesto', 0),
+        totalComprobante: getTagNumber(resumenXML, 'TotalComprobante', 0)
+      }
+
+      return {
+        clave,
+        consecutivo,
+        fechaEmision,
+        condicionVenta,
+        medioPago,
+        emisor,
+        receptor,
+        items,
+        resumen
+      }
+    } catch (error) {
+      console.error('Error parseando XML:', error)
+      return null
+    }
+  }
 
   // Buscar facturas aceptadas en la BD
   const handleSearchInvoices = async () => {
@@ -165,50 +401,35 @@ export default function CreditNoteCreationModal({
   const handleSelectInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice)
     
-    // Convertir fecha de forma segura
-    let fechaEmision = new Date().toISOString()
-    try {
-      if (invoice.fecha) {
-        if (typeof invoice.fecha.toDate === 'function') {
-          // Es un Timestamp de Firestore
-          fechaEmision = invoice.fecha.toDate().toISOString()
-        } else if (invoice.fecha instanceof Date) {
-          fechaEmision = invoice.fecha.toISOString()
-        } else if (typeof invoice.fecha === 'string') {
-          fechaEmision = new Date(invoice.fecha).toISOString()
-        } else if (typeof invoice.fecha === 'object' && invoice.fecha.seconds) {
-          // Es un Timestamp serializado
-          fechaEmision = new Date(invoice.fecha.seconds * 1000).toISOString()
-        }
+    // Parsear el XML firmado para extraer los datos
+    if (invoice.xmlSigned) {
+      const parsedData = parseFacturaXML(invoice.xmlSigned)
+      
+      if (parsedData) {
+        setFormData(prev => ({
+          ...prev,
+          facturaData: parsedData
+        }))
+        
+        console.log('✅ Factura seleccionada y parseada:', invoice.consecutivo)
+        console.log('📄 Datos parseados:', parsedData)
+        
+        setStep(2)
+      } else {
+        toast.error('Error', 'No se pudo parsear el XML de la factura')
       }
-    } catch (error) {
-      console.error('Error convirtiendo fecha:', error)
-      fechaEmision = new Date().toISOString()
+    } else {
+      toast.error('Error', 'La factura no tiene XML firmado')
     }
-    
-    setFormData(prev => ({
-      ...prev,
-      referenciaFactura: {
-        clave: invoice.clave || invoice.haciendaSubmission?.clave || '',
-        consecutivo: invoice.consecutivo,
-        fechaEmision,
-        xmlOriginal: invoice.xmlSigned,
-        datosFactura: {
-          emisor: invoice.cliente,
-          items: invoice.items || [],
-          total: invoice.total || 0,
-          currency: invoice.currency || 'CRC',
-          subtotal: invoice.subtotal || 0,
-          totalImpuesto: invoice.totalImpuesto || 0,
-          totalDescuento: invoice.totalDescuento || 0
-        }
-      }
-    }))
-    setStep(2)
   }
 
   // Enviar nota de crédito
   const handleSubmit = async () => {
+    if (!formData.facturaData) {
+      toast.error('Datos incompletos', 'No se ha seleccionado una factura')
+      return
+    }
+
     if (!formData.tipoNotaCredito) {
       toast.error('Datos incompletos', 'Selecciona el tipo de nota de crédito')
       return
@@ -225,16 +446,20 @@ export default function CreditNoteCreationModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          facturaData: formData.facturaData, // Enviar JSON parseado
+          xmlFacturaOriginal: selectedInvoice?.xmlSigned, // Enviar XML también (para backend)
+          tipoNotaCredito: formData.tipoNotaCredito,
+          razon: formData.razon,
+          esAnulacionTotal: formData.esAnulacionTotal,
+          itemsAfectados: formData.itemsAfectados,
           companyId,
-          tenantId,
-          invoiceId: selectedInvoice?.id
+          tenantId
         })
       })
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || 'Error al crear nota de crédito')
+        throw new Error(error.error || 'Error al crear nota de crédito')
       }
 
       toast.success('Nota de Crédito Creada', 'La nota de crédito se ha enviado a Hacienda')
@@ -257,11 +482,7 @@ export default function CreditNoteCreationModal({
     setSelectedInvoice(null)
     setUploadedXml(null)
     setFormData({
-      referenciaFactura: {
-        clave: '',
-        consecutivo: '',
-        fechaEmision: ''
-      },
+      facturaData: null,
       tipoNotaCredito: '',
       razon: '',
       esAnulacionTotal: true,
@@ -417,7 +638,7 @@ export default function CreditNoteCreationModal({
         )}
 
         {/* Paso 2: Configuración de NC */}
-        {step === 2 && (
+        {step === 2 && formData.facturaData && (
           <div className="space-y-6">
             {/* Información de la factura */}
             <Card className="bg-blue-50">
@@ -426,35 +647,37 @@ export default function CreditNoteCreationModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-gray-600">Consecutivo:</span>{' '}
-                    <span className="font-medium">{formData.referenciaFactura.consecutivo}</span>
+                    <span className="font-medium">{formData.facturaData.consecutivo}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Monto Total:</span>{' '}
                     <span className="font-semibold text-green-600">
-                      {formData.referenciaFactura.datosFactura?.currency === 'USD' ? '$' : '₡'}
-                      {(formData.referenciaFactura.datosFactura?.total || 0).toLocaleString()}
+                      {formData.facturaData.resumen.codigoMoneda === 'USD' ? '$' : '₡'}
+                      {formData.facturaData.resumen.totalComprobante.toLocaleString()}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Moneda:</span>{' '}
-                    <span className="font-medium">{formData.referenciaFactura.datosFactura?.currency || 'CRC'}</span>
+                    <span className="font-medium">{formData.facturaData.resumen.codigoMoneda}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Cliente:</span>{' '}
-                    <span className="font-medium">{formData.referenciaFactura.datosFactura?.emisor?.commercialName || formData.referenciaFactura.datosFactura?.emisor?.nombre || 'N/A'}</span>
+                    <span className="font-medium">{formData.facturaData.receptor.nombreComercial || formData.facturaData.receptor.nombre}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Fecha:</span>{' '}
-                    <span className="font-medium">{formData.referenciaFactura.fechaEmision ? new Date(formData.referenciaFactura.fechaEmision).toLocaleDateString('es-CR') : 'N/A'}</span>
+                    <span className="font-medium">
+                      {new Date(formData.facturaData.fechaEmision).toLocaleDateString('es-CR')}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Estado:</span>{' '}
-                    <span className="font-medium text-green-600">{selectedInvoice?.status || 'N/A'}</span>
+                    <span className="font-medium text-green-600">{selectedInvoice?.status || 'Aceptado'}</span>
                   </div>
                   <div className="md:col-span-2">
                     <span className="text-gray-600">Clave:</span>{' '}
                     <span className="font-mono text-xs bg-white p-2 rounded border break-all block mt-1">
-                      {formData.referenciaFactura.clave || 'N/A'}
+                      {formData.facturaData.clave}
                     </span>
                   </div>
                 </div>
@@ -527,31 +750,31 @@ export default function CreditNoteCreationModal({
             )}
 
             {/* Lista de items (si es parcial) */}
-            {!formData.esAnulacionTotal && formData.referenciaFactura.datosFactura?.items && (
+            {!formData.esAnulacionTotal && formData.facturaData?.items && (
               <div className="space-y-2">
                 <Label>Selecciona los ítems a anular/devolver</Label>
                 <div className="border rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto">
-                  {formData.referenciaFactura.datosFactura.items.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded">
+                  {formData.facturaData.items.map((item) => (
+                    <div key={item.numeroLinea} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded">
                       <input
                         type="checkbox"
-                        checked={formData.itemsAfectados.includes(item.id)}
+                        checked={formData.itemsAfectados.includes(item.numeroLinea)}
                         onChange={(e) => {
                           const newItems = e.target.checked
-                            ? [...formData.itemsAfectados, item.id]
-                            : formData.itemsAfectados.filter(id => id !== item.id)
+                            ? [...formData.itemsAfectados, item.numeroLinea]
+                            : formData.itemsAfectados.filter(num => num !== item.numeroLinea)
                           setFormData(prev => ({ ...prev, itemsAfectados: newItems }))
                         }}
                         className="w-4 h-4"
                       />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">{item.descripcion || item.detalle}</div>
+                        <div className="text-sm font-medium">{item.detalle}</div>
                         <div className="text-xs text-gray-600">
-                          Cantidad: {item.cantidad} | Precio: ₡{item.precioUnitario?.toLocaleString()}
+                          Cantidad: {item.cantidad} | Precio: {formData.facturaData?.resumen.codigoMoneda === 'USD' ? '$' : '₡'}{item.precioUnitario.toLocaleString()}
                         </div>
                       </div>
                       <div className="text-sm font-semibold">
-                        ₡{item.montoTotal?.toLocaleString()}
+                        {formData.facturaData?.resumen.codigoMoneda === 'USD' ? '$' : '₡'}{item.montoTotal.toLocaleString()}
                       </div>
                     </div>
                   ))}
