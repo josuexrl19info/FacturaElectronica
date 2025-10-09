@@ -351,44 +351,19 @@ export default function CreditNoteCreationModal({
       const text = await file.text()
       setUploadedXml(text)
       
-      // Parsear XML para extraer datos
-      const parser = new DOMParser()
-      const xmlDoc = parser.parseFromString(text, 'text/xml')
+      // Usar la misma función de parseo que para las facturas de la DB
+      const parsedData = parseFacturaXML(text)
       
-      // Extraer clave
-      const clave = xmlDoc.getElementsByTagName('Clave')[0]?.textContent || ''
-      const consecutivo = xmlDoc.getElementsByTagName('NumeroConsecutivo')[0]?.textContent || ''
-      const fechaEmision = xmlDoc.getElementsByTagName('FechaEmision')[0]?.textContent || ''
+      if (!parsedData) {
+        toast.error('Error', 'No se pudo parsear el XML. Verifica que sea un XML de factura válido.')
+        setIsLoading(false)
+        return
+      }
       
-      // Extraer emisor
-      const nombreEmisor = xmlDoc.getElementsByTagName('Nombre')[0]?.textContent || ''
-      const identificacionEmisor = xmlDoc.getElementsByTagName('Identificacion')[0]?.getElementsByTagName('Numero')[0]?.textContent || ''
-      
-      // Extraer items
-      const lineasDetalle = xmlDoc.getElementsByTagName('LineaDetalle')
-      const items = Array.from(lineasDetalle).map((linea, index) => ({
-        id: `item-${index}`,
-        descripcion: linea.getElementsByTagName('Detalle')[0]?.textContent || '',
-        cantidad: parseFloat(linea.getElementsByTagName('Cantidad')[0]?.textContent || '0'),
-        precioUnitario: parseFloat(linea.getElementsByTagName('PrecioUnitario')[0]?.textContent || '0'),
-        montoTotal: parseFloat(linea.getElementsByTagName('MontoTotalLinea')[0]?.textContent || '0')
-      }))
-
+      // Usar los mismos datos parseados que cuando se selecciona de la DB
       setFormData(prev => ({
         ...prev,
-        referenciaFactura: {
-          clave,
-          consecutivo,
-          fechaEmision,
-          xmlOriginal: text,
-          datosFactura: {
-            emisor: {
-              nombre: nombreEmisor,
-              identificacion: identificacionEmisor
-            },
-            items
-          }
-        }
+        facturaData: parsedData
       }))
 
       toast.success('XML cargado', 'La factura se ha cargado correctamente')
@@ -451,7 +426,7 @@ export default function CreditNoteCreationModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           facturaData: formData.facturaData, // Enviar JSON parseado
-          xmlFacturaOriginal: selectedInvoice?.xmlSigned, // Enviar XML también (para backend)
+          xmlFacturaOriginal: selectedInvoice?.xmlSigned || uploadedXml, // XML de DB o XML subido
           tipoNotaCredito: formData.tipoNotaCredito,
           razon: formData.razon,
           esAnulacionTotal: formData.esAnulacionTotal,
