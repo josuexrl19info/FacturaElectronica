@@ -180,6 +180,7 @@ ${data.items.map(item => this.generateLineaDetalleXML(item)).join('\n')}
     ${data.resumen.totalOtrosCargos ? `<TotalOtrosCargos>${data.resumen.totalOtrosCargos}</TotalOtrosCargos>` : ''}
     ${data.medioPago ? `<MedioPago>
       <TipoMedioPago>${data.medioPago}</TipoMedioPago>
+      <TotalMedioPago>${data.resumen.totalComprobante}</TotalMedioPago>
     </MedioPago>` : ''}
     <TotalComprobante>${data.resumen.totalComprobante}</TotalComprobante>
   </ResumenFactura>

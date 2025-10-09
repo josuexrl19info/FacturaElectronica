@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, doc, getDoc, addDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { getFirestore, doc, getDoc, addDoc, collection, serverTimestamp, updateDoc, query, where, getDocs } from 'firebase/firestore'
 import { initializeApp, getApps } from 'firebase/app'
 import { firebaseConfig } from '@/lib/firebase-config'
 import { HaciendaKeyGenerator } from '@/lib/services/hacienda-key-generator'
@@ -83,6 +83,19 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    // 2.5. Usar datos del XML parseado (ya contiene toda la información necesaria)
+    const clienteCompleto = facturaData.receptor
+    const formaPagoOriginal = facturaData.medioPago || '01'
+    
+    console.log('📊 Datos de la factura original (del XML):', {
+      clave: facturaData.clave,
+      consecutivo: facturaData.consecutivo,
+      medioPago: facturaData.medioPago,
+      condicionVenta: facturaData.condicionVenta,
+      tieneReceptor: !!facturaData.receptor,
+      receptorNombre: facturaData.receptor?.nombre
+    })
 
     // 3. Generar consecutivo para la NC usando consecutiveNT de la empresa
     const currentConsecutiveNT = companyData.consecutiveNT || 0
@@ -184,9 +197,9 @@ export async function POST(request: NextRequest) {
         correoElectronico: facturaData.receptor.correoElectronico || ''
       },
       actividadEconomicaEmisor: companyData.economicActivity?.codigo,
-      actividadEconomicaReceptor: undefined, // No disponible en XML
+      actividadEconomicaReceptor: clienteCompleto.codigoActividadReceptor || undefined, // Del XML de la factura
       condicionVenta: facturaData.condicionVenta,
-      medioPago: facturaData.medioPago,
+      medioPago: formaPagoOriginal, // Usar el medioPago de la factura original
       // Items: ya vienen parseados del XML con la estructura correcta, agregar valores por defecto
       items: itemsNC.map((item: any, index: number) => ({
         numeroLinea: index + 1,
@@ -330,7 +343,9 @@ export async function POST(request: NextRequest) {
       },
       companyId,
       tenantId,
-      cliente: facturaData.receptor, // Receptor de la factura original
+      cliente: clienteCompleto, // Cliente completo con economicActivity de Firestore
+      formaPago: formaPagoOriginal, // Forma de pago de la factura original (de Firestore o XML)
+      condicionVenta: facturaData.condicionVenta || '01', // Condición de venta
       xml,
       xmlSigned: signedXml,
       xmlFacturaOriginal, // Guardar el XML original de la factura

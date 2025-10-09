@@ -176,14 +176,18 @@ export class XMLParser {
         codigoPais: getTagValue(receptorXML, 'CodigoPais', '506'),
         numero: getTagValue(receptorXML, 'NumTelefono')
       } : undefined,
-      correoElectronico: getTagValue(receptorXML, 'CorreoElectronico')
+      correoElectronico: getTagValue(receptorXML, 'CorreoElectronico'),
+      codigoActividadReceptor: codigoActividadReceptor // Agregar actividad económica
     }
     console.log('👤 Receptor extraído:', receptor.nombre)
     console.log('📍 Cantón formateado:', cantonRaw, '→', canton)
 
     // Extraer condición de venta y medio de pago
     const condicionVenta = getTagValue(xmlString, 'CondicionVenta', '01')
-    const medioPago = getTagValue(xmlString, 'MedioPago', '01')
+    const medioPago = getTagValue(xmlString, 'TipoMedioPago', '01') // Correcto: TipoMedioPago, no MedioPago
+    
+    // Extraer actividades económicas
+    const codigoActividadReceptor = getTagValue(xmlString, 'CodigoActividadReceptor', '')
 
     // Extraer items
     const detalleMatch = xmlString.match(/<DetalleServicio>([\s\S]*?)<\/DetalleServicio>/i)

@@ -25,7 +25,17 @@ export async function POST(request: NextRequest) {
       identificacion: invoiceData.client?.identificacion,
       email: invoiceData.client?.email,
       phone: invoiceData.client?.phone,
-      telefono: invoiceData.client?.telefono
+      telefono: invoiceData.client?.telefono,
+      economicActivity: invoiceData.client?.economicActivity,
+      actividadEconomica: invoiceData.client?.actividadEconomica
+    })
+    console.log('📄 Invoice RAW keys:', Object.keys(invoiceData.invoice || {}))
+    console.log('📄 Invoice RAW data:', {
+      formaPago: invoiceData.invoice?.formaPago,
+      paymentMethod: invoiceData.invoice?.paymentMethod,
+      condicionVenta: invoiceData.invoice?.condicionVenta,
+      currency: invoiceData.invoice?.currency,
+      tipo: invoiceData.invoice?.tipo
     })
     
     // Generar PDF usando la implementación optimizada

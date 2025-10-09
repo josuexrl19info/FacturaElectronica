@@ -158,12 +158,19 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     'currency final': currency
   })
   
-  // Debug de forma de pago
-  const formaPago = invoiceData.invoice?.paymentMethod || invoiceData.invoice?.formaPago || invoiceData.formaPago || '01'
+  // Debug de forma de pago (buscar en múltiples ubicaciones)
+  // Para NC: formaPago está en invoiceData.invoice.formaPago
+  // Para Factura: puede estar en varios lugares
+  const formaPago = invoiceData.invoice?.formaPago || 
+                    invoiceData.invoice?.paymentMethod || 
+                    invoiceData.formaPago || 
+                    invoiceData.paymentMethod ||
+                    '01'
   console.log('🔍 [PDF] Debug Forma de Pago:', {
     'invoiceData.invoice?.paymentMethod': invoiceData.invoice?.paymentMethod,
     'invoiceData.invoice?.formaPago': invoiceData.invoice?.formaPago,
     'invoiceData.formaPago': invoiceData.formaPago,
+    'invoiceData.paymentMethod': invoiceData.paymentMethod,
     'formaPago final': formaPago,
     'paymentMethodName': getPaymentMethodName(formaPago)
   })
@@ -179,11 +186,17 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     'IVA final mapeado': invoiceData.invoice?.totalImpuesto || invoiceData.totalImpuesto || invoiceData.invoice?.impuestos || invoiceData.impuestos || 0
   })
   
-  // Colores basados en la captura real
+  // Detectar tipo de documento
+  const isNotaCredito = invoiceData.tipo === 'nota-credito' || 
+                        invoiceData.invoice?.tipo === 'nota-credito' ||
+                        invoiceData.tipoNotaCredito ||
+                        invoiceData.invoice?.tipoNotaCredito
+  
+  // Colores basados en el tipo de documento
   const colors = {
     background: '#FFFFFF',
     foreground: '#000000',
-    accent: '#3B82F6', // Azul para Factura Electrónica
+    accent: isNotaCredito ? '#9333EA' : '#3B82F6', // Morado para NC, Azul para Factura
     accentForeground: '#FFFFFF',
   }
   
@@ -310,7 +323,8 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.setTextColor(colors.accentForeground)
   doc.setFontSize(8) // Aumentado de 7 a 8
   doc.setFont('times', 'bold') // Cambio a fuente más elegante
-  doc.text('Factura Electrónica', badgeX + badgeWidth/2, badgeY + badgeHeight/2 + 1, { align: 'center' })
+  const badgeText = isNotaCredito ? 'Nota Crédito Electrónica' : 'Factura Electrónica'
+  doc.text(badgeText, badgeX + badgeWidth/2, badgeY + badgeHeight/2 + 1, { align: 'center' })
   
   // Número consecutivo debajo del badge - más pequeño
   doc.setTextColor(colors.foreground)
@@ -402,15 +416,59 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   // Mapear campos del cliente (pueden venir en español o inglés)
   const clientName = invoiceData.client?.name || invoiceData.client?.nombre || 'N/A'
   const clientId = invoiceData.client?.identification || invoiceData.client?.identificacion || invoiceData.client?.cedula || invoiceData.client?.taxId || 'N/A'
-  const clientPhone = invoiceData.client?.phone || invoiceData.client?.telefono || invoiceData.client?.phoneNumber || 'N/A'
-  const clientEmail = invoiceData.client?.email || invoiceData.client?.correo || 'N/A'
+  
+  // Formatear teléfono (puede venir como string o como objeto {codigoPais, numero})
+  let clientPhone = 'N/A'
+  const phoneData = invoiceData.client?.phone || invoiceData.client?.telefono || invoiceData.client?.phoneNumber
+  if (phoneData) {
+    if (typeof phoneData === 'string') {
+      clientPhone = phoneData
+    } else if (typeof phoneData === 'object' && phoneData.numero) {
+      // Si es objeto con estructura {codigoPais, numero}
+      clientPhone = phoneData.codigoPais ? `+${phoneData.codigoPais} ${phoneData.numero}` : phoneData.numero
+    }
+  }
+  
+  const clientEmail = invoiceData.client?.email || invoiceData.client?.correo || invoiceData.client?.correoElectronico || 'N/A'
+  
+  // Formatear actividad económica del cliente
+  let clientEconomicActivity = ''
+  const economicActivityData = invoiceData.client?.economicActivity || 
+                                invoiceData.client?.actividadEconomica ||
+                                invoiceData.client?.codigoActividadReceptor // Del XML de la factura
+  
+  console.log('🔍 [PDF] Debug Economic Activity:', {
+    'invoiceData.client?.economicActivity': invoiceData.client?.economicActivity,
+    'invoiceData.client?.actividadEconomica': invoiceData.client?.actividadEconomica,
+    'invoiceData.client?.codigoActividadReceptor': invoiceData.client?.codigoActividadReceptor,
+    'economicActivityData': economicActivityData,
+    'type': typeof economicActivityData
+  })
+  
+  if (economicActivityData) {
+    if (typeof economicActivityData === 'string') {
+      clientEconomicActivity = economicActivityData
+    } else if (typeof economicActivityData === 'object') {
+      const codigo = economicActivityData.codigo || economicActivityData.code || ''
+      const descripcion = economicActivityData.descripcion || economicActivityData.description || ''
+      if (codigo && descripcion) {
+        clientEconomicActivity = `${codigo} - ${descripcion}`
+      } else if (codigo) {
+        clientEconomicActivity = codigo
+      } else if (descripcion) {
+        clientEconomicActivity = descripcion
+      }
+    }
+  }
 
   console.log('🔍 [PDF] Client data mapped:', {
     hasClient: !!invoiceData.client,
     name: clientName,
     identification: clientId,
     phone: clientPhone,
-    email: clientEmail
+    phoneRaw: phoneData,
+    email: clientEmail,
+    economicActivity: clientEconomicActivity
   })
 
   const clientInfo = [
@@ -430,8 +488,8 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   })
   
   // Actividad Económica del cliente con manejo de líneas múltiples
-  if (invoiceData.client?.economicActivity) {
-    const clientActividadText = `Actividad: ${invoiceData.client.economicActivity.codigo} - ${invoiceData.client.economicActivity.descripcion}`
+  if (clientEconomicActivity) {
+    const clientActividadText = `Actividad: ${clientEconomicActivity}`
     const clientActividadLines = splitTextToLines(doc, clientActividadText, columnWidth - 5, 9)
     clientActividadLines.forEach((line, index) => {
       doc.text(line, clientX, clientY + (index * 3.5))
@@ -814,6 +872,11 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
 }
 
 export async function formatInvoiceDataForPDFOptimized(invoice: any, company: any, client: any) {
+  // Detectar tipo de documento
+  const isNotaCredito = invoice.tipo === 'nota-credito' || 
+                        invoice.tipoNotaCredito ||
+                        invoice.referenciaFactura // Si tiene referencia a factura, es NC
+  
   // Función auxiliar para formatear fechas
   const formatDate = (date: any): string => {
     if (!date) return 'N/A'
@@ -836,7 +899,7 @@ export async function formatInvoiceDataForPDFOptimized(invoice: any, company: an
   const result = {
     invoice: {
       ...invoice,
-      tipo: 'Factura Electrónica',
+      tipo: isNotaCredito ? 'Nota Crédito Electrónica' : 'Factura Electrónica',
       fechaEmision: formatDate(invoice.fechaEmision || invoice.haciendaResponse?.fecha),
       consecutivo: invoice.consecutivo || invoice.number || 'N/A',
       clave: invoice.haciendaResponse?.clave || invoice.clave || invoice.key || 'N/A',

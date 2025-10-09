@@ -155,7 +155,10 @@ export default function CreditNoteCreationModal({
 
       // Extraer condición de venta y medio de pago
       const condicionVenta = getTagValue(xmlString, 'CondicionVenta', '01')
-      const medioPago = getTagValue(xmlString, 'MedioPago', '01')
+      const medioPago = getTagValue(xmlString, 'TipoMedioPago', '01') // Correcto: TipoMedioPago, no MedioPago
+      
+      // Extraer actividades económicas
+      const codigoActividadReceptor = getTagValue(xmlString, 'CodigoActividadReceptor', '')
 
       // Extraer emisor
       const emisorMatch = xmlString.match(/<Emisor>([\s\S]*?)<\/Emisor>/i)
@@ -220,7 +223,8 @@ export default function CreditNoteCreationModal({
           codigoPais: getTagValue(telefonoXML, 'CodigoPais', '506'),
           numero: getTagValue(telefonoXML, 'NumTelefono', '')
         } : undefined,
-        correoElectronico: getTagValue(receptorXML, 'CorreoElectronico', '')
+        correoElectronico: getTagValue(receptorXML, 'CorreoElectronico', ''),
+        codigoActividadReceptor: codigoActividadReceptor // Agregar actividad económica
       }
 
       // Extraer items
