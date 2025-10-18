@@ -255,12 +255,29 @@ export function EnhancedClientWizard({ onClose, onSubmit, editingClient }: Enhan
 
   // Validaciones por paso
   const canProceedStep1 = formData.name && formData.identification && formData.email && formData.identificationType && formData.phone && formData.phoneCountryCode && formData.province && formData.canton && formData.district && formData.otrasSenas && formData.economicActivity && formData.economicActivity.codigo && formData.economicActivity.descripcion
+  
+  // Para modo edición, permitir avanzar si ya tiene actividad económica cargada desde la base de datos
+  const canProceedStep1ForEdit = editingClient && 
+    formData.name && 
+    formData.identification && 
+    formData.email && 
+    formData.identificationType && 
+    formData.phone && 
+    formData.phoneCountryCode && 
+    formData.province && 
+    formData.canton && 
+    formData.district && 
+    formData.otrasSenas && 
+    formData.economicActivity && 
+    formData.economicActivity.codigo && 
+    formData.economicActivity.descripcion
+  
   const canProceedStep2 = !formData.hasExemption || (formData.hasExemption && formData.exemptionType && formData.exemptionDocumentNumber)
   const canProceedStep3 = true // El resumen siempre se puede ver
 
   const canProceed = () => {
     switch (currentStep) {
-      case 1: return canProceedStep1
+      case 1: return editingClient ? canProceedStep1ForEdit : canProceedStep1
       case 2: return canProceedStep2
       case 3: return canProceedStep3
       default: return false

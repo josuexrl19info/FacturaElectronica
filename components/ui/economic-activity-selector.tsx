@@ -32,21 +32,26 @@ export function EconomicActivitySelector({
   // Estabilizar la función onChange para evitar bucles infinitos
   const stableOnChange = useCallback(onChange, [onChange])
 
-  // Buscar automáticamente cuando cambie el taxId
+  // Buscar automáticamente cuando cambie el taxId, pero no si ya tenemos una actividad seleccionada
   useEffect(() => {
     if (taxId && taxId.length >= 9) {
       const cleanTaxId = taxId.replace(/[-\s]/g, '')
       if (/^\d{9,10}$/.test(cleanTaxId)) {
-        searchCompanyInfo(cleanTaxId)
+        // Solo hacer consulta si no tenemos una actividad económica ya seleccionada
+        if (!value || !value.codigo) {
+          searchCompanyInfo(cleanTaxId)
+        }
       }
     } else {
-      // Limpiar datos si no hay taxId válido
-      setError(null) // Limpiar error también
-      setCompanyInfo(null)
-      setActivities([])
-      stableOnChange(undefined)
+      // Limpiar datos si no hay taxId válido, pero solo si no tenemos un value previamente establecido
+      if (!value) {
+        setError(null) // Limpiar error también
+        setCompanyInfo(null)
+        setActivities([])
+        stableOnChange(undefined)
+      }
     }
-  }, [taxId, stableOnChange])
+  }, [taxId, stableOnChange, value])
 
   const searchCompanyInfo = async (cleanTaxId?: string) => {
     const taxIdToUse = cleanTaxId || taxId.replace(/[-\s]/g, '')
@@ -107,6 +112,53 @@ export function EconomicActivitySelector({
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Mostrar actividad económica previamente seleccionada si no se ha hecho consulta a API */}
+        {value && !companyInfo && !isLoading && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Actividad Económica Guardada:</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const cleanTaxId = taxId.replace(/[-\s]/g, '')
+                  if (/^\d{9,10}$/.test(cleanTaxId)) {
+                    searchCompanyInfo(cleanTaxId)
+                  }
+                }}
+                className="text-xs text-primary hover:text-primary/80 underline"
+              >
+                Actualizar desde Hacienda
+              </button>
+            </div>
+            <div className="p-2 rounded border border-primary/20 bg-primary/5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1 mb-1">
+                    {value.tipo === 'P' && (
+                      <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                    )}
+                    <p className="text-xs font-medium leading-tight truncate">
+                      {value.descripcion}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Código: {value.codigo}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge variant="outline" className="text-xs px-1 py-0">
+                    {value.estado === 'A' ? 'Activa' : value.estado}
+                  </Badge>
+                  <CheckCircle className="w-3 h-3 text-primary" />
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {companyInfo && (
