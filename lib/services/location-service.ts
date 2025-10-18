@@ -19,25 +19,33 @@ const cache = new Map<string, LocationData[]>()
 /**
  * Carga datos de ubicación desde archivos JSON
  */
-async function loadLocationData(type: 'provincias' | 'cantones' | 'distritos', provinceCode?: string): Promise<LocationData[]> {
-  const cacheKey = `${type}${provinceCode ? `-${provinceCode}` : ''}`
+async function loadLocationData(type: 'provincias' | 'cantones' | 'distritos', provinceCode?: string, cantonCode?: string): Promise<LocationData[]> {
+  const cacheKey = `${type}${provinceCode ? `-${provinceCode}` : ''}${cantonCode ? `-${cantonCode}` : ''}`
   
   if (cache.has(cacheKey)) {
     return cache.get(cacheKey)!
   }
 
   try {
-    let url = `/data/costa-rica/${type}.json`
-    if (provinceCode && type !== 'provincias') {
-      url = `/data/costa-rica/${type}/${provinceCode}.json`
-    }
-
+    // Siempre cargamos el archivo completo y filtramos localmente
+    const url = `/data/costa-rica/${type}.json`
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(`No se pudo cargar ${type}`)
     }
 
-    const data = await response.json()
+    let data = await response.json()
+    
+    // Filtrar por provincia si es necesario
+    if (type === 'cantones' && provinceCode) {
+      data = data.filter((item: any) => item.provinciaCodigo?.toString() === provinceCode)
+    }
+    
+    // Filtrar por cantón si es necesario  
+    if (type === 'distritos' && cantonCode) {
+      data = data.filter((item: any) => item.cantonCodigo?.toString() === cantonCode)
+    }
+
     cache.set(cacheKey, data)
     return data
   } catch (error) {
@@ -80,7 +88,7 @@ export async function getLocationNames(
     }
 
     // Cargar distritos
-    const districts = await loadLocationData('distritos', cantonCode)
+    const districts = await loadLocationData('distritos', undefined, cantonCode)
     const distrito = districts.find(d => d.codigo.toString() === districtCode)
 
     return {

@@ -54,6 +54,83 @@ export function GeoDropdowns({
     loadProvincias()
   }, [])
 
+  // Función para cargar valores iniciales
+  const loadInitialValues = useCallback(async () => {
+    if (!isInitialized || !initialValues || provincias.length === 0) return
+
+    try {
+      // Cargar provincia inicial
+      if (initialValues.provinciaCodigo) {
+        const provincia = provincias.find(p => p.codigo === initialValues.provinciaCodigo)
+        if (provincia) {
+          setSelectedProvincia(provincia)
+          
+          // Cargar cantones y cantón inicial si existe
+          if (initialValues.cantonCodigo) {
+            // Cargar todos los cantones si no están en cache
+            let cantonesData = allCantones
+            if (cantonesData.length === 0) {
+              const response = await fetch('/data/costa-rica/cantones.json')
+              if (!response.ok) throw new Error('Error al cargar cantones')
+              cantonesData = await response.json()
+              setAllCantones(cantonesData)
+            }
+
+            // Filtrar cantones por provincia
+            const cantonesFiltered = cantonesData.filter((canton: any) => canton.provinciaCodigo === provincia.codigo)
+            setCantones(cantonesFiltered)
+
+            // Seleccionar cantón inicial
+            const canton = cantonesFiltered.find((c: any) => c.codigo === initialValues.cantonCodigo)
+            if (canton) {
+              setSelectedCanton(canton)
+              
+              // Cargar distritos y distrito inicial si existe
+              if (initialValues.distritoCodigo) {
+                // Cargar todos los distritos si no están en cache
+                let distritosData = allDistritos
+                if (distritosData.length === 0) {
+                  const distResponse = await fetch('/data/costa-rica/distritos.json')
+                  if (!distResponse.ok) throw new Error('Error al cargar distritos')
+                  distritosData = await distResponse.json()
+                  setAllDistritos(distritosData)
+                }
+
+                // Filtrar distritos por cantón
+                const distritosFiltered = distritosData.filter((distrito: any) => distrito.cantonCodigo === canton.codigo)
+                setDistritos(distritosFiltered)
+
+                // Seleccionar distrito inicial
+                const distrito = distritosFiltered.find((d: any) => d.codigo === initialValues.distritoCodigo)
+                if (distrito) {
+                  setSelectedDistrito(distrito)
+                }
+              }
+            }
+          } else {
+            // Solo cargar cantones sin seleccionar ninguno
+            let cantonesData = allCantones
+            if (cantonesData.length === 0) {
+              const response = await fetch('/data/costa-rica/cantones.json')
+              if (!response.ok) throw new Error('Error al cargar cantones')
+              cantonesData = await response.json()
+              setAllCantones(cantonesData)
+            }
+            const cantonesFiltered = cantonesData.filter((canton: any) => canton.provinciaCodigo === provincia.codigo)
+            setCantones(cantonesFiltered)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading initial values:', error)
+    }
+  }, [isInitialized, initialValues, provincias, allCantones, allDistritos])
+
+  // Manejar valores iniciales cuando se carguen las provincias
+  useEffect(() => {
+    loadInitialValues()
+  }, [loadInitialValues])
+
   // Estabilizar la función onLocationChange para evitar bucles infinitos
   const stableOnLocationChange = useCallback(onLocationChange, [onLocationChange])
 
@@ -158,6 +235,7 @@ export function GeoDropdowns({
       setLoading(prev => ({ ...prev, distritos: false }))
     }
   }
+
 
   const handleProvinciaChange = (value: string) => {
     const codigo = Number(value)

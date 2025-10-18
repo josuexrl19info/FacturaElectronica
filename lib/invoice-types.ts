@@ -174,6 +174,53 @@ export const TARIFAS_IMPUESTO = [
   { codigo: '12', descripcion: 'Exento', porcentaje: 0 }
 ]
 
+// Tipos de Exoneración
+export const TIPOS_EXONERACION = [
+  { codigo: '01', descripcion: 'Compras autorizadas por la Dirección General de Tributación' },
+  { codigo: '02', descripcion: 'Ventas exentas a diplomáticos' },
+  { codigo: '03', descripcion: 'Autorizado por Ley Especial' },
+  { codigo: '04', descripcion: 'Exenciones DGH Autorización Local Genérica' },
+  { codigo: '05', descripcion: 'Exenciones DGH Transitorio V (servicios de ingeniería, arquitectura, topografía obra civil)' },
+  { codigo: '06', descripcion: 'Servicios turísticos inscritos ante el ICT' },
+  { codigo: '07', descripcion: 'Transitorio XVII (Recolección, Clasificación, almacenamiento de Reciclaje)' },
+  { codigo: '08', descripcion: 'Exoneración a Zona Franca' },
+  { codigo: '09', descripcion: 'Exoneración de servicios complementarios para la exportación artículo 11 RLIVA' },
+  { codigo: '10', descripcion: 'Órgano de las corporaciones municipales' },
+  { codigo: '11', descripcion: 'Exenciones DGH Autorización de Impuesto Local Concreta' },
+  { codigo: '99', descripcion: 'Otros' }
+]
+
+// Instituciones que emiten exoneraciones
+export const INSTITUCIONES_EXONERACION = [
+  { codigo: '01', descripcion: 'Ministerio de Hacienda' },
+  { codigo: '02', descripcion: 'Ministerio de Relaciones Exteriores y Culto' },
+  { codigo: '03', descripcion: 'Ministerio de Agricultura y Ganadería' },
+  { codigo: '04', descripcion: 'Ministerio de Economía, Industria y Comercio' },
+  { codigo: '05', descripcion: 'Cruz Roja Costarricense' },
+  { codigo: '06', descripcion: 'Benemérito Cuerpo de Bomberos de Costa Rica' },
+  { codigo: '07', descripcion: 'Asociación Obras del Espíritu Santo' },
+  { codigo: '08', descripcion: 'Federación Cruzada Nacional de protección al Anciano (Fecrunapa)' },
+  { codigo: '09', descripcion: 'Escuela de Agricultura de la Región Húmeda (EARTH)' },
+  { codigo: '10', descripcion: 'Instituto Centroamericano de Administración de Empresas (INCAE)' },
+  { codigo: '11', descripcion: 'Junta de Protección Social (JPS)' },
+  { codigo: '12', descripcion: 'Autoridad Reguladora de los Servicios Públicos (Aresep)' },
+  { codigo: '99', descripcion: 'Otros' }
+]
+
+// Interface para Exoneración
+export interface Exoneracion {
+  tipoDocumento: string // TipoDocumentoEX1
+  tipoDocumentoOtro?: string // Obligatorio si tipoDocumento = '99'
+  numeroDocumento: string // 3-40 caracteres
+  articulo?: number // Opcional, 6 dígitos
+  inciso?: number // Opcional, 6 dígitos
+  nombreInstitucion: string // Código de institución
+  nombreInstitucionOtros?: string // Obligatorio si nombreInstitucion = '99'
+  fechaEmision: string // DateTime
+  tarifaExonerada: number // Decimal, 4 dígitos totales, 2 decimales
+  montoExoneracion: number // Monto del impuesto exonerado
+}
+
 // Función para calcular totales de un item
 export const calculateItemTotals = (item: InvoiceItemFormData): Partial<InvoiceItem> => {
   const montoTotal = item.cantidad * item.precioUnitario

@@ -81,6 +81,11 @@ export interface ClientFormData {
   exemptionInstitutionOthers: string
   exemptionTariff: number
   exemptionObservations: string
+  // Campos adicionales para Ley Especial
+  exemptionLawName: string
+  exemptionArticle: string
+  exemptionSubsection: string
+  exemptionPurchasePercentage: string
 }
 
 export interface ValidationResult {
@@ -120,27 +125,67 @@ export const IDENTIFICATION_TYPES: IdentificationType[] = [
   }
 ]
 
-// Constantes para los tipos de exoneración
+// Constantes para los tipos de exoneración (basados en FE4.4.xml)
 export const EXEMPTION_TYPES: ExemptionType[] = [
   {
     value: "01",
-    label: "Exoneración por Ley",
-    description: "Exoneración establecida por ley"
+    label: "Compras autorizadas por la Dirección General de Tributación",
+    description: "Compras autorizadas por la Dirección General de Tributación"
   },
   {
     value: "02",
-    label: "Exoneración por Decreto",
-    description: "Exoneración establecida por decreto ejecutivo"
+    label: "Ventas exentas a diplomáticos",
+    description: "Ventas exentas a diplomáticos"
   },
   {
     value: "03",
-    label: "Exoneración por Convenio",
-    description: "Exoneración establecida por convenio internacional"
+    label: "Autorizado por Ley especial",
+    description: "Autorizado por Ley especial"
   },
   {
     value: "04",
-    label: "Exoneración por Resolución",
-    description: "Exoneración establecida por resolución"
+    label: "Exenciones Dirección General de Hacienda Autorización Local Genérica",
+    description: "Exenciones Dirección General de Hacienda Autorización Local Genérica"
+  },
+  {
+    value: "05",
+    label: "Exenciones Dirección General de Hacienda Transitorio V (servicios de ingeniería, arquitectura, topografía obra civil)",
+    description: "Exenciones Dirección General de Hacienda Transitorio V (servicios de ingeniería, arquitectura, topografía obra civil)"
+  },
+  {
+    value: "06",
+    label: "Servicios turísticos inscritos ante el Instituto Costarricense de Turismo (ICT)",
+    description: "Servicios turísticos inscritos ante el Instituto Costarricense de Turismo (ICT)"
+  },
+  {
+    value: "07",
+    label: "Transitorio XVII (Recolección, Clasificación, almacenamiento de Reciclaje y reutilizable)",
+    description: "Transitorio XVII (Recolección, Clasificación, almacenamiento de Reciclaje y reutilizable)"
+  },
+  {
+    value: "08",
+    label: "Exoneración a Zona Franca",
+    description: "Exoneración a Zona Franca"
+  },
+  {
+    value: "09",
+    label: "Exoneración de servicios complementarios para la exportación articulo 11 RLIVA",
+    description: "Exoneración de servicios complementarios para la exportación articulo 11 RLIVA"
+  },
+  {
+    value: "10",
+    label: "Órgano de las corporaciones municipales",
+    description: "Órgano de las corporaciones municipales"
+  },
+  {
+    value: "11",
+    label: "Exenciones Dirección General de Hacienda Autorización de Impuesto Local Concreta",
+    description: "Exenciones Dirección General de Hacienda Autorización de Impuesto Local Concreta"
+  },
+  {
+    value: "99",
+    label: "Otros",
+    description: "Otros"
   }
 ]
 

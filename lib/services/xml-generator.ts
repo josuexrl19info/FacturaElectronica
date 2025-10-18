@@ -30,6 +30,19 @@ export interface ReceptorData {
   correoElectronico: string
 }
 
+export interface ExoneracionXML {
+  tipoDocumento: string
+  tipoDocumentoOtro?: string
+  numeroDocumento: string
+  articulo?: number
+  inciso?: number
+  nombreInstitucion: string
+  nombreInstitucionOtros?: string
+  fechaEmision: string
+  tarifaExonerada: number
+  montoExoneracion: number
+}
+
 export interface LineaDetalle {
   numeroLinea: number
   codigoCABYS: string
@@ -45,6 +58,7 @@ export interface LineaDetalle {
     codigoTarifaIVA: string
     tarifa: number
     monto: number
+    exoneracion?: ExoneracionXML // Opcional
   }
   impuestoAsumidoEmisorFabrica: number
   impuestoNeto: number
@@ -259,12 +273,49 @@ export class XMLGenerator {
     <Codigo>${this.escapeXml(linea.impuesto.codigo)}</Codigo>
     <CodigoTarifaIVA>${this.escapeXml(linea.impuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
     <Tarifa>${this.formatAmount(linea.impuesto.tarifa)}</Tarifa>
-    <Monto>${this.formatAmount(linea.impuesto.monto)}</Monto>
+    <Monto>${this.formatAmount(linea.impuesto.monto)}</Monto>${linea.impuesto.exoneracion ? this.generateExoneracionXML(linea.impuesto.exoneracion) : ''}
   </Impuesto>
   <ImpuestoAsumidoEmisorFabrica>${this.formatAmount(linea.impuestoAsumidoEmisorFabrica)}</ImpuestoAsumidoEmisorFabrica>
   <ImpuestoNeto>${this.formatAmount(linea.impuestoNeto)}</ImpuestoNeto>
   <MontoTotalLinea>${this.formatAmount(linea.montoTotalLinea)}</MontoTotalLinea>
 </LineaDetalle>`
+  }
+
+  /**
+   * Genera el XML de Exoneración
+   */
+  private static generateExoneracionXML(exoneracion: ExoneracionXML): string {
+    let xml = '\n    <Exoneracion>'
+    xml += `\n      <TipoDocumentoEX1>${this.escapeXml(exoneracion.tipoDocumento)}</TipoDocumentoEX1>`
+    
+    // Campo "Otros" - obligatorio si tipoDocumento = '99'
+    if (exoneracion.tipoDocumento === '99' && exoneracion.tipoDocumentoOtro) {
+      xml += `\n      <TipoDocumentoOTRO>${this.escapeXml(exoneracion.tipoDocumentoOtro)}</TipoDocumentoOTRO>`
+    }
+    
+    xml += `\n      <NumeroDocumento>${this.escapeXml(exoneracion.numeroDocumento)}</NumeroDocumento>`
+    
+    // Artículo e Inciso - opcionales
+    if (exoneracion.articulo) {
+      xml += `\n      <Articulo>${exoneracion.articulo}</Articulo>`
+    }
+    if (exoneracion.inciso) {
+      xml += `\n      <Inciso>${exoneracion.inciso}</Inciso>`
+    }
+    
+    xml += `\n      <NombreInstitucion>${this.escapeXml(exoneracion.nombreInstitucion)}</NombreInstitucion>`
+    
+    // Campo "Otros" para institución - obligatorio si nombreInstitucion = '99'
+    if (exoneracion.nombreInstitucion === '99' && exoneracion.nombreInstitucionOtros) {
+      xml += `\n      <NombreInstitucionOtros>${this.escapeXml(exoneracion.nombreInstitucionOtros)}</NombreInstitucionOtros>`
+    }
+    
+    xml += `\n      <FechaEmisionEX>${this.escapeXml(exoneracion.fechaEmision)}</FechaEmisionEX>`
+    xml += `\n      <TarifaExonerada>${this.formatAmount(exoneracion.tarifaExonerada)}</TarifaExonerada>`
+    xml += `\n      <MontoExoneracion>${this.formatAmount(exoneracion.montoExoneracion)}</MontoExoneracion>`
+    xml += '\n    </Exoneracion>'
+    
+    return xml
   }
 
   /**

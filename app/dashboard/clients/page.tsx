@@ -6,21 +6,50 @@ import { DashboardHeader } from "@/components/layout/dashboard-header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EnhancedClientWizard } from "@/components/clients/enhanced-client-wizard"
 import { ClientCard } from "@/components/clients/client-card"
+import { ClientViewDetails } from "@/components/clients/client-view-details"
 import { useClients, Client } from "@/hooks/use-clients"
 import { Plus, Search, Users, DollarSign, FileText, Loader2, RefreshCw } from "lucide-react"
 
 export default function ClientsPage() {
   const [showWizard, setShowWizard] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const { clients, loading, error, fetchClients, addClient } = useClients()
 
   const handleAddClient = (data: any) => {
     console.log("New client:", data)
     setShowWizard(false)
+    setIsEditing(false)
+    setSelectedClient(null)
     // Refrescar la lista de clientes
     fetchClients()
+  }
+
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client)
+    setIsEditing(true)
+    setShowWizard(true)
+  }
+
+  const handleViewClient = (client: Client) => {
+    setSelectedClient(client)
+    setShowViewModal(true)
+  }
+
+  const handleCloseWizard = () => {
+    setShowWizard(false)
+    setIsEditing(false)
+    setSelectedClient(null)
+  }
+
+  const handleCloseViewModal = () => {
+    setShowViewModal(false)
+    setSelectedClient(null)
   }
 
   const handleRefresh = () => {
@@ -289,9 +318,9 @@ export default function ClientsPage() {
                   >
                     <ClientCard
                       client={client}
-                      onEdit={(client) => console.log('Edit client:', client)}
+                      onEdit={handleEditClient}
                       onDelete={(clientId) => console.log('Delete client:', clientId)}
-                      onView={(client) => console.log('View client:', client)}
+                      onView={handleViewClient}
                     />
                   </motion.div>
                 ))}
@@ -335,7 +364,25 @@ export default function ClientsPage() {
       </div>
 
       {/* Wizard Modal */}
-      {showWizard && <EnhancedClientWizard onClose={() => setShowWizard(false)} onSubmit={handleAddClient} />}
+      {showWizard && (
+        <EnhancedClientWizard 
+          onClose={handleCloseWizard} 
+          onSubmit={handleAddClient}
+          editingClient={isEditing ? selectedClient : undefined}
+        />
+      )}
+
+      {/* View Client Modal */}
+      {showViewModal && selectedClient && (
+        <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detalles del Cliente</DialogTitle>
+            </DialogHeader>
+            <ClientViewDetails client={selectedClient} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

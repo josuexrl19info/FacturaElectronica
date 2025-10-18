@@ -496,6 +496,49 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     })
     clientY += clientActividadLines.length * 3.5 + 1
   }
+
+  // Exoneración del cliente (si existe)
+  const hasExoneracion = invoiceData.client?.tieneExoneracion || invoiceData.client?.hasExemption
+  const exoneracion = invoiceData.client?.exoneracion || invoiceData.client?.exemption
+
+  if (hasExoneracion && exoneracion) {
+    clientY += 2 // Espacio adicional antes de exoneración
+    
+    // Título de exoneración
+    doc.setFont('times', 'bold')
+    doc.setFillColor(240, 240, 240)
+    doc.rect(clientX, clientY - 3, columnWidth - 5, 5, 'F')
+    doc.setTextColor(colors.accent)
+    doc.text('🛡️ Exoneración', clientX + 2, clientY)
+    doc.setFont('times', 'normal')
+    doc.setTextColor(colors.foreground)
+    clientY += 5
+
+    // Información de exoneración
+    const exoneracionInfoArray: string[] = []
+    
+    exoneracionInfoArray.push(`Doc: ${exoneracion.numeroDocumento || 'N/A'}`)
+    if (exoneracion.nombreLey) {
+      exoneracionInfoArray.push(`Ley: ${exoneracion.nombreLey}`)
+    }
+    if (exoneracion.articulo) {
+      const articuloText = `Art. ${exoneracion.articulo}${exoneracion.inciso ? ` Inc. ${exoneracion.inciso}` : ''}`
+      exoneracionInfoArray.push(articuloText)
+    }
+    exoneracionInfoArray.push(`Institución: ${exoneracion.nombreInstitucion || 'N/A'}`)
+    exoneracionInfoArray.push(`Tarifa: ${exoneracion.tarifaExonerada || '0'}%`)
+    if (exoneracion.porcentajeCompra) {
+      exoneracionInfoArray.push(`% Compra: ${exoneracion.porcentajeCompra}%`)
+    }
+
+    exoneracionInfoArray.forEach(info => {
+      const infoLines = splitTextToLines(doc, info, columnWidth - 5, 8)
+      infoLines.forEach((line, index) => {
+        doc.text(line, clientX, clientY + (index * 3))
+      })
+      clientY += infoLines.length * 3 + 1
+    })
+  }
   
   // Ajustar yPosition para la siguiente sección
   const leftColumnHeight = companyY + (direccionLines.length * 3.5) + 5
@@ -940,7 +983,10 @@ export async function formatInvoiceDataForPDFOptimized(invoice: any, company: an
       // Datos de ubicación del cliente con múltiples mapeos
       provincia: client?.provincia || client?.province || client?.provinciaNombre || 'N/A',
       canton: client?.canton || client?.cantonNombre || 'N/A',
-      distrito: client?.distrito || client?.district || client?.distritoNombre || 'N/A'
+      distrito: client?.distrito || client?.district || client?.distritoNombre || 'N/A',
+      // Datos de exoneración
+      tieneExoneracion: client?.tieneExoneracion || client?.hasExemption || false,
+      exoneracion: client?.exoneracion || client?.exemption || null
     }
   }
   

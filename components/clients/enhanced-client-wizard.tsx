@@ -25,9 +25,10 @@ import { TaxIdInputClean } from "@/components/ui/tax-id-input-clean"
 interface EnhancedClientWizardProps {
   onClose: () => void
   onSubmit: (data: ClientFormData) => void
+  editingClient?: any // Client from the hook
 }
 
-export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizardProps) {
+export function EnhancedClientWizard({ onClose, onSubmit, editingClient }: EnhancedClientWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { user } = useAuth()
@@ -62,7 +63,12 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
     exemptionInstitution: "",
     exemptionInstitutionOthers: "",
     exemptionTariff: 0,
-    exemptionObservations: ""
+    exemptionObservations: "",
+    // Campos adicionales para Ley Especial
+    exemptionLawName: "",
+    exemptionArticle: "",
+    exemptionSubsection: "",
+    exemptionPurchasePercentage: ""
   })
 
   // Función para formatear la cédula
@@ -161,6 +167,49 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
     }
   }
 
+  // Cargar datos del cliente cuando se está editando
+  useEffect(() => {
+    if (editingClient) {
+      setFormData({
+        // Información general
+        name: editingClient.name || "",
+        commercialName: editingClient.commercialName || "",
+        identification: editingClient.identification || "",
+        identificationType: editingClient.identificationType || "01",
+        email: editingClient.email || "",
+        phone: editingClient.phone || "",
+        phoneCountryCode: editingClient.phoneCountryCode || "+506",
+        
+        // Ubicación
+        province: editingClient.province || "",
+        canton: editingClient.canton || "",
+        district: editingClient.district || "",
+        otrasSenas: editingClient.otrasSenas || "",
+        
+        // Actividad económica
+        economicActivity: editingClient.economicActivity || {
+          codigo: "",
+          descripcion: "",
+          estado: ""
+        },
+        
+        // Exoneración - manejar ambos formatos (exoneracion y exemption)
+        hasExemption: editingClient.tieneExoneracion || editingClient.exemption?.isExempt || false,
+        exemptionType: editingClient.exoneracion?.tipoDocumento || editingClient.exemption?.exemptionType || "",
+        exemptionDocumentNumber: editingClient.exoneracion?.numeroDocumento || editingClient.exemption?.documentNumber || "",
+        exemptionDocumentDate: editingClient.exoneracion?.fechaEmision || editingClient.exemption?.documentDate || "",
+        exemptionInstitution: editingClient.exoneracion?.nombreInstitucion || editingClient.exemption?.institutionName || "",
+        exemptionInstitutionOthers: editingClient.exoneracion?.nombreInstitucionOtros || editingClient.exemption?.institutionNameOthers || "",
+        exemptionTariff: editingClient.exoneracion?.tarifaExonerada || editingClient.exemption?.tariffExempted || 0,
+        exemptionObservations: editingClient.exemption?.observations || "",
+        exemptionLawName: editingClient.exoneracion?.nombreLey || "",
+        exemptionArticle: editingClient.exoneracion?.articulo || "",
+        exemptionSubsection: editingClient.exoneracion?.inciso || "",
+        exemptionPurchasePercentage: editingClient.exoneracion?.porcentajeCompra || ""
+      })
+    }
+  }, [editingClient])
+
   // Cargar nombres de ubicación cuando cambien los códigos
   useEffect(() => {
     if (currentStep === 3) {
@@ -238,8 +287,11 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
     try {
       console.log('🚀 Enviando datos del cliente:', formData)
       
-      const response = await fetch('/api/clients/create', {
-        method: 'POST',
+      const url = editingClient ? `/api/clients/update/${editingClient.id}` : '/api/clients/create'
+      const method = editingClient ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -247,17 +299,18 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
           ...formData,
           tenantId: user.tenantId,
           createdBy: user.id,
-          selectedCompanyId: localStorage.getItem('selectedCompanyId')
+          selectedCompanyId: localStorage.getItem('selectedCompanyId'),
+          ...(editingClient && { clientId: editingClient.id })
         })
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al crear cliente')
+        throw new Error(result.error || `Error al ${editingClient ? 'actualizar' : 'crear'} cliente`)
       }
 
-      console.log('✅ Cliente creado exitosamente:', result)
+      console.log(`✅ Cliente ${editingClient ? 'actualizado' : 'creado'} exitosamente:`, result)
       
       // Llamar al callback original si existe
       if (onSubmit) {
@@ -317,8 +370,10 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl font-bold">Agregar Cliente</h2>
-              <p className="text-muted-foreground mt-1">Complete la información del nuevo cliente</p>
+              <h2 className="text-3xl font-bold">{editingClient ? 'Editar Cliente' : 'Agregar Cliente'}</h2>
+              <p className="text-muted-foreground mt-1">
+                {editingClient ? 'Modifique la información del cliente' : 'Complete la información del nuevo cliente'}
+              </p>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
@@ -463,6 +518,11 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
                     {/* Ubicación con dropdowns dependientes */}
                     <GeoDropdowns
                       onLocationChange={handleLocationChange}
+                      initialValues={editingClient ? {
+                        provinciaCodigo: parseInt(editingClient.province) || undefined,
+                        cantonCodigo: parseInt(editingClient.canton) || undefined,
+                        distritoCodigo: parseInt(editingClient.district) || undefined
+                      } : undefined}
                       className="mb-6"
                     />
 
@@ -502,7 +562,7 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
               {currentStep === 2 && (
                 <div className="space-y-6">
                   <div className="text-center mb-6">
-                    <h3 className="text-xl font-semibold mb-2">Exoneraciones Fiscales</h3>
+                    <h3 className="text-xl font-semibold mb-2">🛡️ Exoneración de Impuestos (v2.1)</h3>
                     <p className="text-muted-foreground">
                       Configure las exenciones fiscales si el cliente las tiene (opcional)
                     </p>
@@ -525,72 +585,75 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
                       transition={{ duration: 0.3 }}
                       className="space-y-6 border rounded-lg p-6 bg-muted/30"
                     >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="exemptionType">Tipo de Exoneración *</Label>
-                          <Select
-                            value={formData.exemptionType}
-                            onValueChange={(value) => updateField("exemptionType", value)}
-                          >
-                            <SelectTrigger className="h-12">
-                              <SelectValue placeholder="Seleccione el tipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {EXEMPTION_TYPES.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  <div>
-                                    <div className="font-medium">{type.label}</div>
-                                    <div className="text-sm text-muted-foreground">{type.description}</div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                      <div className="space-y-6">
+                        {/* Fila 1: Tipo de Documento y Número de Documento */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="exemptionType">Tipo de Documento de exoneración o autorización *</Label>
+                            <Select
+                              value={formData.exemptionType}
+                              onValueChange={(value) => updateField("exemptionType", value)}
+                            >
+                              <SelectTrigger className="h-12 w-full">
+                                <SelectValue placeholder="Seleccione el tipo" />
+                              </SelectTrigger>
+                              <SelectContent className="max-w-lg">
+                                {EXEMPTION_TYPES.map((type) => (
+                                  <SelectItem key={type.value} value={type.value} className="py-3">
+                                    <div className="flex flex-col">
+                                      <div className="font-medium text-sm leading-tight">{type.label}</div>
+                                      <div className="text-xs text-muted-foreground mt-1">Código: {type.value}</div>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="exemptionDocumentNumber">Número de Documento *</Label>
+                            <Input
+                              id="exemptionDocumentNumber"
+                              placeholder="Ej: 105-2021"
+                              value={formData.exemptionDocumentNumber}
+                              onChange={(e) => updateField("exemptionDocumentNumber", e.target.value)}
+                              className="h-12"
+                            />
+                          </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="exemptionDocumentNumber">Número de Documento *</Label>
-                          <Input
-                            id="exemptionDocumentNumber"
-                            placeholder="Ej: 105-2021"
-                            value={formData.exemptionDocumentNumber}
-                            onChange={(e) => updateField("exemptionDocumentNumber", e.target.value)}
-                            className="h-12"
-                          />
-                        </div>
-                      </div>
+                        {/* Fila 2: Institución y Fecha del Documento */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="exemptionInstitution">Institución</Label>
+                            <Select
+                              value={formData.exemptionInstitution}
+                              onValueChange={(value) => updateField("exemptionInstitution", value)}
+                            >
+                              <SelectTrigger className="h-12">
+                                <SelectValue placeholder="Seleccione la institución" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {INSTITUTION_TYPES.map((institution) => (
+                                  <SelectItem key={institution.value} value={institution.value}>
+                                    {institution.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="exemptionDocumentDate">Fecha del Documento</Label>
-                          <Input
-                            id="exemptionDocumentDate"
-                            type="date"
-                            value={formData.exemptionDocumentDate}
-                            onChange={(e) => updateField("exemptionDocumentDate", e.target.value)}
-                            className="h-12"
-                          />
+                          <div className="space-y-2">
+                            <Label htmlFor="exemptionDocumentDate">Fecha del Documento</Label>
+                            <Input
+                              id="exemptionDocumentDate"
+                              type="date"
+                              value={formData.exemptionDocumentDate}
+                              onChange={(e) => updateField("exemptionDocumentDate", e.target.value)}
+                              className="h-12"
+                            />
+                          </div>
                         </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="exemptionInstitution">Institución</Label>
-                          <Select
-                            value={formData.exemptionInstitution}
-                            onValueChange={(value) => updateField("exemptionInstitution", value)}
-                          >
-                            <SelectTrigger className="h-12">
-                              <SelectValue placeholder="Seleccione la institución" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {INSTITUTION_TYPES.map((institution) => (
-                                <SelectItem key={institution.value} value={institution.value}>
-                                  {institution.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
 
                       {formData.exemptionInstitution === "99" && (
                         <motion.div
@@ -611,19 +674,50 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
                         </motion.div>
                       )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="exemptionTariff">Porcentaje de Tarifa Exonerada</Label>
-                        <Input
-                          id="exemptionTariff"
-                          type="number"
-                          min="0"
-                          max="100"
-                          placeholder="13"
-                          value={formData.exemptionTariff}
-                          onChange={(e) => updateField("exemptionTariff", Number(e.target.value) || 0)}
-                          className="h-12"
-                        />
-                      </div>
+                        {/* Fila 3: Artículo e Inciso */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="exemptionArticle">Artículo</Label>
+                            <Input
+                              id="exemptionArticle"
+                              type="number"
+                              placeholder="Ej: 20"
+                              value={formData.exemptionArticle || ""}
+                              onChange={(e) => updateField("exemptionArticle", e.target.value)}
+                              className="h-12"
+                              max={999999}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="exemptionSubsection">Inciso</Label>
+                            <Input
+                              id="exemptionSubsection"
+                              type="number"
+                              placeholder="Ej: 7 (para g)"
+                              value={formData.exemptionSubsection || ""}
+                              onChange={(e) => updateField("exemptionSubsection", e.target.value)}
+                              className="h-12"
+                              max={999999}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Fila 4: Porcentaje de Tarifa Exonerada */}
+                        <div className="space-y-2">
+                          <Label htmlFor="exemptionTariff">Porcentaje de Tarifa Exonerada</Label>
+                          <Input
+                            id="exemptionTariff"
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="13"
+                            value={formData.exemptionTariff}
+                            onChange={(e) => updateField("exemptionTariff", Number(e.target.value) || 0)}
+                            className="h-12"
+                          />
+                        </div>
+
 
                       <div className="space-y-2">
                         <Label htmlFor="exemptionObservations">Observaciones</Label>
@@ -635,6 +729,7 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
                           rows={3}
                           className="resize-none"
                         />
+                      </div>
                       </div>
                     </motion.div>
                   )}
@@ -827,12 +922,12 @@ export function EnhancedClientWizard({ onClose, onSubmit }: EnhancedClientWizard
                 {isSubmitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Creando...
+                    {editingClient ? 'Actualizando...' : 'Creando...'}
                   </>
                 ) : (
                   <>
                     <Check className="w-4 h-4" />
-                    Crear Cliente
+                    {editingClient ? 'Actualizar Cliente' : 'Crear Cliente'}
                   </>
                 )}
               </Button>

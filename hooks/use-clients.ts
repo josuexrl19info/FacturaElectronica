@@ -29,6 +29,22 @@ export interface Client {
     tariffExempted?: number
     observations?: string
   }
+  // Nuevo formato de exoneración
+  tieneExoneracion?: boolean
+  exoneracion?: {
+    tipoDocumento: string
+    tipoDocumentoOtro?: string
+    numeroDocumento: string
+    nombreLey?: string
+    articulo?: string
+    inciso?: string
+    porcentajeCompra?: string
+    nombreInstitucion: string
+    nombreInstitucionOtros?: string
+    fechaEmision: string
+    tarifaExonerada: number
+    montoExoneracion?: string
+  }
   tenantId: string
   createdBy: string
   createdAt: Date

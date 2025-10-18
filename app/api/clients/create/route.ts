@@ -31,7 +31,11 @@ export async function POST(request: NextRequest) {
       // Actividad económica
       economicActivity,
       
-      // Exoneración
+      // Exoneración (nuevo formato)
+      tieneExoneracion,
+      exoneracion,
+      
+      // Exoneración (formato antiguo - para retrocompatibilidad)
       hasExemption,
       exemptionType,
       exemptionDocumentNumber,
@@ -41,11 +45,27 @@ export async function POST(request: NextRequest) {
       exemptionTariff,
       exemptionObservations,
       
+      // Campos individuales de exoneración del frontend
+      exemptionArticle,
+      exemptionSubsection,
+      exemptionLawName,
+      exemptionPurchasePercentage,
+      
       // Datos del sistema
       tenantId,
       createdBy,
       selectedCompanyId
     } = body
+
+    console.log('🔍 Campos de exoneración individuales:', {
+      hasExemption,
+      exemptionArticle,
+      exemptionSubsection,
+      exemptionLawName,
+      exemptionPurchasePercentage,
+      exemptionType,
+      exemptionDocumentNumber
+    })
 
     // Validar datos requeridos
     if (!name || !identification || !email || !tenantId || !createdBy) {
@@ -79,19 +99,45 @@ export async function POST(request: NextRequest) {
         estado: ''
       },
       
-      // Exoneración (solo si aplica)
-      exemption: hasExemption ? {
-        exemptionType,
-        documentNumber: exemptionDocumentNumber,
-        documentDate: exemptionDocumentDate,
-        institutionName: exemptionInstitution,
-        institutionNameOthers: exemptionInstitutionOthers || '',
-        tariffExempted: exemptionTariff || 0,
-        observations: exemptionObservations || '',
-        isExempt: true
-      } : {
-        isExempt: false
-      },
+      // Exoneración (lógica mejorada para manejar ambos formatos)
+      tieneExoneracion: tieneExoneracion !== undefined ? tieneExoneracion : (hasExemption || false),
+      exoneracion: (() => {
+        // Si tenemos el formato nuevo (tieneExoneracion con objeto exoneracion)
+        if (tieneExoneracion && exoneracion) {
+          return {
+            tipoDocumento: exoneracion.tipoDocumento || '',
+            tipoDocumentoOtro: exoneracion.tipoDocumentoOtro || '',
+            numeroDocumento: exoneracion.numeroDocumento || '',
+            nombreLey: exoneracion.nombreLey || '',
+            articulo: exoneracion.articulo || '',
+            inciso: exoneracion.inciso || '',
+            porcentajeCompra: exoneracion.porcentajeCompra || '',
+            nombreInstitucion: exoneracion.nombreInstitucion || '',
+            nombreInstitucionOtros: exoneracion.nombreInstitucionOtros || '',
+            fechaEmision: exoneracion.fechaEmision || '',
+            tarifaExonerada: exoneracion.tarifaExonerada || '',
+            montoExoneracion: exoneracion.montoExoneracion || ''
+          }
+        }
+        // Si tenemos hasExemption = true (formato del frontend)
+        else if (hasExemption) {
+          return {
+            tipoDocumento: exemptionType || '',
+            tipoDocumentoOtro: '',
+            numeroDocumento: exemptionDocumentNumber || '',
+            nombreLey: exemptionLawName || '', // Campo individual del frontend
+            articulo: exemptionArticle || '', // Campo individual del frontend
+            inciso: exemptionSubsection || '', // Campo individual del frontend
+            porcentajeCompra: exemptionPurchasePercentage || '', // Campo individual del frontend
+            nombreInstitucion: exemptionInstitution || '',
+            nombreInstitucionOtros: exemptionInstitutionOthers || '',
+            fechaEmision: exemptionDocumentDate || '',
+            tarifaExonerada: exemptionTariff || '',
+            montoExoneracion: ''
+          }
+        }
+        return null
+      })(),
       
       // Campos del sistema
       tenantId,
