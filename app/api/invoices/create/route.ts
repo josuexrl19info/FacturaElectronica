@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { initializeApp, getApps } from 'firebase/app'
 import { firebaseConfig } from '@/lib/firebase-config'
-import { XMLGenerator, FacturaData } from '@/lib/services/xml-generator'
+import { XMLGenerator, FacturaData, ExoneracionXML } from '@/lib/services/xml-generator'
 import { DigitalSignatureService } from '@/lib/services/digital-signature'
 import { HaciendaAuthService } from '@/lib/services/hacienda-auth'
 import { HaciendaSubmissionService } from '@/lib/services/hacienda-submission'
@@ -183,8 +183,67 @@ export async function POST(req: NextRequest) {
       console.log('📞 Campos del cliente desde Firestore:', {
         keys: Object.keys(clientData),
         phone: clientData.phone,
-        hasPhone: 'phone' in clientData
+        hasPhone: 'phone' in clientData,
+        tieneExoneracion: clientData.tieneExoneracion,
+        hasExemption: clientData.hasExemption
       })
+
+      // Usar la misma fecha para la clave y fecha de emisión (zona horaria Costa Rica)
+      const fechaCostaRica = new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')
+
+      // Función para formatear fecha con timezone
+      const formatDateWithTimezone = (dateString: string): string => {
+        if (!dateString) return fechaCostaRica + '-06:00'
+        
+        // Si ya tiene formato con timezone, devolverlo
+        if (dateString.includes('T') && (dateString.includes('+') || dateString.includes('-'))) {
+          return dateString
+        }
+        
+        // Si tiene formato YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss, agregar timezone
+        if (dateString.includes('T')) {
+          return dateString + '-06:00'
+        }
+        
+        // Si es solo fecha, agregar hora por defecto y timezone
+        return dateString + 'T00:00:00-06:00'
+      }
+
+      // Mapear datos de exoneración del cliente para el XML
+      let clientExoneracion: ExoneracionXML | undefined = undefined
+      if (clientData.tieneExoneracion && clientData.exoneracion) {
+        console.log('🛡️ Cliente con exoneración detectada:', clientData.exoneracion)
+        clientExoneracion = {
+          tipoDocumento: clientData.exoneracion.tipoDocumento || '',
+          tipoDocumentoOtro: clientData.exoneracion.tipoDocumentoOtro || undefined,
+          numeroDocumento: clientData.exoneracion.numeroDocumento || '',
+          nombreLey: clientData.exoneracion.nombreLey || undefined,
+          articulo: clientData.exoneracion.articulo ? parseInt(clientData.exoneracion.articulo) : undefined,
+          inciso: clientData.exoneracion.inciso ? parseInt(clientData.exoneracion.inciso) : undefined,
+          porcentajeCompra: clientData.exoneracion.porcentajeCompra ? parseFloat(clientData.exoneracion.porcentajeCompra) : undefined,
+          nombreInstitucion: clientData.exoneracion.nombreInstitucion || '',
+          nombreInstitucionOtros: clientData.exoneracion.nombreInstitucionOtros || undefined,
+          fechaEmision: formatDateWithTimezone(clientData.exoneracion.fechaEmision),
+          tarifaExonerada: parseFloat(clientData.exoneracion.tarifaExonerada) || 0,
+          montoExoneracion: 0 // Se calculará dinámicamente por línea
+        }
+      } else if (clientData.hasExemption && clientData.exemption) {
+        console.log('🛡️ Cliente con exoneración (formato legacy) detectada:', clientData.exemption)
+        clientExoneracion = {
+          tipoDocumento: clientData.exemption.exemptionType || '',
+          tipoDocumentoOtro: clientData.exemption.exemptionTypeOthers || undefined,
+          numeroDocumento: clientData.exemption.documentNumber || '',
+          nombreLey: clientData.exemption.lawName || undefined,
+          articulo: clientData.exemption.article ? parseInt(clientData.exemption.article) : undefined,
+          inciso: clientData.exemption.subsection ? parseInt(clientData.exemption.subsection) : undefined,
+          porcentajeCompra: clientData.exemption.purchasePercentage ? parseFloat(clientData.exemption.purchasePercentage) : undefined,
+          nombreInstitucion: clientData.exemption.institutionName || '',
+          nombreInstitucionOtros: clientData.exemption.institutionNameOthers || undefined,
+          fechaEmision: formatDateWithTimezone(clientData.exemption.documentDate),
+          tarifaExonerada: parseFloat(clientData.exemption.tariffExempted) || 0,
+          montoExoneracion: 0 // Se calculará dinámicamente por línea
+        }
+      }
 
       // Generar clave de Hacienda usando el método original que funciona
       console.log('🔑 Generando clave de Hacienda para XML y envío...')
@@ -192,8 +251,6 @@ export async function POST(req: NextRequest) {
       // Pasar el consecutivo completo con formato FE-XXXXXXXXXX
       console.log('🔍 Consecutivo completo que se pasa al generador:', generatedConsecutivo)
       
-      // Usar la misma fecha para la clave y fecha de emisión (zona horaria Costa Rica)
-      const fechaCostaRica = new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')
       const fechaParaClave = new Date(fechaCostaRica)
       
       const keyResult = HaciendaKeyGenerator.generateKey({
@@ -246,26 +303,56 @@ export async function POST(req: NextRequest) {
           correoElectronico: clientData.email
         },
         condicionVenta: condicionVenta || '01',
-        lineasDetalle: items.map((item: any, index: number) => ({
-          numeroLinea: index + 1,
-          codigoCABYS: item.codigoCABYS || '8399000000000',
-          cantidad: item.cantidad,
-          unidadMedida: item.unidadMedida || 'Sp',
-          detalle: item.detalle,
-          precioUnitario: item.precioUnitario,
-          montoTotal: item.montoTotal,
-          subTotal: item.subTotal,
-          baseImponible: item.baseImponible,
-          impuesto: {
+        lineasDetalle: items.map((item: any, index: number) => {
+          // Calcular montos base
+          const montoImpuesto = item.impuesto[0]?.monto || 0
+          const baseImponible = item.baseImponible || item.subTotal || (item.cantidad * item.precioUnitario)
+          const montoTotalOriginal = item.montoTotalLinea || (baseImponible + montoImpuesto)
+
+          // Crear objeto de impuesto con exoneración si el cliente la tiene
+          const impuestoData = {
             codigo: item.impuesto[0]?.codigo || '01',
             codigoTarifaIVA: item.impuesto[0]?.codigoTarifaIVA || '08',
             tarifa: item.impuesto[0]?.tarifa || 13,
-            monto: item.impuesto[0]?.monto || 0
-          },
-          impuestoAsumidoEmisorFabrica: item.impuestoAsumidoEmisorFabrica || 0,
-          impuestoNeto: item.impuestoNeto || 0,
-          montoTotalLinea: item.montoTotalLinea
-        })),
+            monto: montoImpuesto
+          }
+
+          // Variables para ajustar montos cuando hay exoneración
+          let impuestoNeto = item.impuestoNeto || montoImpuesto
+          let montoTotalLinea = montoTotalOriginal
+
+          // Agregar exoneración si el cliente la tiene
+          if (clientExoneracion) {
+            // Crear copia de la exoneración con el monto específico de esta línea
+            const exoneracionLinea = {
+              ...clientExoneracion,
+              montoExoneracion: montoImpuesto // El monto del impuesto de esta línea
+            }
+            impuestoData.exoneracion = exoneracionLinea
+            
+            // Cuando hay exoneración, el impuesto neto debe ser 0 y el total sin impuesto
+            impuestoNeto = 0
+            montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
+            
+            console.log(`🛡️ Agregando exoneración a línea ${index + 1}:`, exoneracionLinea)
+          }
+
+          return {
+            numeroLinea: index + 1,
+            codigoCABYS: item.codigoCABYS || '8399000000000',
+            cantidad: item.cantidad,
+            unidadMedida: item.unidadMedida || 'Sp',
+            detalle: item.detalle,
+            precioUnitario: item.precioUnitario,
+            montoTotal: item.montoTotal,
+            subTotal: item.subTotal,
+            baseImponible: baseImponible,
+            impuesto: impuestoData,
+            impuestoAsumidoEmisorFabrica: item.impuestoAsumidoEmisorFabrica || 0,
+            impuestoNeto: impuestoNeto,
+            montoTotalLinea: montoTotalLinea
+          }
+        }),
         codigoMoneda: currency || 'CRC',
         tipoCambio: await getExchangeRateForCurrency(currency || 'CRC'),
         totalServGravados: subtotal,

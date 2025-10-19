@@ -34,8 +34,10 @@ export interface ExoneracionXML {
   tipoDocumento: string
   tipoDocumentoOtro?: string
   numeroDocumento: string
+  nombreLey?: string // Nombre de la Ley Especial (para tipoDocumento = '03')
   articulo?: number
   inciso?: number
+  porcentajeCompra?: number // % de Compra (para tipoDocumento = '03')
   nombreInstitucion: string
   nombreInstitucionOtros?: string
   fechaEmision: string
@@ -191,6 +193,59 @@ export class XMLGenerator {
   }
 
   /**
+   * Genera el XML de un Tiquete Electrónico
+   */
+  static generateTiqueteXML(tiqueteData: FacturaData): string {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<TiqueteElectronico xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico.xsd">
+  <Clave>${this.escapeXml(tiqueteData.clave)}</Clave>
+  <ProveedorSistemas>${this.escapeXml(tiqueteData.proveedorSistemas)}</ProveedorSistemas>
+  <CodigoActividadEmisor>${this.escapeXml(tiqueteData.codigoActividadEmisor)}</CodigoActividadEmisor>
+  <CodigoActividadReceptor>${this.escapeXml(tiqueteData.codigoActividadReceptor)}</CodigoActividadReceptor>
+  <NumeroConsecutivo>${this.escapeXml(tiqueteData.numeroConsecutivo)}</NumeroConsecutivo>
+  <FechaEmision>${this.escapeXml(tiqueteData.fechaEmision)}</FechaEmision>
+  
+  ${this.generateEmisorXML(tiqueteData.emisor)}
+  
+  ${this.generateReceptorXML(tiqueteData.receptor)}
+  
+  <CondicionVenta>${this.escapeXml(tiqueteData.condicionVenta)}</CondicionVenta>
+  
+  <DetalleServicio>
+    ${tiqueteData.lineasDetalle.map(linea => this.generateLineaDetalleXML(linea)).join('\n    ')}
+  </DetalleServicio>
+  
+  <ResumenFactura>
+    <CodigoTipoMoneda>
+      <CodigoMoneda>${this.escapeXml(tiqueteData.codigoMoneda)}</CodigoMoneda>
+      <TipoCambio>${this.formatAmount(tiqueteData.tipoCambio)}</TipoCambio>
+    </CodigoTipoMoneda>
+    <TotalServGravados>${this.formatAmount(tiqueteData.totalServGravados)}</TotalServGravados>
+    <TotalGravado>${this.formatAmount(tiqueteData.totalGravado)}</TotalGravado>
+    <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>
+    <TotalDesgloseImpuesto>
+      <Codigo>${this.escapeXml(tiqueteData.totalDesgloseImpuesto.codigo)}</Codigo>
+      <CodigoTarifaIVA>${this.escapeXml(tiqueteData.totalDesgloseImpuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
+      <TotalMontoImpuesto>${this.formatAmount(tiqueteData.totalDesgloseImpuesto.totalMontoImpuesto)}</TotalMontoImpuesto>
+    </TotalDesgloseImpuesto>
+    <TotalImpuesto>${this.formatAmount(tiqueteData.totalImpuesto)}</TotalImpuesto>
+    <MedioPago>
+      <TipoMedioPago>${this.escapeXml(tiqueteData.tipoMedioPago)}</TipoMedioPago>
+      <TotalMedioPago>${this.formatAmount(tiqueteData.totalMedioPago)}</TotalMedioPago>
+    </MedioPago>
+    <TotalComprobante>${this.formatAmount(tiqueteData.totalComprobante)}</TotalComprobante>
+  </ResumenFactura>
+  
+  <Otros>
+    <OtroTexto>--- Sistema de Facturación Electrónica ---</OtroTexto>
+  </Otros>
+</TiqueteElectronico>`
+
+    return xml
+  }
+
+  /**
    * Genera el XML del emisor
    */
   private static generateEmisorXML(emisor: EmisorData): string {
@@ -295,12 +350,22 @@ export class XMLGenerator {
     
     xml += `\n      <NumeroDocumento>${this.escapeXml(exoneracion.numeroDocumento)}</NumeroDocumento>`
     
+    // Nombre de la Ley Especial - opcional, para tipoDocumento = '03'
+    if (exoneracion.nombreLey) {
+      xml += `\n      <NombreLey>${this.escapeXml(exoneracion.nombreLey)}</NombreLey>`
+    }
+    
     // Artículo e Inciso - opcionales
     if (exoneracion.articulo) {
       xml += `\n      <Articulo>${exoneracion.articulo}</Articulo>`
     }
     if (exoneracion.inciso) {
       xml += `\n      <Inciso>${exoneracion.inciso}</Inciso>`
+    }
+    
+    // Porcentaje de Compra - opcional, para tipoDocumento = '03'
+    if (exoneracion.porcentajeCompra) {
+      xml += `\n      <PorcentajeCompra>${this.formatAmount(exoneracion.porcentajeCompra)}</PorcentajeCompra>`
     }
     
     xml += `\n      <NombreInstitucion>${this.escapeXml(exoneracion.nombreInstitucion)}</NombreInstitucion>`
@@ -310,7 +375,16 @@ export class XMLGenerator {
       xml += `\n      <NombreInstitucionOtros>${this.escapeXml(exoneracion.nombreInstitucionOtros)}</NombreInstitucionOtros>`
     }
     
-    xml += `\n      <FechaEmisionEX>${this.escapeXml(exoneracion.fechaEmision)}</FechaEmisionEX>`
+    // Asegurar que la fecha tenga formato xs:dateTime con timezone
+    let fechaFormateada = exoneracion.fechaEmision
+    if (!fechaFormateada.includes('T')) {
+      fechaFormateada = fechaFormateada + 'T00:00:00-06:00'
+    } else if (!fechaFormateada.includes('+') && !fechaFormateada.includes('-')) {
+      // Si tiene T pero no timezone, agregar timezone de Costa Rica
+      fechaFormateada = fechaFormateada + '-06:00'
+    }
+    
+    xml += `\n      <FechaEmisionEX>${this.escapeXml(fechaFormateada)}</FechaEmisionEX>`
     xml += `\n      <TarifaExonerada>${this.formatAmount(exoneracion.tarifaExonerada)}</TarifaExonerada>`
     xml += `\n      <MontoExoneracion>${this.formatAmount(exoneracion.montoExoneracion)}</MontoExoneracion>`
     xml += '\n    </Exoneracion>'

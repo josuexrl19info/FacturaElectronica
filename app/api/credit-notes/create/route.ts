@@ -4,6 +4,7 @@ import { initializeApp, getApps } from 'firebase/app'
 import { firebaseConfig } from '@/lib/firebase-config'
 import { HaciendaKeyGenerator } from '@/lib/services/hacienda-key-generator'
 import { CreditNoteGenerator, CreditNoteData } from '@/lib/services/credit-note-generator'
+import { ExoneracionXML } from '@/lib/services/xml-generator'
 import { DigitalSignatureService } from '@/lib/services/digital-signature'
 import { HaciendaAuthService } from '@/lib/services/hacienda-auth'
 import { HaciendaSubmissionService } from '@/lib/services/hacienda-submission'
@@ -98,6 +99,68 @@ export async function POST(request: NextRequest) {
       receptorNombre: facturaData.receptor?.nombre
     })
 
+    // Buscar datos del cliente en la base de datos para obtener información de exoneración
+    let clientData: any = null
+    try {
+      const clientsQuery = query(
+        collection(db, 'clients'),
+        where('identification', '==', clienteCompleto.identificacion),
+        where('tenantId', '==', tenantId)
+      )
+      const clientsSnapshot = await getDocs(clientsQuery)
+      
+      if (!clientsSnapshot.empty) {
+        clientData = clientsSnapshot.docs[0].data()
+        console.log('👤 Datos de cliente obtenidos:', clientData.name)
+        console.log('🛡️ Cliente con exoneración:', clientData.tieneExoneracion || clientData.hasExemption)
+      } else {
+        console.log('⚠️ Cliente no encontrado en base de datos:', clienteCompleto.identificacion)
+      }
+    } catch (error) {
+      console.error('❌ Error buscando cliente:', error)
+    }
+
+    // Mapear datos de exoneración del cliente para el XML de la nota de crédito
+    let clientExoneracion: ExoneracionXML | undefined = undefined
+    
+    if (clientData && (clientData.tieneExoneracion || clientData.hasExemption)) {
+      console.log('🛡️ Cliente con exoneración detectada:', clientData.tieneExoneracion ? clientData.exoneracion : clientData.exemption)
+      
+      if (clientData.tieneExoneracion && clientData.exoneracion) {
+        // Formato nuevo
+        clientExoneracion = {
+          tipoDocumento: clientData.exoneracion.tipoDocumento || '',
+          tipoDocumentoOtro: clientData.exoneracion.tipoDocumentoOtro || undefined,
+          numeroDocumento: clientData.exoneracion.numeroDocumento || '',
+          nombreLey: clientData.exoneracion.nombreLey || undefined,
+          articulo: clientData.exoneracion.articulo ? parseInt(clientData.exoneracion.articulo) : undefined,
+          inciso: clientData.exoneracion.inciso ? parseInt(clientData.exoneracion.inciso) : undefined,
+          porcentajeCompra: clientData.exoneracion.porcentajeCompra ? parseFloat(clientData.exoneracion.porcentajeCompra) : undefined,
+          nombreInstitucion: clientData.exoneracion.nombreInstitucion || '',
+          nombreInstitucionOtros: clientData.exoneracion.nombreInstitucionOtros || undefined,
+          fechaEmision: formatDateWithTimezone(clientData.exoneracion.fechaEmision || new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')),
+          tarifaExonerada: parseFloat(clientData.exoneracion.tarifaExonerada) || 0,
+          montoExoneracion: 0 // Se calculará dinámicamente por línea
+        }
+      } else if (clientData.hasExemption && clientData.exemption) {
+        // Formato legacy
+        clientExoneracion = {
+          tipoDocumento: clientData.exemption.exemptionType || '',
+          tipoDocumentoOtro: clientData.exemption.exemptionTypeOthers || undefined,
+          numeroDocumento: clientData.exemption.documentNumber || '',
+          nombreLey: clientData.exemption.lawName || undefined,
+          articulo: clientData.exemption.article ? parseInt(clientData.exemption.article) : undefined,
+          inciso: clientData.exemption.subsection ? parseInt(clientData.exemption.subsection) : undefined,
+          porcentajeCompra: clientData.exemption.purchasePercentage ? parseFloat(clientData.exemption.purchasePercentage) : undefined,
+          nombreInstitucion: clientData.exemption.institutionName || '',
+          nombreInstitucionOtros: clientData.exemption.institutionNameOthers || undefined,
+          fechaEmision: formatDateWithTimezone(clientData.exemption.documentDate || new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')),
+          tarifaExonerada: parseFloat(clientData.exemption.tariffExempted) || 0,
+          montoExoneracion: 0 // Se calculará dinámicamente por línea
+        }
+      }
+    }
+
     // 3. Generar consecutivo para la NC usando consecutiveNT de la empresa
     const currentConsecutiveNT = companyData.consecutiveNT || 0
     const nextConsecutiveNT = currentConsecutiveNT + 1
@@ -113,6 +176,24 @@ export async function POST(request: NextRequest) {
 
     // 4. Generar clave de Hacienda para la NC
     const fechaCostaRica = new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')
+    
+    // Función para formatear fecha con timezone
+    const formatDateWithTimezone = (dateString: string): string => {
+      if (!dateString) return fechaCostaRica + '-06:00'
+      
+      // Si ya tiene formato con timezone, devolverlo
+      if (dateString.includes('T') && (dateString.includes('+') || dateString.includes('-'))) {
+        return dateString
+      }
+      
+      // Si tiene formato YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss, agregar timezone
+      if (dateString.includes('T')) {
+        return dateString + '-06:00'
+      }
+      
+      // Si es solo fecha, agregar hora por defecto y timezone
+      return dateString + 'T00:00:00-06:00'
+    }
     const fechaParaClave = new Date(fechaCostaRica)
 
     const keyResult = HaciendaKeyGenerator.generateKey({
@@ -202,20 +283,55 @@ export async function POST(request: NextRequest) {
       condicionVenta: facturaData.condicionVenta,
       medioPago: formaPagoOriginal, // Usar el medioPago de la factura original
       // Items: ya vienen parseados del XML con la estructura correcta, agregar valores por defecto
-      items: itemsNC.map((item: any, index: number) => ({
-        numeroLinea: index + 1,
-        codigoCABYS: item.codigoCABYS || '8399000000000',
-        cantidad: item.cantidad || 1,
-        unidadMedida: item.unidadMedida || 'Sp',
-        detalle: item.detalle || '',
-        precioUnitario: item.precioUnitario || 0,
-        montoTotal: item.montoTotal || 0,
-        subtotal: item.subtotal || item.montoTotal || 0,
-        baseImponible: item.baseImponible || item.subtotal || item.montoTotal || 0,
-        impuesto: item.impuesto, // Ya viene con la estructura correcta del XML
-        impuestoNeto: item.impuestoNeto || 0,
-        montoTotalLinea: item.montoTotalLinea || (item.subtotal || item.montoTotal || 0) + (item.impuestoNeto || 0)
-      })),
+      items: itemsNC.map((item: any, index: number) => {
+        // Calcular montos base
+        const montoImpuesto = item.impuesto?.monto || 0
+        const baseImponible = item.baseImponible || item.subtotal || item.montoTotal || 0
+        const montoTotalOriginal = item.montoTotalLinea || (baseImponible + montoImpuesto)
+
+        // Crear objeto de impuesto con exoneración si el cliente la tiene
+        const impuestoData = item.impuesto ? {
+          codigo: item.impuesto.codigo || '01',
+          codigoTarifa: item.impuesto.codigoTarifa || item.impuesto.codigoTarifaIVA || '08',
+          tarifa: item.impuesto.tarifa || 13,
+          monto: montoImpuesto
+        } : undefined
+
+        // Variables para ajustar montos cuando hay exoneración
+        let impuestoNeto = item.impuestoNeto || montoImpuesto
+        let montoTotalLinea = montoTotalOriginal
+
+        // Agregar exoneración si el cliente la tiene
+        if (clientExoneracion && impuestoData) {
+          // Crear copia de la exoneración con el monto específico de esta línea
+          const exoneracionLinea = {
+            ...clientExoneracion,
+            montoExoneracion: montoImpuesto // El monto del impuesto de esta línea
+          }
+          impuestoData.exoneracion = exoneracionLinea
+          
+          // Cuando hay exoneración, el impuesto neto debe ser 0 y el total sin impuesto
+          impuestoNeto = 0
+          montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
+          
+          console.log(`🛡️ Agregando exoneración a línea ${index + 1} de nota de crédito:`, exoneracionLinea)
+        }
+
+        return {
+          numeroLinea: index + 1,
+          codigoCABYS: item.codigoCABYS || '8399000000000',
+          cantidad: item.cantidad || 1,
+          unidadMedida: item.unidadMedida || 'Sp',
+          detalle: item.detalle || '',
+          precioUnitario: item.precioUnitario || 0,
+          montoTotal: item.montoTotal || 0,
+          subtotal: item.subtotal || item.montoTotal || 0,
+          baseImponible: baseImponible,
+          impuesto: impuestoData,
+          impuestoNeto: impuestoNeto,
+          montoTotalLinea: montoTotalLinea
+        }
+      }),
       // Resumen: usar datos parseados del XML de la factura original con valores por defecto
       resumen: {
         codigoTipoMoneda: {
