@@ -24,7 +24,8 @@ import {
   Calendar,
   CheckCircle,
   Globe,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react"
 import { InvoiceFormData, InvoiceItemFormData, CONDICIONES_VENTA, METODOS_PAGO, TIPOS_IMPUESTO, TARIFAS_IMPUESTO, calculateInvoiceTotals } from '@/lib/invoice-types'
 import { useClients } from '@/hooks/use-clients'
@@ -72,7 +73,7 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
   }
 
   // Calcular totales en tiempo real
-  const totals = calculateInvoiceTotals(formData.items)
+  const totals = calculateInvoiceTotals(formData.items, selectedClient)
 
   const handleClientSelect = (clientId: string) => {
     const client = clients.find(c => c.id === clientId)
@@ -248,24 +249,43 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                     </div>
                   ) : (
                     <Select value={formData.clientId} onValueChange={handleClientSelect}>
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder="Seleccionar cliente..." />
+                      <SelectTrigger className="h-9 text-sm w-full min-w-0">
+                        <SelectValue placeholder="Seleccionar cliente...">
+                          {selectedClient ? (
+                            <div className="flex items-center gap-2 w-full min-w-0">
+                              <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                              <span className="truncate text-sm">
+                                {selectedClient.name.length > 30 
+                                  ? `${selectedClient.name.substring(0, 30)}...` 
+                                  : selectedClient.name
+                                }
+                              </span>
+                            </div>
+                          ) : (
+                            "Seleccionar cliente..."
+                          )}
+                        </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-w-md">
                         {clients.map((client) => (
                           <SelectItem key={client.id} value={client.id}>
-                            <div className="flex items-center gap-3 w-full py-1">
+                            <div className="flex items-center gap-3 w-full py-1 max-w-full min-w-0">
                               <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                                 <User className="w-4 h-4 text-blue-600" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{client.name}</p>
-                                <div className="flex items-center gap-2">
-                                  <p className="text-xs text-muted-foreground">{client.identification}</p>
+                              <div className="flex-1 min-w-0 overflow-hidden">
+                                <p className="font-medium text-sm truncate" title={client.name}>
+                                  {client.name.length > 35 
+                                    ? `${client.name.substring(0, 35)}...` 
+                                    : client.name
+                                  }
+                                </p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <p className="text-xs text-muted-foreground truncate">{client.identification}</p>
                                   {client.economicActivity && (
                                     <>
-                                      <span className="text-xs text-muted-foreground">•</span>
-                                      <Badge variant="outline" className="text-xs px-1 py-0">
+                                      <span className="text-xs text-muted-foreground flex-shrink-0">•</span>
+                                      <Badge variant="outline" className="text-xs px-1 py-0 flex-shrink-0">
                                         {client.economicActivity.codigo}
                                       </Badge>
                                     </>
@@ -283,32 +303,72 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                     <motion.div
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs"
+                      className="mt-2 space-y-2"
                     >
-                      <div className="flex items-center gap-1 mb-1">
-                        <CheckCircle className="w-2.5 h-2.5 text-green-600" />
-                        <span className="font-medium text-green-800">Cliente Seleccionado</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-green-700 font-medium">Nombre:</span>
-                          <span className="text-green-800">{selectedClient.name}</span>
+                      {/* Información básica del cliente */}
+                      <div className="p-2 bg-green-50 border border-green-200 rounded text-xs">
+                        <div className="flex items-center gap-1 mb-1">
+                          <CheckCircle className="w-2.5 h-2.5 text-green-600" />
+                          <span className="font-medium text-green-800">Cliente Seleccionado</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-green-700 font-medium">Cédula:</span>
-                          <span className="text-green-800">{selectedClient.identification}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-green-700 font-medium">Email:</span>
-                          <span className="text-green-800 truncate">{selectedClient.email}</span>
-                        </div>
-                        {selectedClient.phone && (
+                        <div className="space-y-1">
                           <div className="flex justify-between">
-                            <span className="text-green-700 font-medium">Teléfono:</span>
-                            <span className="text-green-800">{selectedClient.phone}</span>
+                            <span className="text-green-700 font-medium">Nombre:</span>
+                            <span className="text-green-800">{selectedClient.name}</span>
                           </div>
-                        )}
+                          <div className="flex justify-between">
+                            <span className="text-green-700 font-medium">Cédula:</span>
+                            <span className="text-green-800">{selectedClient.identification}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-green-700 font-medium">Email:</span>
+                            <span className="text-green-800 truncate">{selectedClient.email}</span>
+                          </div>
+                          {selectedClient.phone && (
+                            <div className="flex justify-between">
+                              <span className="text-green-700 font-medium">Teléfono:</span>
+                              <span className="text-green-800">{selectedClient.phone}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Indicativo de exoneración */}
+                      {(selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
+                        <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Shield className="w-2.5 h-2.5 text-purple-600" />
+                            <span className="font-medium text-purple-800">🛡️ Cliente con Exoneración</span>
+                          </div>
+                          <div className="space-y-1">
+                            {(selectedClient.exoneracion || selectedClient.exemption) && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className="text-purple-700 font-medium">Tipo:</span>
+                                  <span className="text-purple-800">
+                                    {(selectedClient.exoneracion?.tipoDocumento || selectedClient.exemption?.exemptionType) && 
+                                      (selectedClient.exoneracion?.tipoDocumento === '03' ? 'Ley Especial' :
+                                       selectedClient.exoneracion?.tipoDocumento === '08' ? 'Zona Franca' :
+                                       selectedClient.exoneracion?.tipoDocumento || selectedClient.exemption?.exemptionType || 'N/A')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-purple-700 font-medium">Documento:</span>
+                                  <span className="text-purple-800 truncate">
+                                    {selectedClient.exoneracion?.numeroDocumento || selectedClient.exemption?.documentNumber || 'N/A'}
+                                  </span>
+                                </div>
+                                {selectedClient.exoneracion?.nombreLey && (
+                                  <div className="flex justify-between">
+                                    <span className="text-purple-700 font-medium">Ley:</span>
+                                    <span className="text-purple-800 truncate">{selectedClient.exoneracion.nombreLey}</span>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </Card>
@@ -619,7 +679,17 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs">Impuestos:</span>
-                    <span className="font-semibold text-xs">{formatCurrency(totals.totalImpuesto)}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold text-xs">
+                        {formatCurrency(totals.totalImpuesto)}
+                      </span>
+                      {selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
+                        <Badge variant="outline" className="text-xs px-1 py-0">
+                          <Shield className="w-2 h-2 mr-1" />
+                          Exento
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Separator className="my-2" />
                   <div className="flex justify-between items-center">

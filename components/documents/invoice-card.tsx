@@ -16,7 +16,8 @@ import {
   XCircle,
   Clock,
   AlertCircle,
-  FileDown
+  FileDown,
+  Shield
 } from "lucide-react"
 import { Invoice } from '@/lib/invoice-types'
 import { useRouter } from 'next/navigation'
@@ -294,6 +295,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
   const statusInfo = getStatusInfo(invoice.status)
   const StatusIcon = statusInfo.icon
 
+  // Detectar si el cliente está exento
+  const isClientExempt = (invoice.cliente && (invoice.cliente.tieneExoneracion || invoice.cliente.hasExemption)) ||
+                        (invoice as any).clientData && ((invoice as any).clientData.tieneExoneracion || (invoice as any).clientData.hasExemption)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -326,6 +331,12 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                     <StatusIcon className="w-3 h-3 mr-1" />
                     {statusInfo.label}
                   </Badge>
+                  {isClientExempt && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 border-purple-200 text-purple-700">
+                      <Shield className="w-3 h-3 mr-1" />
+                      Exento
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
@@ -403,7 +414,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
             </div>
 
             {/* Información de totales */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs">
               <motion.div 
                 className="flex items-center gap-2"
                 whileHover={{ scale: 1.05 }}
@@ -411,9 +422,11 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
               >
                 <div>
                   <p className="font-semibold text-green-600 text-xs">
-                    {getCurrencySymbol(invoice.currency)}{formatAmount(invoice.total)}
+                    {getCurrencySymbol(invoice.currency)}{formatAmount(isClientExempt ? (invoice.subtotal || 0) : invoice.total)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Monto Total</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isClientExempt ? 'Monto Total (Exento)' : 'Monto Total'}
+                  </p>
                 </div>
               </motion.div>
 
@@ -427,6 +440,26 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                     {getCurrencySymbol(invoice.currency)}{formatAmount(invoice.subtotal || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">Monto sin IVA</p>
+                </div>
+              </motion.div>
+
+              <motion.div 
+                className="flex items-center gap-2"
+                whileHover={{ scale: 1.05 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div>
+                  <div className="flex items-center gap-1">
+                    <p className={`font-semibold text-xs ${isClientExempt ? 'text-purple-600' : 'text-orange-600'}`}>
+                      {getCurrencySymbol(invoice.currency)}{formatAmount(isClientExempt ? 0 : (invoice.totalImpuesto || 0))}
+                    </p>
+                    {isClientExempt && (
+                      <Shield className="w-3 h-3 text-purple-600" />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {isClientExempt ? 'Impuestos (Exento)' : 'Impuestos'}
+                  </p>
                 </div>
               </motion.div>
 

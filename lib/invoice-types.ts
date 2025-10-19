@@ -244,7 +244,7 @@ export const calculateItemTotals = (item: InvoiceItemFormData): Partial<InvoiceI
 }
 
 // Función para calcular totales de la factura
-export const calculateInvoiceTotals = (items: InvoiceItemFormData[]): {
+export const calculateInvoiceTotals = (items: InvoiceItemFormData[], selectedClient?: any): {
   subtotal: number
   totalImpuesto: number
   total: number
@@ -253,7 +253,10 @@ export const calculateInvoiceTotals = (items: InvoiceItemFormData[]): {
     return sum + (item.cantidad * item.precioUnitario)
   }, 0)
 
-  const totalImpuesto = items.reduce((sum, item) => {
+  // Si el cliente tiene exoneración, los impuestos deben ser 0
+  const isClientExempt = selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption)
+  
+  const totalImpuesto = isClientExempt ? 0 : items.reduce((sum, item) => {
     const baseImponible = item.cantidad * item.precioUnitario
     return sum + (baseImponible * item.tarifa) / 100
   }, 0)
