@@ -280,9 +280,26 @@ export class InvoiceEmailService {
     // Determinar BCC (correo de la empresa u otros)
     const bccRecipients: string[] = []
     const companyEmail = (companyData as any)?.email || (companyData as any)?.correo || (companyData as any)?.emailAddress || invoice.emisor?.correoElectronico
+    
+    // Solo agregar al BCC si es diferente al destinatario principal para evitar duplicados
     if (companyEmail && typeof companyEmail === 'string') {
-      bccRecipients.push(companyEmail)
+      const normalizedCompanyEmail = companyEmail.toLowerCase().trim()
+      const normalizedRecipientEmail = recipientEmail.toLowerCase().trim()
+      
+      if (normalizedCompanyEmail !== normalizedRecipientEmail) {
+        bccRecipients.push(companyEmail)
+        console.log('📧 Agregando email de empresa al BCC:', companyEmail)
+      } else {
+        console.log('⚠️ Email de empresa es el mismo que el destinatario, omitiendo BCC para evitar duplicado:', companyEmail)
+      }
     }
+    
+    // Función para eliminar duplicados de la lista BCC
+    const uniqueBccRecipients = bccRecipients.filter((email, index, array) => 
+      array.findIndex(e => e.toLowerCase().trim() === email.toLowerCase().trim()) === index
+    )
+    
+    console.log('📧 BCC final (sin duplicados):', uniqueBccRecipients)
 
     // Generar nombres de archivo basados en la clave de Hacienda
     let pdf_filename: string | undefined
@@ -316,7 +333,7 @@ export class InvoiceEmailService {
       pdf_filename,
       xml1_filename,
       xml2_filename,
-      bcc: bccRecipients  // ✅ Agregar BCC al log
+      bcc: uniqueBccRecipients  // ✅ Agregar BCC al log
     })
     
     return {
@@ -329,7 +346,7 @@ export class InvoiceEmailService {
       pdf_filename,
       xml1_filename,
       xml2_filename,
-      bcc: bccRecipients,  // ✅ Agregar BCC al objeto de retorno
+      bcc: uniqueBccRecipients,  // ✅ Agregar BCC al objeto de retorno
       invoiceData: {
         id: invoice.id || '',
         consecutivo: invoice.consecutivo || '',
