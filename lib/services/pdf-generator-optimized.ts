@@ -113,7 +113,35 @@ function formatCurrency(amount: number, currency: string = 'CRC'): string {
 
 // Función para dividir texto en múltiples líneas
 function splitTextToLines(doc: jsPDF, text: string, maxWidth: number, fontSize: number): string[] {
-  const words = text.split(' ')
+  // Limpiar el texto de caracteres problemáticos
+  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
+  
+  // Si el texto ya tiene saltos de línea, respetarlos
+  if (cleanText.includes('\n')) {
+    const paragraphs = cleanText.split('\n')
+    const lines: string[] = []
+    
+    doc.setFontSize(fontSize)
+    
+    for (const paragraph of paragraphs) {
+      if (paragraph.trim() === '') {
+        lines.push('') // Línea vacía para párrafos
+        continue
+      }
+      
+      const paragraphLines = splitParagraphToLines(doc, paragraph.trim(), maxWidth, fontSize)
+      lines.push(...paragraphLines)
+    }
+    
+    return lines
+  }
+  
+  // Para texto sin saltos de línea, usar el método original mejorado
+  return splitParagraphToLines(doc, cleanText, maxWidth, fontSize)
+}
+
+function splitParagraphToLines(doc: jsPDF, text: string, maxWidth: number, fontSize: number): string[] {
+  const words = text.split(/\s+/).filter(word => word.length > 0)
   const lines: string[] = []
   let currentLine = ''
   
@@ -130,7 +158,14 @@ function splitTextToLines(doc: jsPDF, text: string, maxWidth: number, fontSize: 
         lines.push(currentLine)
         currentLine = word
       } else {
+        // Si una sola palabra es muy larga, dividirla por caracteres
+        if (word.length > 30) {
+          const chunks = word.match(/.{1,30}/g) || [word]
+          lines.push(...chunks.slice(0, -1))
+          currentLine = chunks[chunks.length - 1]
+      } else {
         lines.push(word)
+        }
       }
     }
   }
@@ -483,7 +518,7 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     email: clientEmail,
     economicActivity: clientEconomicActivity
   })
-
+  
   const clientInfo = [
     `Nombre: ${clientName}`,
     `Cédula: ${clientId}`,
@@ -767,6 +802,7 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.setFont('times', 'normal')
   
   let infoY = yPosition + 8
+  const notesStartY = infoY
   
   // Obtener notas desde diferentes posibles ubicaciones
   const notes = invoiceData.invoice?.notes || invoiceData.notes || invoiceData.notas || ''
@@ -779,14 +815,19 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   })
   
   // Notas si existen
+  let notesHeight = 4.5 // Altura mínima (una línea con más espaciado)
   if (notes && notes.trim() !== '') {
     const notesLines = splitTextToLines(doc, notes, summaryColumnWidth - 5, 11)
-    notesLines.forEach(line => {
-      doc.text(line, margin, infoY)
-      infoY += 3.5
+    notesLines.forEach((line, index) => {
+      // Asegurar que no haya sobreposición
+      const lineY = infoY + (index * 4.5)
+      doc.text(line, margin, lineY)
     })
+    infoY += (notesLines.length * 4.5) // Espaciado más generoso
+    notesHeight = (infoY - notesStartY) // Calcular altura total de las notas
   } else {
     doc.text('Sin comentarios adicionales', margin, infoY)
+    infoY += 4.5
   }
   
   // Columna derecha - Resumen de totales
@@ -850,7 +891,7 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
       `Subtotal: ${formatCurrency(invoiceSubtotal, currency)}`, // El subtotal real
       `Descuento: ${formatCurrency(descuentos, currency)}`,
       `IVA: ${formatCurrency(0, currency)}`, // Para facturas exentas, el IVA debe ser 0
-      `IVA Devuelto: ${formatCurrency(totalImpuesto, currency)}` // El monto del IVA que se está exonerando
+      `IVA Devuelto: ${formatCurrency(0, currency)}` // Para facturas exentas, IVA Devuelto siempre 0
     ]
   } else {
     // Para facturas normales: mostrar el formato estándar (sin Total Exento)
@@ -899,7 +940,12 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   const rightMargin = margin + contentWidth - 5 // 5mm del borde derecho
   doc.text(totalText, rightMargin - totalWidth, totalY)
   
-  yPosition += 60
+  // Calcular la altura de la columna de resumen
+  const summaryHeight = totalY - yPosition
+  
+  // Ajustar yPosition basándose en la columna más alta
+  const maxColumnHeight = Math.max(notesHeight, summaryHeight)
+  yPosition += maxColumnHeight + 15 // Agregar margen adicional
   
   // Información legal
   doc.setFillColor('#F5F5F5')
