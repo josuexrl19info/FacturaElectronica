@@ -285,7 +285,8 @@ export async function POST(req: NextRequest) {
         totalImpuesto: clientExoneracion ? 0 : (totalImpuesto || 0),
         tipoMedioPago: paymentMethod || '01',
         totalMedioPago: clientExoneracion ? subtotal : (total || 0), // Sin impuesto si hay exoneración
-        totalComprobante: clientExoneracion ? subtotal : (total || 0) // Sin impuesto si hay exoneración
+        totalComprobante: clientExoneracion ? subtotal : (total || 0), // Sin impuesto si hay exoneración
+        otros: notes // Notas adicionales del usuario
       }
 
       // Generar XML del tiquete

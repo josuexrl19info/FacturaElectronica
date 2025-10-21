@@ -368,7 +368,8 @@ export async function POST(req: NextRequest) {
         totalImpuesto: clientExoneracion ? 0 : totalImpuesto,
         tipoMedioPago: paymentMethod || '01',
         totalMedioPago: clientExoneracion ? subtotal : total, // Sin impuesto si hay exoneración
-        totalComprobante: clientExoneracion ? subtotal : total // Sin impuesto si hay exoneración
+        totalComprobante: clientExoneracion ? subtotal : total, // Sin impuesto si hay exoneración
+        otros: notes // Notas adicionales del usuario
       }
 
       const xml = XMLGenerator.generateFacturaXML(facturaXMLData)

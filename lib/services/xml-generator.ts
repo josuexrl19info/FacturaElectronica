@@ -95,6 +95,7 @@ export interface FacturaData {
   tipoMedioPago: string
   totalMedioPago: number
   totalComprobante: number
+  otros?: string // Notas adicionales opcionales
 }
 
 export class XMLGenerator {
@@ -167,7 +168,7 @@ export class XMLGenerator {
   ${this.generateResumenFacturaXML(facturaData)}
   
   <Otros>
-    <OtroTexto>--- Sistema de Facturación Electrónica ---</OtroTexto>
+    <OtroTexto>${this.escapeXml(facturaData.otros || '--- Sistema de Facturación Electrónica ---')}</OtroTexto>
   </Otros>
 </FacturaElectronica>`
 
@@ -200,7 +201,7 @@ export class XMLGenerator {
   ${this.generateResumenFacturaXML(tiqueteData)}
   
   <Otros>
-    <OtroTexto>--- Sistema de Facturación Electrónica ---</OtroTexto>
+    <OtroTexto>${this.escapeXml(tiqueteData.otros || '--- Sistema de Facturación Electrónica ---')}</OtroTexto>
   </Otros>
 </TiqueteElectronico>`
 
