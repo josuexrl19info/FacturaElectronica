@@ -149,6 +149,19 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   const margin = 10 // Reducido de 15 a 10
   const contentWidth = pageWidth - (margin * 2)
   
+  // 🔍 DEBUG: Verificar estructura de invoiceData al inicio
+  console.log('🔍 [PDF DEBUG] invoiceData recibido:', {
+    hasInvoice: !!invoiceData.invoice,
+    tieneExoneracion: invoiceData.tieneExoneracion,
+    exoneracion: invoiceData.exoneracion ? 'presente' : 'ausente',
+    invoiceTieneExoneracion: invoiceData.invoice?.tieneExoneracion,
+    invoiceExoneracion: invoiceData.invoice?.exoneracion ? 'presente' : 'ausente',
+    clientTieneExoneracion: invoiceData.client?.tieneExoneracion,
+    clientHasExemption: invoiceData.client?.hasExemption,
+    allKeys: Object.keys(invoiceData),
+    invoiceKeys: invoiceData.invoice ? Object.keys(invoiceData.invoice) : []
+  })
+  
   // Obtener la moneda de la factura
   const currency = invoiceData.invoice?.currency || invoiceData.invoice?.moneda || invoiceData.moneda || 'CRC'
   console.log('🔍 [PDF] Debug Moneda:', {
@@ -497,48 +510,7 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     clientY += clientActividadLines.length * 3.5 + 1
   }
 
-  // Exoneración del cliente (si existe)
-  const hasExoneracion = invoiceData.client?.tieneExoneracion || invoiceData.client?.hasExemption
-  const exoneracion = invoiceData.client?.exoneracion || invoiceData.client?.exemption
-
-  if (hasExoneracion && exoneracion) {
-    clientY += 2 // Espacio adicional antes de exoneración
-    
-    // Título de exoneración
-    doc.setFont('times', 'bold')
-    doc.setFillColor(240, 240, 240)
-    doc.rect(clientX, clientY - 3, columnWidth - 5, 5, 'F')
-    doc.setTextColor(colors.accent)
-    doc.text('🛡️ Exoneración', clientX + 2, clientY)
-    doc.setFont('times', 'normal')
-    doc.setTextColor(colors.foreground)
-    clientY += 5
-
-    // Información de exoneración
-    const exoneracionInfoArray: string[] = []
-    
-    exoneracionInfoArray.push(`Doc: ${exoneracion.numeroDocumento || 'N/A'}`)
-    if (exoneracion.nombreLey) {
-      exoneracionInfoArray.push(`Ley: ${exoneracion.nombreLey}`)
-    }
-    if (exoneracion.articulo) {
-      const articuloText = `Art. ${exoneracion.articulo}${exoneracion.inciso ? ` Inc. ${exoneracion.inciso}` : ''}`
-      exoneracionInfoArray.push(articuloText)
-    }
-    exoneracionInfoArray.push(`Institución: ${exoneracion.nombreInstitucion || 'N/A'}`)
-    exoneracionInfoArray.push(`Tarifa: ${exoneracion.tarifaExonerada || '0'}%`)
-    if (exoneracion.porcentajeCompra) {
-      exoneracionInfoArray.push(`% Compra: ${exoneracion.porcentajeCompra}%`)
-    }
-
-    exoneracionInfoArray.forEach(info => {
-      const infoLines = splitTextToLines(doc, info, columnWidth - 5, 8)
-      infoLines.forEach((line, index) => {
-        doc.text(line, clientX, clientY + (index * 3))
-      })
-      clientY += infoLines.length * 3 + 1
-    })
-  }
+  // ❌ SECCIÓN DE EXONERACIÓN REMOVIDA - No mostrar información de exoneración en la información del cliente
   
   // Ajustar yPosition para la siguiente sección
   const leftColumnHeight = companyY + (direccionLines.length * 3.5) + 5
@@ -831,13 +803,64 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.setFontSize(9)
   doc.setFont('times', 'normal')
   
-  const totals = [
-    `Total Exento: ${formatCurrency(invoiceData.totalExento || invoiceData.invoice?.totalExento || 0, currency)}`,
-    `Subtotal: ${formatCurrency(invoiceData.subtotal || invoiceData.invoice?.subtotal || 0, currency)}`,
-    `Descuento: ${formatCurrency(invoiceData.descuentos || invoiceData.invoice?.descuentos || 0, currency)}`,
-    `IVA: ${formatCurrency(invoiceData.invoice?.totalImpuesto || invoiceData.totalImpuesto || invoiceData.invoice?.impuestos || invoiceData.impuestos || 0, currency)}`,
-    `IVA Devuelto: ${formatCurrency(invoiceData.ivaDevuelto || invoiceData.invoice?.ivaDevuelto || 0, currency)}`
-  ]
+  // Debug: Verificar estructura de datos del cliente para exoneración
+  console.log('🔍 [PDF] Debug Cliente Exento:', {
+    'invoiceData.tieneExoneracion': invoiceData.tieneExoneracion,
+    'invoiceData.exoneracion': invoiceData.exoneracion ? 'presente' : 'ausente',
+    'invoiceData.invoice?.tieneExoneracion': invoiceData.invoice?.tieneExoneracion,
+    'invoiceData.invoice?.exoneracion': invoiceData.invoice?.exoneracion ? 'presente' : 'ausente',
+    'invoiceData.client': invoiceData.client ? 'presente' : 'ausente',
+    'invoiceData.client?.tieneExoneracion': invoiceData.client?.tieneExoneracion,
+    'invoiceData.client?.hasExemption': invoiceData.client?.hasExemption,
+    'invoiceData.clientKeys': invoiceData.client ? Object.keys(invoiceData.client) : [],
+    'invoiceData.invoice?.cliente': invoiceData.invoice?.cliente ? 'presente' : 'ausente',
+    'invoiceData.invoice?.cliente?.tieneExoneracion': invoiceData.invoice?.cliente?.tieneExoneracion,
+    'invoiceData.invoice?.cliente?.hasExemption': invoiceData.invoice?.cliente?.hasExemption,
+    'invoiceData.invoice?.clienteKeys': invoiceData.invoice?.cliente ? Object.keys(invoiceData.invoice.cliente) : [],
+    'invoiceData.invoice?.clientData': (invoiceData.invoice as any)?.clientData ? 'presente' : 'ausente',
+    'invoiceData.invoice?.clientData?.tieneExoneracion': (invoiceData.invoice as any)?.clientData?.tieneExoneracion,
+    'invoiceData.invoice?.clientData?.hasExemption': (invoiceData.invoice as any)?.clientData?.hasExemption
+  })
+
+  // Detectar si el cliente está exento - priorizar campos directos de la factura según Firebase
+  const isClientExempt = invoiceData.tieneExoneracion === true ||
+                        invoiceData.exoneracion !== null && invoiceData.exoneracion !== undefined ||
+                        invoiceData.invoice?.tieneExoneracion === true ||
+                        invoiceData.invoice?.exoneracion !== null && invoiceData.invoice?.exoneracion !== undefined ||
+                        (invoiceData.client && (invoiceData.client.tieneExoneracion || invoiceData.client.hasExemption)) ||
+                        (invoiceData.invoice?.cliente && (invoiceData.invoice.cliente.tieneExoneracion || invoiceData.invoice.cliente.hasExemption)) ||
+                        (invoiceData.invoice?.cliente && invoiceData.invoice.cliente.exoneracion && typeof invoiceData.invoice.cliente.exoneracion === 'object') ||
+                        (invoiceData.invoice as any)?.clientData && ((invoiceData.invoice as any).clientData.tieneExoneracion || (invoiceData.invoice as any).clientData.hasExemption)
+  
+  console.log('🔍 [PDF] Cliente exento detectado:', isClientExempt)
+  
+  // Obtener valores base
+  const invoiceSubtotal = invoiceData.subtotal || invoiceData.invoice?.subtotal || 0
+  const totalImpuesto = invoiceData.invoice?.totalImpuesto || invoiceData.totalImpuesto || invoiceData.invoice?.impuestos || invoiceData.impuestos || 0
+  const totalExento = invoiceData.totalExento || invoiceData.invoice?.totalExento || 0
+  const ivaDevuelto = invoiceData.ivaDevuelto || invoiceData.invoice?.ivaDevuelto || 0
+  const descuentos = invoiceData.descuentos || invoiceData.invoice?.descuentos || 0
+  
+  // Configurar totales según si es exento o no
+  let totals: string[] = []
+  
+  if (isClientExempt) {
+    // Para facturas exentas: mostrar los campos específicos solicitados
+    totals = [
+      `Subtotal: ${formatCurrency(invoiceSubtotal, currency)}`, // El subtotal real
+      `Descuento: ${formatCurrency(descuentos, currency)}`,
+      `IVA: ${formatCurrency(0, currency)}`, // Para facturas exentas, el IVA debe ser 0
+      `IVA Devuelto: ${formatCurrency(totalImpuesto, currency)}` // El monto del IVA que se está exonerando
+    ]
+  } else {
+    // Para facturas normales: mostrar el formato estándar (sin Total Exento)
+    totals = [
+      `Subtotal: ${formatCurrency(invoiceSubtotal, currency)}`,
+      `Descuento: ${formatCurrency(descuentos, currency)}`,
+      `IVA: ${formatCurrency(totalImpuesto, currency)}`,
+      `IVA Devuelto: ${formatCurrency(ivaDevuelto, currency)}`
+    ]
+  }
   
   let totalY = yPosition + 8
   totals.forEach(total => {
@@ -864,11 +887,14 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.line(margin + summaryColumnWidth + 10, totalY, margin + contentWidth, totalY)
   totalY += 6
   
-  // Total final
+  // Total final - ajustar según si es exento o no
   doc.setFontSize(11)
   doc.setFont('helvetica', 'bold') // Helvetica bold para el total
   doc.setTextColor(colors.accent)
-  const totalText = `TOTAL: ${formatCurrency(invoiceData.total || invoiceData.invoice?.total || 0, currency)}`
+  
+  // Si es exento, mostrar solo el subtotal sin impuestos
+  const finalTotal = isClientExempt ? invoiceSubtotal : (invoiceData.total || invoiceData.invoice?.total || 0)
+  const totalText = `TOTAL: ${formatCurrency(finalTotal, currency)}`
   const totalWidth = doc.getTextWidth(totalText)
   const rightMargin = margin + contentWidth - 5 // 5mm del borde derecho
   doc.text(totalText, rightMargin - totalWidth, totalY)

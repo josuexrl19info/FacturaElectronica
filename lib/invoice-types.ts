@@ -45,6 +45,24 @@ export interface Invoice {
     identificacion: string
     email?: string
     telefono?: string
+    tieneExoneracion?: boolean
+    hasExemption?: boolean
+    exoneracion?: {
+      tipoDocumento?: string
+      tipoDocumentoOtro?: string
+      numeroDocumento?: string
+      nombreLey?: string
+      articulo?: number
+      inciso?: number
+      porcentajeCompra?: number
+      nombreInstitucion?: string
+      nombreInstitucionOtros?: string
+      fechaEmision?: string
+      tarifaExonerada?: number
+      montoExoneracion?: number
+      [key: string]: any
+    }
+    exemption?: any // formato legacy
     [key: string]: any
   }
   
@@ -66,6 +84,24 @@ export interface Invoice {
   
   // Items de la factura
   items: InvoiceItem[]
+  
+  // Campos de exoneración
+  tieneExoneracion?: boolean
+  exoneracion?: {
+    tipoDocumento?: string
+    tipoDocumentoOtro?: string
+    numeroDocumento?: string
+    nombreLey?: string
+    articulo?: number
+    inciso?: number
+    porcentajeCompra?: number
+    nombreInstitucion?: string
+    nombreInstitucionOtros?: string
+    fechaEmision?: string
+    tarifaExonerada?: number
+    montoExoneracion?: number
+    [key: string]: any
+  }
 }
 
 export interface InvoiceItem {

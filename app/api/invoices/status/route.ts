@@ -91,14 +91,44 @@ export async function POST(request: NextRequest) {
         console.log('🎉 Factura APROBADA - Enviando email al cliente...')
         
         try {
+          // Pequeña pausa para asegurar que el updateDoc se haya completado
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          // Leer los datos actualizados de la factura después del updateDoc para obtener todos los datos del cliente
+          const updatedInvoiceSnap = await getDoc(invoiceRef)
+          const updatedInvoiceData = updatedInvoiceSnap.exists() ? updatedInvoiceSnap.data() : invoiceData
+          
+          // 🔍 DEBUG CRÍTICO: Verificar qué datos están realmente en la factura
+          console.log('🔍 [CRÍTICO] updatedInvoiceData keys:', Object.keys(updatedInvoiceData || {}))
+          console.log('🔍 [CRÍTICO] tieneExoneracion:', updatedInvoiceData?.tieneExoneracion)
+          console.log('🔍 [CRÍTICO] exoneracion:', updatedInvoiceData?.exoneracion ? 'presente' : 'ausente')
+          
+          console.log('🔍 Debug datos del cliente para email:', {
+            hasCliente: !!updatedInvoiceData?.cliente,
+            clienteKeys: updatedInvoiceData?.cliente ? Object.keys(updatedInvoiceData.cliente) : [],
+            // Campos directos de la factura según Firebase
+            invoiceTieneExoneracion: updatedInvoiceData?.tieneExoneracion,
+            invoiceExoneracion: updatedInvoiceData?.exoneracion ? 'presente' : 'ausente',
+            // Campos del cliente
+            clienteTieneExoneracion: updatedInvoiceData?.cliente?.tieneExoneracion,
+            clienteHasExemption: updatedInvoiceData?.cliente?.hasExemption,
+            // Debug completo de la factura
+            facturaKeys: Object.keys(updatedInvoiceData || {}),
+            facturaTieneExoneracion: updatedInvoiceData?.tieneExoneracion,
+            facturaExoneracionKeys: updatedInvoiceData?.exoneracion ? Object.keys(updatedInvoiceData.exoneracion) : []
+          })
+          
           // Crear la factura completa con todos los datos actualizados
           const completeInvoiceData = {
-            ...invoiceData,
+            ...updatedInvoiceData,
             id: invoiceId,
             status: interpretedStatus.status,
             statusDescription: interpretedStatus.description,
             isFinalStatus: interpretedStatus.isFinal,
-            haciendaSubmission: statusResult.status  // ← Incluir la respuesta completa de Hacienda
+            haciendaSubmission: statusResult.status,  // ← Incluir la respuesta completa de Hacienda
+            // 🔧 Asegurar que los campos de exoneración estén presentes
+            tieneExoneracion: updatedInvoiceData?.tieneExoneracion,
+            exoneracion: updatedInvoiceData?.exoneracion
           }
           
           console.log('📧 Enviando email con factura completa:', {
@@ -106,7 +136,12 @@ export async function POST(request: NextRequest) {
             consecutivo: completeInvoiceData.consecutivo,
             hasXmlSigned: !!completeInvoiceData.xmlSigned,
             hasHaciendaSubmission: !!completeInvoiceData.haciendaSubmission,
-            hasRespuestaXml: !!completeInvoiceData.haciendaSubmission?.['respuesta-xml']
+            hasRespuestaXml: !!completeInvoiceData.haciendaSubmission?.['respuesta-xml'],
+            // 🔍 DEBUG: Verificar campos de exoneración antes de enviar email
+            tieneExoneracion: completeInvoiceData.tieneExoneracion,
+            exoneracion: completeInvoiceData.exoneracion ? 'presente' : 'ausente',
+            clienteTieneExoneracion: completeInvoiceData.cliente?.tieneExoneracion,
+            clienteHasExemption: completeInvoiceData.cliente?.hasExemption
           })
           
           const emailResult = await InvoiceEmailService.sendApprovalEmail(completeInvoiceData)

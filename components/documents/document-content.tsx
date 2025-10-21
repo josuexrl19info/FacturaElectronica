@@ -376,18 +376,44 @@ export function DocumentContent({
       )}
 
       {/* Modal de Nota de Crédito */}
-      {showCreateModal && documentType === 'notas-credito' && user && (
-        <CreditNoteCreationModal
-          isOpen={showCreateModal}
-          onClose={() => onShowCreateModal(false)}
-          companyId={typeof window !== 'undefined' ? localStorage.getItem('selectedCompanyId') || '' : ''}
-          tenantId={user.tenantId || ''}
-          onSuccess={() => {
-            fetchDocuments()
-            onRefresh()
-          }}
-        />
-      )}
+      {showCreateModal && documentType === 'notas-credito' && user && (() => {
+        // Obtener companyId de manera segura
+        const companyId = typeof window !== 'undefined' && localStorage.getItem('selectedCompanyId')
+          ? localStorage.getItem('selectedCompanyId')!
+          : ''
+        const tenantId = user.tenantId || ''
+        
+        // Debug logging
+        console.log('🔍 [Document Content] Credit Note Modal props:', {
+          companyId,
+          tenantId,
+          hasCompanyId: !!companyId,
+          hasTenantId: !!tenantId,
+          user: !!user
+        })
+        
+        // Solo renderizar si tenemos ambos valores
+        if (!companyId || !tenantId) {
+          console.warn('⚠️ [Document Content] Missing required props for Credit Note Modal:', {
+            companyId: companyId || 'MISSING',
+            tenantId: tenantId || 'MISSING'
+          })
+          return null
+        }
+        
+        return (
+          <CreditNoteCreationModal
+            isOpen={showCreateModal}
+            onClose={() => onShowCreateModal(false)}
+            companyId={companyId}
+            tenantId={tenantId}
+            onSuccess={() => {
+              fetchDocuments()
+              onRefresh()
+            }}
+          />
+        )
+      })()}
 
       {/* Modal de Estado de Hacienda */}
       {showHaciendaModal && selectedInvoice && (

@@ -355,19 +355,20 @@ export async function POST(req: NextRequest) {
         }),
         codigoMoneda: currency || 'CRC',
         tipoCambio: await getExchangeRateForCurrency(currency || 'CRC'),
-        totalServGravados: subtotal,
-        totalGravado: subtotal,
-        totalVenta: subtotal,
+        // Los totales se manejarán automáticamente en generateResumenFacturaXML según si hay exoneraciones
+        totalServGravados: clientExoneracion ? 0 : subtotal,
+        totalGravado: clientExoneracion ? 0 : subtotal,
+        totalVenta: subtotal, // Total de venta siempre es el mismo (con o sin exoneración)
         totalVentaNeta: subtotal,
-        totalDesgloseImpuesto: {
+        totalDesgloseImpuesto: clientExoneracion ? undefined : {
           codigo: '01',
           codigoTarifaIVA: '08',
           totalMontoImpuesto: totalImpuesto
         },
-        totalImpuesto,
+        totalImpuesto: clientExoneracion ? 0 : totalImpuesto,
         tipoMedioPago: paymentMethod || '01',
-        totalMedioPago: total,
-        totalComprobante: total
+        totalMedioPago: clientExoneracion ? subtotal : total, // Sin impuesto si hay exoneración
+        totalComprobante: clientExoneracion ? subtotal : total // Sin impuesto si hay exoneración
       }
 
       const xml = XMLGenerator.generateFacturaXML(facturaXMLData)
@@ -481,7 +482,20 @@ export async function POST(req: NextRequest) {
         hasPhone: 'phone' in clientData,
         phone: clientData.phone,
         keys: Object.keys(clientData),
+        tieneExoneracion: clientData.tieneExoneracion,
+        hasExemption: clientData.hasExemption,
+        exoneracion: clientData.exoneracion,
+        exemption: clientData.exemption,
         clientDataComplete: clientData
+      })
+      
+      // Determinar valores de exoneración
+      const tieneExoneracionValue = clientData.tieneExoneracion || clientData.hasExemption || false
+      const exoneracionValue = clientData.exoneracion || clientData.exemption || null
+      
+      console.log('🛡️ Campos de exoneración a guardar:', {
+        tieneExoneracionValue,
+        exoneracionValue: exoneracionValue ? 'presente' : null
       })
       
       await updateDoc(docRef, {
@@ -490,10 +504,23 @@ export async function POST(req: NextRequest) {
         haciendaToken: haciendaToken,
         cliente: clientData,  // Agregar datos completos del cliente
         companyData: companyData, // Agregar datos completos de la empresa
+        // Agregar campos de exoneración directamente en la factura
+        tieneExoneracion: tieneExoneracionValue,
+        exoneracion: exoneracionValue,
         updatedAt: serverTimestamp()
       })
 
       console.log('✅ Factura actualizada con XML, token y datos completos')
+      
+      // 🔍 VERIFICAR que los campos de exoneración se guardaron correctamente
+      const verificationSnap = await getDoc(docRef)
+      const verificationData = verificationSnap.exists() ? verificationSnap.data() : null
+      console.log('🔍 VERIFICACIÓN post-updateDoc:', {
+        tieneExoneracion: verificationData?.tieneExoneracion,
+        exoneracion: verificationData?.exoneracion ? 'presente' : 'ausente',
+        clienteTieneExoneracion: verificationData?.cliente?.tieneExoneracion,
+        clienteHasExemption: verificationData?.cliente?.hasExemption
+      })
 
       // 7. CONSULTAR ESTADO REAL DE HACIENDA DESPUÉS DE 10 SEGUNDOS (solo si se envió a Hacienda)
       if (haciendaSubmissionResult && (haciendaSubmissionResult as any).location) {
@@ -547,15 +574,26 @@ export async function POST(req: NextRequest) {
               console.log('🎉 Factura APROBADA - Enviando email al cliente...')
               
               try {
-                // Crear la factura completa con todos los datos actualizados
+                // 🔧 Leer la factura actualizada desde Firestore para obtener todos los campos, incluyendo exoneración
+                const updatedInvoiceSnap = await getDoc(docRef)
+                const updatedInvoiceData = updatedInvoiceSnap.exists() ? updatedInvoiceSnap.data() : invoiceData
+                
+                console.log('🔍 [CRÍTICO] updatedInvoiceData keys:', Object.keys(updatedInvoiceData || {}))
+                console.log('🔍 [CRÍTICO] tieneExoneracion:', updatedInvoiceData?.tieneExoneracion)
+                console.log('🔍 [CRÍTICO] exoneracion:', updatedInvoiceData?.exoneracion ? 'presente' : 'ausente')
+                
+                // Crear la factura completa con todos los datos actualizados desde Firestore
                 const completeInvoiceData = {
-                  ...invoiceData,
+                  ...updatedInvoiceData,
                   id: docRef.id,
                   status: interpretedStatus.status,
                   statusDescription: interpretedStatus.description,
                   isFinalStatus: interpretedStatus.isFinal,
                   haciendaSubmission: statusResult.status,  // ← Incluir la respuesta completa de Hacienda
-                  xmlSigned: signedXml  // ← Asegurar que el XML firmado esté incluido
+                  xmlSigned: signedXml,  // ← Asegurar que el XML firmado esté incluido
+                  // 🔧 Asegurar que los campos de exoneración estén presentes
+                  tieneExoneracion: updatedInvoiceData?.tieneExoneracion,
+                  exoneracion: updatedInvoiceData?.exoneracion
                 }
                 
                 console.log('📧 Enviando email con factura completa:', {
@@ -563,7 +601,10 @@ export async function POST(req: NextRequest) {
                   consecutivo: completeInvoiceData.consecutivo,
                   hasXmlSigned: !!completeInvoiceData.xmlSigned,
                   hasHaciendaSubmission: !!completeInvoiceData.haciendaSubmission,
-                  hasRespuestaXml: !!completeInvoiceData.haciendaSubmission?.['respuesta-xml']
+                  hasRespuestaXml: !!completeInvoiceData.haciendaSubmission?.['respuesta-xml'],
+                  // 🔍 DEBUG: Verificar campos de exoneración antes de enviar email
+                  tieneExoneracion: completeInvoiceData.tieneExoneracion,
+                  exoneracion: completeInvoiceData.exoneracion ? 'presente' : 'ausente'
                 })
                 
                 const emailResult = await InvoiceEmailService.sendApprovalEmail(completeInvoiceData)

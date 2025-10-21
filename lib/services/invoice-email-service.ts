@@ -52,10 +52,22 @@ export class InvoiceEmailService {
   static async sendApprovalEmail(invoice: Invoice, clientEmail?: string): Promise<InvoiceEmailResult> {
     try {
       console.log('📧 Enviando email de factura aprobada:', invoice.consecutivo)
-  console.log('📝 Debug invoice notes:', {
-    'invoice.notes': invoice.notes,
-    'invoice.notas': (invoice as any).notas
-  })
+      
+      // 🔍 DEBUG: Verificar campos de exoneración al inicio
+      console.log('🔍 [EMAIL DEBUG] Invoice recibido:', {
+        id: invoice.id,
+        consecutivo: invoice.consecutivo,
+        tieneExoneracion: (invoice as any).tieneExoneracion,
+        exoneracion: (invoice as any).exoneracion ? 'presente' : 'ausente',
+        cliente: invoice.cliente ? 'presente' : 'ausente',
+        clienteKeys: invoice.cliente ? Object.keys(invoice.cliente) : [],
+        allInvoiceKeys: Object.keys(invoice)
+      })
+      
+      console.log('📝 Debug invoice notes:', {
+        'invoice.notes': invoice.notes,
+        'invoice.notas': (invoice as any).notas
+      })
       
       // Debug: Mostrar estructura de la factura
       console.log('🔍 Estructura de la factura recibida:', JSON.stringify({
@@ -237,7 +249,10 @@ export class InvoiceEmailService {
         invoice: invoice,
         company: companyData,
         client: clientData,
-        haciendaResponse: invoice.haciendaSubmission
+        haciendaResponse: invoice.haciendaSubmission,
+        // Asegurar que los campos de exoneración estén disponibles directamente
+        tieneExoneracion: invoice.tieneExoneracion,
+        exoneracion: invoice.exoneracion
       }
       
       console.log('📄 Datos para PDF:', {
@@ -246,7 +261,9 @@ export class InvoiceEmailService {
         hasClient: !!clientData,
         clientName: clientData?.name || clientData?.nombre,
         hasNotes: !!(invoice.notes || invoice.notas),
-        notes: invoice.notes || invoice.notas || 'Sin notas'
+        notes: invoice.notes || invoice.notas || 'Sin notas',
+        tieneExoneracion: invoice.tieneExoneracion,
+        hasExoneracion: !!invoice.exoneracion
       })
       
       // Generar PDF en base64 usando el endpoint optimizado
@@ -362,7 +379,26 @@ export class InvoiceEmailService {
    * Crea el HTML del email de aprobación
    */
   private static createApprovalEmailHTML(invoice: Invoice, isNotaCredito: boolean = false): string {
-    const cliente = invoice.cliente?.nombre || invoice.cliente?.razonSocial || 'Cliente'
+    // Mejorar la obtención del nombre del cliente buscando en múltiples campos
+    const cliente = invoice.cliente?.nombre || 
+                   invoice.cliente?.razonSocial || 
+                   invoice.cliente?.name ||
+                   invoice.cliente?.nombreCompleto ||
+                   invoice.cliente?.nombreCliente ||
+                   (invoice as any).clientData?.name ||
+                   (invoice as any).clientData?.nombre ||
+                   'Cliente'
+    
+    // Debug: Verificar nombre del cliente
+    console.log('🔍 [EMAIL] Debug Nombre Cliente:', {
+      'invoice.cliente?.nombre': invoice.cliente?.nombre,
+      'invoice.cliente?.razonSocial': invoice.cliente?.razonSocial,
+      'invoice.cliente?.name': invoice.cliente?.name,
+      'invoice.clienteKeys': invoice.cliente ? Object.keys(invoice.cliente) : [],
+      'clientData present': !!(invoice as any).clientData,
+      'cliente final': cliente
+    })
+    
     const consecutivo = invoice.consecutivo || 'N/A'
     // Obtener la moneda de la factura
     const currency = invoice.currency || invoice.moneda || 'CRC'
@@ -371,11 +407,59 @@ export class InvoiceEmailService {
       'invoice.moneda': invoice.moneda,
       'currency final': currency
     })
-    const total = invoice.total?.toLocaleString('es-CR', { 
+    // Debug: Verificar estructura de datos del cliente para exoneración
+    console.log('🔍 [EMAIL] Debug Cliente Exento:', {
+      'invoice.tieneExoneracion': invoice.tieneExoneracion,
+      'invoice.exoneracion': invoice.exoneracion ? 'presente' : 'ausente',
+      'invoice.cliente': invoice.cliente ? 'presente' : 'ausente',
+      'invoice.cliente?.tieneExoneracion': invoice.cliente?.tieneExoneracion,
+      'invoice.cliente?.hasExemption': invoice.cliente?.hasExemption,
+      'invoice.clienteKeys': invoice.cliente ? Object.keys(invoice.cliente) : [],
+      'invoice.clientData': (invoice as any).clientData ? 'presente' : 'ausente',
+      'invoice.clientData?.tieneExoneracion': (invoice as any).clientData?.tieneExoneracion,
+      'invoice.clientData?.hasExemption': (invoice as any).clientData?.hasExemption,
+      'invoice.subtotal': invoice.subtotal,
+      'invoice.total': invoice.total
+    })
+    
+    // Detectar si el cliente está exento para ajustar el total mostrado
+    // Priorizar los campos directos de la factura según la estructura de Firebase
+    const isClientExempt = invoice.tieneExoneracion === true ||
+                          (invoice.exoneracion !== null && invoice.exoneracion !== undefined) ||
+                          (invoice.cliente && (invoice.cliente.tieneExoneracion || invoice.cliente.hasExemption)) ||
+                          (invoice.cliente && invoice.cliente.exoneracion && typeof invoice.cliente.exoneracion === 'object') ||
+                          (invoice as any).clientData && ((invoice as any).clientData.tieneExoneracion || (invoice as any).clientData.hasExemption)
+    
+    console.log('🔍 [EMAIL] Cliente exento detectado:', isClientExempt)
+    
+    // Si el cliente está exento, mostrar solo el subtotal (sin impuestos)
+    const totalAmount = isClientExempt ? (invoice.subtotal || 0) : (invoice.total || 0)
+    console.log('🔍 [EMAIL] Total amount calculado:', {
+      isClientExempt,
+      subtotal: invoice.subtotal,
+      total: invoice.total,
+      finalAmount: totalAmount
+    })
+    const total = totalAmount?.toLocaleString('es-CR', { 
       style: 'currency', 
       currency: currency 
     }) || (currency === 'USD' ? '$0.00' : '₡0')
-    const fecha = invoice.fecha?.toLocaleDateString('es-ES') || new Date().toLocaleDateString('es-ES')
+    // Formatear fecha de manera segura
+    let fecha = 'N/A'
+    try {
+      if (invoice.fecha) {
+        const dateObj = invoice.fecha instanceof Date ? invoice.fecha : new Date(invoice.fecha)
+        if (!isNaN(dateObj.getTime())) {
+          fecha = dateObj.toLocaleDateString('es-ES')
+        }
+      }
+      if (fecha === 'N/A') {
+        fecha = new Date().toLocaleDateString('es-ES')
+      }
+    } catch (error) {
+      console.error('Error formateando fecha en email:', error)
+      fecha = new Date().toLocaleDateString('es-ES')
+    }
     
     // Obtener el nombre comercial de la empresa
     const nombreEmpresa = invoice.emisor?.nombreComercial || 

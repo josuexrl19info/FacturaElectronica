@@ -80,16 +80,18 @@ export interface FacturaData {
   lineasDetalle: LineaDetalle[]
   codigoMoneda: string
   tipoCambio: number
-  totalServGravados: number
-  totalGravado: number
+  totalServGravados?: number
+  totalServExonerado?: number
+  totalGravado?: number
+  totalExonerado?: number
   totalVenta: number
   totalVentaNeta: number
-  totalDesgloseImpuesto: {
+  totalDesgloseImpuesto?: {
     codigo: string
     codigoTarifaIVA: string
     totalMontoImpuesto: number
   }
-  totalImpuesto: number
+  totalImpuesto?: number
   tipoMedioPago: string
   totalMedioPago: number
   totalComprobante: number
@@ -162,27 +164,7 @@ export class XMLGenerator {
     ${facturaData.lineasDetalle.map(linea => this.generateLineaDetalleXML(linea)).join('\n    ')}
   </DetalleServicio>
   
-  <ResumenFactura>
-    <CodigoTipoMoneda>
-      <CodigoMoneda>${this.escapeXml(facturaData.codigoMoneda)}</CodigoMoneda>
-      <TipoCambio>${this.formatAmount(facturaData.tipoCambio)}</TipoCambio>
-    </CodigoTipoMoneda>
-    <TotalServGravados>${this.formatAmount(facturaData.totalServGravados)}</TotalServGravados>
-    <TotalGravado>${this.formatAmount(facturaData.totalGravado)}</TotalGravado>
-    <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
-    <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>
-    <TotalDesgloseImpuesto>
-      <Codigo>${this.escapeXml(facturaData.totalDesgloseImpuesto.codigo)}</Codigo>
-      <CodigoTarifaIVA>${this.escapeXml(facturaData.totalDesgloseImpuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
-      <TotalMontoImpuesto>${this.formatAmount(facturaData.totalDesgloseImpuesto.totalMontoImpuesto)}</TotalMontoImpuesto>
-    </TotalDesgloseImpuesto>
-    <TotalImpuesto>${this.formatAmount(facturaData.totalImpuesto)}</TotalImpuesto>
-    <MedioPago>
-      <TipoMedioPago>${this.escapeXml(facturaData.tipoMedioPago)}</TipoMedioPago>
-      <TotalMedioPago>${this.formatAmount(facturaData.totalMedioPago)}</TotalMedioPago>
-    </MedioPago>
-    <TotalComprobante>${this.formatAmount(facturaData.totalComprobante)}</TotalComprobante>
-  </ResumenFactura>
+  ${this.generateResumenFacturaXML(facturaData)}
   
   <Otros>
     <OtroTexto>--- Sistema de Facturación Electrónica ---</OtroTexto>
@@ -215,27 +197,7 @@ export class XMLGenerator {
     ${tiqueteData.lineasDetalle.map(linea => this.generateLineaDetalleXML(linea)).join('\n    ')}
   </DetalleServicio>
   
-  <ResumenFactura>
-    <CodigoTipoMoneda>
-      <CodigoMoneda>${this.escapeXml(tiqueteData.codigoMoneda)}</CodigoMoneda>
-      <TipoCambio>${this.formatAmount(tiqueteData.tipoCambio)}</TipoCambio>
-    </CodigoTipoMoneda>
-    <TotalServGravados>${this.formatAmount(tiqueteData.totalServGravados)}</TotalServGravados>
-    <TotalGravado>${this.formatAmount(tiqueteData.totalGravado)}</TotalGravado>
-    <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
-    <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>
-    <TotalDesgloseImpuesto>
-      <Codigo>${this.escapeXml(tiqueteData.totalDesgloseImpuesto.codigo)}</Codigo>
-      <CodigoTarifaIVA>${this.escapeXml(tiqueteData.totalDesgloseImpuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
-      <TotalMontoImpuesto>${this.formatAmount(tiqueteData.totalDesgloseImpuesto.totalMontoImpuesto)}</TotalMontoImpuesto>
-    </TotalDesgloseImpuesto>
-    <TotalImpuesto>${this.formatAmount(tiqueteData.totalImpuesto)}</TotalImpuesto>
-    <MedioPago>
-      <TipoMedioPago>${this.escapeXml(tiqueteData.tipoMedioPago)}</TipoMedioPago>
-      <TotalMedioPago>${this.formatAmount(tiqueteData.totalMedioPago)}</TotalMedioPago>
-    </MedioPago>
-    <TotalComprobante>${this.formatAmount(tiqueteData.totalComprobante)}</TotalComprobante>
-  </ResumenFactura>
+  ${this.generateResumenFacturaXML(tiqueteData)}
   
   <Otros>
     <OtroTexto>--- Sistema de Facturación Electrónica ---</OtroTexto>
@@ -424,6 +386,69 @@ export class XMLGenerator {
    */
   static generateConsecutivo(numero: number): string {
     return numero.toString().padStart(10, '0')
+  }
+
+  /**
+   * Genera el XML del resumen de la factura, manejando correctamente las exoneraciones
+   */
+  private static generateResumenFacturaXML(facturaData: FacturaData): string {
+    // Detectar si hay exoneraciones en alguna línea
+    const tieneExoneraciones = facturaData.lineasDetalle.some(linea => linea.impuesto?.exoneracion)
+    
+    let resumen = `<ResumenFactura>
+    <CodigoTipoMoneda>
+      <CodigoMoneda>${this.escapeXml(facturaData.codigoMoneda)}</CodigoMoneda>
+      <TipoCambio>${this.formatAmount(facturaData.tipoCambio)}</TipoCambio>
+    </CodigoTipoMoneda>`
+    
+    if (tieneExoneraciones) {
+      // Cuando hay exoneraciones:
+      // - TotalServExonerado: suma de líneas exoneradas
+      // - TotalServGravados: 0 (no hay servicios gravados)
+      // - TotalExonerado: suma de base imponible de líneas exoneradas
+      // - TotalGravado: 0
+      // - TotalImpuesto: 0 (no se cobra impuesto)
+      // - No incluir TotalDesgloseImpuesto
+      const totalServExonerado = facturaData.lineasDetalle
+        .filter(linea => linea.impuesto?.exoneracion)
+        .reduce((sum, linea) => sum + linea.baseImponible, 0)
+      
+      const totalExonerado = totalServExonerado
+      
+      resumen += `\n    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
+    <TotalServExonerado>${this.formatAmount(totalServExonerado)}</TotalServExonerado>
+    <TotalGravado>${this.formatAmount(0)}</TotalGravado>
+    <TotalExonerado>${this.formatAmount(totalExonerado)}</TotalExonerado>
+    <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>
+    <TotalImpuesto>${this.formatAmount(0)}</TotalImpuesto>`
+    } else {
+      // Cuando NO hay exoneraciones, usar los valores normales
+      resumen += `\n    <TotalServGravados>${this.formatAmount(facturaData.totalServGravados || 0)}</TotalServGravados>
+    <TotalGravado>${this.formatAmount(facturaData.totalGravado || 0)}</TotalGravado>
+    <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>`
+      
+      // Solo incluir desglose de impuestos si hay impuestos y no hay exoneraciones
+      if (facturaData.totalDesgloseImpuesto && facturaData.totalDesgloseImpuesto.totalMontoImpuesto > 0) {
+        resumen += `\n    <TotalDesgloseImpuesto>
+      <Codigo>${this.escapeXml(facturaData.totalDesgloseImpuesto.codigo)}</Codigo>
+      <CodigoTarifaIVA>${this.escapeXml(facturaData.totalDesgloseImpuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
+      <TotalMontoImpuesto>${this.formatAmount(facturaData.totalDesgloseImpuesto.totalMontoImpuesto)}</TotalMontoImpuesto>
+    </TotalDesgloseImpuesto>`
+      }
+      
+      resumen += `\n    <TotalImpuesto>${this.formatAmount(facturaData.totalImpuesto || 0)}</TotalImpuesto>`
+    }
+    
+    resumen += `\n    <MedioPago>
+      <TipoMedioPago>${this.escapeXml(facturaData.tipoMedioPago)}</TipoMedioPago>
+      <TotalMedioPago>${this.formatAmount(facturaData.totalMedioPago)}</TotalMedioPago>
+    </MedioPago>
+    <TotalComprobante>${this.formatAmount(facturaData.totalComprobante)}</TotalComprobante>
+  </ResumenFactura>`
+    
+    return resumen
   }
 
   /**

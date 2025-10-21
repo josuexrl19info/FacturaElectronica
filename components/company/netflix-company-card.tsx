@@ -67,13 +67,21 @@ export function NetflixCompanyCard({ company, onSelect, onEdit }: NetflixCompany
     }
   }
   
-  const formattedDate = createdAt && !isNaN(createdAt.getTime()) 
-    ? createdAt.toLocaleDateString('es-CR', {
+  const formattedDate = (() => {
+    if (!createdAt) return 'Fecha no disponible'
+    if (isNaN(createdAt.getTime())) return 'Fecha no disponible'
+    
+    try {
+      return createdAt.toLocaleDateString('es-CR', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       })
-    : 'Fecha no disponible'
+    } catch (error) {
+      console.error('Error formateando fecha en company card:', error)
+      return 'Fecha no disponible'
+    }
+  })()
 
   // Obtener código de provincia para mostrar nombre
   const getProvinceName = (code: string) => {

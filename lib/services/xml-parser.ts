@@ -3,6 +3,8 @@
  * Extrae toda la información necesaria para crear notas de crédito
  */
 
+import { ExoneracionXML } from './xml-generator'
+
 interface ParsedInvoiceData {
   clave: string
   consecutivo: string
@@ -57,7 +59,8 @@ interface ParsedInvoiceData {
       codigo: string
       codigoTarifa: string
       tarifa: number
-      monto: number
+      monto?: number
+      exoneracion?: ExoneracionXML
     }
     impuestoNeto: number
     montoTotalLinea: number
@@ -150,6 +153,9 @@ export class XMLParser {
     console.log('🏢 Emisor extraído:', emisor.nombre)
     console.log('📍 Cantón emisor formateado:', cantonEmisorRaw, '→', cantonEmisor)
 
+    // Extraer actividades económicas ANTES de crear el receptor
+    const codigoActividadReceptor = getTagValue(xmlString, 'CodigoActividadReceptor', '')
+
     // Extraer datos del receptor (cliente)
     const receptorMatch = xmlString.match(/<Receptor>([\s\S]*?)<\/Receptor>/i)
     const receptorXML = receptorMatch ? receptorMatch[1] : ''
@@ -185,9 +191,6 @@ export class XMLParser {
     // Extraer condición de venta y medio de pago
     const condicionVenta = getTagValue(xmlString, 'CondicionVenta', '01')
     const medioPago = getTagValue(xmlString, 'TipoMedioPago', '01') // Correcto: TipoMedioPago, no MedioPago
-    
-    // Extraer actividades económicas
-    const codigoActividadReceptor = getTagValue(xmlString, 'CodigoActividadReceptor', '')
 
     // Extraer items
     const detalleMatch = xmlString.match(/<DetalleServicio>([\s\S]*?)<\/DetalleServicio>/i)
@@ -202,11 +205,48 @@ export class XMLParser {
       
       if (impuestoMatch) {
         const impuestoXML = impuestoMatch[1]
+        
+        // Extraer exoneración si existe
+        const exoneracionMatch = impuestoXML.match(/<Exoneracion>([\s\S]*?)<\/Exoneracion>/i)
+        let exoneracion = undefined
+        
+        if (exoneracionMatch) {
+          const exoneracionXML = exoneracionMatch[1]
+          
+          // Helper para manejar valores opcionales
+          const getOptionalTagValue = (xml: string, tagName: string): string | undefined => {
+            const value = getTagValue(xml, tagName, '')
+            return value && value.trim() !== '' ? value.trim() : undefined
+          }
+          
+          const getOptionalTagNumber = (xml: string, tagName: string): number | undefined => {
+            const value = getTagNumber(xml, tagName, 0)
+            return value !== 0 ? value : undefined
+          }
+          
+          exoneracion = {
+            tipoDocumento: getTagValue(exoneracionXML, 'TipoDocumentoEX1', ''),
+            tipoDocumentoOtro: getOptionalTagValue(exoneracionXML, 'TipoDocumentoOTRO'),
+            numeroDocumento: getTagValue(exoneracionXML, 'NumeroDocumento', ''),
+            nombreLey: getOptionalTagValue(exoneracionXML, 'NombreLey'),
+            articulo: getOptionalTagNumber(exoneracionXML, 'Articulo'),
+            inciso: getOptionalTagNumber(exoneracionXML, 'Inciso'),
+            porcentajeCompra: getOptionalTagNumber(exoneracionXML, 'PorcentajeCompra'),
+            nombreInstitucion: getTagValue(exoneracionXML, 'NombreInstitucion', ''),
+            nombreInstitucionOtros: getOptionalTagValue(exoneracionXML, 'NombreInstitucionOtros'),
+            fechaEmision: getTagValue(exoneracionXML, 'FechaEmisionEX', ''),
+            tarifaExonerada: getTagNumber(exoneracionXML, 'TarifaExonerada', 0),
+            montoExoneracion: getTagNumber(exoneracionXML, 'MontoExoneracion', 0)
+          }
+        }
+        
         impuesto = {
           codigo: getTagValue(impuestoXML, 'Codigo', '02'),
           codigoTarifa: getTagValue(impuestoXML, 'CodigoTarifaIVA', '08'),
           tarifa: getTagNumber(impuestoXML, 'Tarifa', 13),
-          monto: getTagNumber(impuestoXML, 'Monto', 0)
+          // Solo incluir monto si no hay exoneración
+          ...(exoneracion ? {} : { monto: getTagNumber(impuestoXML, 'Monto', 0) }),
+          ...(exoneracion ? { exoneracion } : {})
         }
       }
 

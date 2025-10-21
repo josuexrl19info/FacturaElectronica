@@ -272,19 +272,20 @@ export async function POST(req: NextRequest) {
         }),
         codigoMoneda: currency || 'CRC',
         tipoCambio: await getExchangeRateForCurrency(currency || 'CRC'),
-        totalServGravados: subtotal,
-        totalGravado: subtotal,
-        totalVenta: subtotal,
+        // Los totales se manejarán automáticamente en generateResumenFacturaXML según si hay exoneraciones
+        totalServGravados: clientExoneracion ? 0 : subtotal,
+        totalGravado: clientExoneracion ? 0 : subtotal,
+        totalVenta: subtotal, // Total de venta siempre es el mismo (con o sin exoneración)
         totalVentaNeta: subtotal,
-        totalDesgloseImpuesto: {
+        totalDesgloseImpuesto: clientExoneracion ? undefined : {
           codigo: '01',
           codigoTarifaIVA: '08',
           totalMontoImpuesto: totalImpuesto || 0
         },
-        totalImpuesto: totalImpuesto || 0,
+        totalImpuesto: clientExoneracion ? 0 : (totalImpuesto || 0),
         tipoMedioPago: paymentMethod || '01',
-        totalMedioPago: total || 0,
-        totalComprobante: total || 0
+        totalMedioPago: clientExoneracion ? subtotal : (total || 0), // Sin impuesto si hay exoneración
+        totalComprobante: clientExoneracion ? subtotal : (total || 0) // Sin impuesto si hay exoneración
       }
 
       // Generar XML del tiquete

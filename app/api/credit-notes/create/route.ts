@@ -50,35 +50,21 @@ export async function POST(request: NextRequest) {
     console.log('🔑 Certificado disponible:', !!companyData.certificadoDigital?.fileData)
     console.log('🔒 Password certificado disponible:', !!companyData.certificadoDigital?.password)
 
-    // 2. Usar datos parseados del frontend o parsear XML en el backend
+    // 2. PRIORIZAR XML original siempre que esté disponible (contiene información completa incluyendo exoneración)
+    // El parser del frontend no extrae exoneración, pero el del backend sí
     let facturaData
-    if (facturaDataFromFrontend) {
-      console.log('📊 Usando datos parseados del frontend')
+    if (xmlFacturaOriginal) {
+      console.log('📄 Parseando XML de factura original en backend (incluye exoneración)...')
+      facturaData = XMLParser.parseInvoiceXML(xmlFacturaOriginal)
+      console.log('✅ Factura parseada desde XML original:', facturaData.consecutivo)
+      
+      // Verificar si hay exoneraciones en el XML parseado
+      const tieneExoneracionesEnXML = facturaData.items?.some((item: any) => item.impuesto?.exoneracion)
+      console.log('🛡️ Exoneraciones detectadas en XML:', tieneExoneracionesEnXML)
+    } else if (facturaDataFromFrontend) {
+      console.log('⚠️ Usando datos parseados del frontend (sin exoneración)')
       facturaData = facturaDataFromFrontend
       console.log('✅ Factura:', facturaData.consecutivo)
-      console.log('🔍 Datos del frontend:', {
-        tieneEmisor: !!facturaData.emisor,
-        tieneReceptor: !!facturaData.receptor,
-        tieneCondicionVenta: !!facturaData.condicionVenta,
-        tieneMedioPago: !!facturaData.medioPago,
-        cantidadItems: facturaData.items?.length || 0,
-        primerItem: facturaData.items?.[0] ? {
-          tieneCodigoCABYS: !!facturaData.items[0].codigoCABYS,
-          tieneUnidadMedida: !!facturaData.items[0].unidadMedida,
-          tieneSubtotal: !!facturaData.items[0].subtotal,
-          tieneBaseImponible: !!facturaData.items[0].baseImponible,
-          tieneMontoTotalLinea: !!facturaData.items[0].montoTotalLinea
-        } : null,
-        resumen: {
-          tieneTipoCambio: facturaData.resumen?.tipoCambio !== undefined,
-          tieneTotalGravado: facturaData.resumen?.totalGravado !== undefined,
-          tieneTotalVentaNeta: facturaData.resumen?.totalVentaNeta !== undefined
-        }
-      })
-    } else if (xmlFacturaOriginal) {
-      console.log('📄 Parseando XML de factura original en backend...')
-      facturaData = XMLParser.parseInvoiceXML(xmlFacturaOriginal)
-      console.log('✅ Factura parseada:', facturaData.consecutivo)
     } else {
       return NextResponse.json(
         { error: 'No se proporcionó XML ni datos de la factura original' },
@@ -89,6 +75,26 @@ export async function POST(request: NextRequest) {
     // 2.5. Usar datos del XML parseado (ya contiene toda la información necesaria)
     const clienteCompleto = facturaData.receptor
     const formaPagoOriginal = facturaData.medioPago || '01'
+    
+    const fechaCostaRica = new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')
+    
+    // Función para formatear fecha con timezone
+    const formatDateWithTimezone = (dateString: string): string => {
+      if (!dateString) return fechaCostaRica + '-06:00'
+      
+      // Si ya tiene formato con timezone, devolverlo
+      if (dateString.includes('T') && (dateString.includes('+') || dateString.includes('-'))) {
+        return dateString
+      }
+      
+      // Si tiene formato YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss, agregar timezone
+      if (dateString.includes('T')) {
+        return dateString + '-06:00'
+      }
+      
+      // Si es solo fecha, agregar hora por defecto y timezone
+      return dateString + 'T00:00:00-06:00'
+    }
     
     console.log('📊 Datos de la factura original (del XML):', {
       clave: facturaData.clave,
@@ -175,25 +181,6 @@ export async function POST(request: NextRequest) {
     console.log('✅ Consecutivo NC generado:', consecutivoNC, '(consecutiveNT:', nextConsecutiveNT, ')')
 
     // 4. Generar clave de Hacienda para la NC
-    const fechaCostaRica = new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')
-    
-    // Función para formatear fecha con timezone
-    const formatDateWithTimezone = (dateString: string): string => {
-      if (!dateString) return fechaCostaRica + '-06:00'
-      
-      // Si ya tiene formato con timezone, devolverlo
-      if (dateString.includes('T') && (dateString.includes('+') || dateString.includes('-'))) {
-        return dateString
-      }
-      
-      // Si tiene formato YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss, agregar timezone
-      if (dateString.includes('T')) {
-        return dateString + '-06:00'
-      }
-      
-      // Si es solo fecha, agregar hora por defecto y timezone
-      return dateString + 'T00:00:00-06:00'
-    }
     const fechaParaClave = new Date(fechaCostaRica)
 
     const keyResult = HaciendaKeyGenerator.generateKey({
@@ -289,32 +276,51 @@ export async function POST(request: NextRequest) {
         const baseImponible = item.baseImponible || item.subtotal || item.montoTotal || 0
         const montoTotalOriginal = item.montoTotalLinea || (baseImponible + montoImpuesto)
 
-        // Crear objeto de impuesto con exoneración si el cliente la tiene
-        const impuestoData = item.impuesto ? {
-          codigo: item.impuesto.codigo || '01',
-          codigoTarifa: item.impuesto.codigoTarifa || item.impuesto.codigoTarifaIVA || '08',
-          tarifa: item.impuesto.tarifa || 13,
-          monto: montoImpuesto
-        } : undefined
-
+        // Detectar si hay exoneración en el XML original o del cliente
+        const exoneracionDelXML = item.impuesto?.exoneracion
+        const tieneExoneracion = exoneracionDelXML || clientExoneracion
+        
         // Variables para ajustar montos cuando hay exoneración
-        let impuestoNeto = item.impuestoNeto || montoImpuesto
-        let montoTotalLinea = montoTotalOriginal
+        // IMPORTANTE: Respetar el ImpuestoNeto original del XML
+        let impuestoNeto = item.impuestoNeto !== undefined ? item.impuestoNeto : montoImpuesto
+        let montoTotalLinea = item.montoTotalLinea !== undefined ? item.montoTotalLinea : montoTotalOriginal
 
-        // Agregar exoneración si el cliente la tiene
-        if (clientExoneracion && impuestoData) {
-          // Crear copia de la exoneración con el monto específico de esta línea
-          const exoneracionLinea = {
-            ...clientExoneracion,
-            montoExoneracion: montoImpuesto // El monto del impuesto de esta línea
+        // Crear objeto de impuesto - la lógica cambia si hay exoneración
+        let impuestoData = undefined
+        if (item.impuesto) {
+          if (tieneExoneracion) {
+            // Usar exoneración del XML original si está disponible, sino del cliente
+            const exoneracionFuente = exoneracionDelXML || clientExoneracion
+            
+            const exoneracionLinea = {
+              ...exoneracionFuente,
+              montoExoneracion: exoneracionDelXML?.montoExoneracion || montoImpuesto
+            }
+            
+            impuestoData = {
+              codigo: item.impuesto.codigo || '01',
+              codigoTarifa: item.impuesto.codigoTarifa || item.impuesto.codigoTarifaIVA || '08',
+              tarifa: item.impuesto.tarifa || 13,
+              // NO incluir 'monto' cuando hay exoneración
+              exoneracion: exoneracionLinea
+            }
+            
+            // Si el ImpuestoNeto original era 0, mantenerlo así
+            if (item.impuestoNeto === 0) {
+              impuestoNeto = 0
+              montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
+            }
+            
+            console.log(`🛡️ Usando exoneración del ${exoneracionDelXML ? 'XML original' : 'cliente'} en línea ${index + 1}:`, exoneracionLinea)
+          } else {
+            // Sin exoneración, incluir el monto normal
+            impuestoData = {
+              codigo: item.impuesto.codigo || '01',
+              codigoTarifa: item.impuesto.codigoTarifa || item.impuesto.codigoTarifaIVA || '08',
+              tarifa: item.impuesto.tarifa || 13,
+              monto: montoImpuesto
+            }
           }
-          impuestoData.exoneracion = exoneracionLinea
-          
-          // Cuando hay exoneración, el impuesto neto debe ser 0 y el total sin impuesto
-          impuestoNeto = 0
-          montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
-          
-          console.log(`🛡️ Agregando exoneración a línea ${index + 1} de nota de crédito:`, exoneracionLinea)
         }
 
         return {
@@ -333,32 +339,57 @@ export async function POST(request: NextRequest) {
         }
       }),
       // Resumen: usar datos parseados del XML de la factura original con valores por defecto
-      resumen: {
-        codigoTipoMoneda: {
-          codigoMoneda: facturaData.resumen.codigoMoneda || 'CRC',
-          tipoCambio: facturaData.resumen.tipoCambio || 1
-        },
-        totalServGravados: facturaData.resumen.totalServGravados || 0,
-        totalServExentos: facturaData.resumen.totalServExentos || 0,
-        totalServExonerado: facturaData.resumen.totalServExonerado || 0,
-        totalMercanciasGravadas: facturaData.resumen.totalMercanciasGravadas || 0,
-        totalMercanciasExentas: facturaData.resumen.totalMercanciasExentas || 0,
-        totalMercanciasExoneradas: facturaData.resumen.totalMercanciasExoneradas || 0,
-        totalGravado: facturaData.resumen.totalGravado || 0,
-        totalExento: facturaData.resumen.totalExento || 0,
-        totalExonerado: facturaData.resumen.totalExonerado || 0,
-        totalVenta: facturaData.resumen.totalVenta || 0,
-        totalDescuentos: facturaData.resumen.totalDescuentos || 0,
-        totalVentaNeta: facturaData.resumen.totalVentaNeta || 0,
-        // Agregar TotalDesgloseImpuesto si hay impuestos
-        totalDesgloseImpuesto: (facturaData.resumen.totalImpuesto || 0) > 0 ? {
-          codigo: '01', // IVA
-          codigoTarifaIVA: '08', // 13%
-          totalMontoImpuesto: facturaData.resumen.totalImpuesto || 0
-        } : undefined,
-        totalImpuesto: facturaData.resumen.totalImpuesto || 0,
-        totalComprobante: facturaData.resumen.totalComprobante || 0
-      }
+      resumen: (() => {
+        // Calcular totales basados en si hay exoneraciones (del cliente o del XML original)
+        const tieneExoneracionesDelXML = itemsNC.some((item: any) => item.impuesto?.exoneracion)
+        const tieneExoneraciones = !!clientExoneracion || tieneExoneracionesDelXML
+        
+        // Calcular totales de servicios exonerados si hay exoneraciones
+        let totalServExonerado = 0
+        if (tieneExoneraciones) {
+          // Si hay exoneraciones del XML, usar los datos del resumen original
+          if (tieneExoneracionesDelXML) {
+            totalServExonerado = facturaData.resumen.totalServExonerado || 0
+          } else {
+            // Si solo hay exoneraciones del cliente, calcular sumando las bases imponibles
+            totalServExonerado = itemsNC.reduce((sum: number, item: any) => {
+              const baseImponible = item.baseImponible || item.subtotal || item.montoTotal || 0
+              return sum + baseImponible
+            }, 0)
+          }
+        }
+        
+        return {
+          codigoTipoMoneda: {
+            codigoMoneda: facturaData.resumen.codigoMoneda || 'CRC',
+            tipoCambio: facturaData.resumen.tipoCambio || 1
+          },
+          totalServGravados: tieneExoneraciones ? 0 : (facturaData.resumen.totalServGravados || 0),
+          totalServExentos: facturaData.resumen.totalServExentos || 0,
+          totalServExonerado: totalServExonerado || (facturaData.resumen.totalServExonerado || 0),
+          totalMercanciasGravadas: facturaData.resumen.totalMercanciasGravadas || 0,
+          totalMercanciasExentas: facturaData.resumen.totalMercanciasExentas || 0,
+          totalMercanciasExoneradas: facturaData.resumen.totalMercanciasExoneradas || 0,
+          totalGravado: tieneExoneraciones ? 0 : (facturaData.resumen.totalGravado || 0),
+          totalExento: facturaData.resumen.totalExento || 0,
+          totalExonerado: totalServExonerado || (facturaData.resumen.totalExonerado || 0),
+          totalVenta: facturaData.resumen.totalVenta || 0,
+          totalDescuentos: facturaData.resumen.totalDescuentos || 0,
+          totalVentaNeta: facturaData.resumen.totalVentaNeta || 0,
+          // Solo incluir desglose de impuestos si NO hay exoneraciones
+          totalDesgloseImpuesto: tieneExoneraciones ? undefined : (
+            (facturaData.resumen.totalImpuesto || 0) > 0 ? {
+              codigo: '01', // IVA
+              codigoTarifaIVA: '08', // 13%
+              totalMontoImpuesto: facturaData.resumen.totalImpuesto || 0
+            } : undefined
+          ),
+          totalImpuesto: tieneExoneraciones ? 0 : (facturaData.resumen.totalImpuesto || 0),
+          totalComprobante: tieneExoneraciones ? 
+            (facturaData.resumen.totalVenta || 0) : // Sin impuesto si hay exoneración
+            (facturaData.resumen.totalComprobante || 0)
+        }
+      })()
     }
 
     // 7. Generar XML

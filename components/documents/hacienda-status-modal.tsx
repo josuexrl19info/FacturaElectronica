@@ -21,6 +21,32 @@ export function HaciendaStatusModal({ isOpen, onClose, haciendaSubmission, conse
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
 
+  // Función helper para formatear fechas de manera segura
+  const formatDate = (date: string | Date) => {
+    if (!date) return 'N/A'
+    
+    const dateObj = typeof date === 'string' ? new Date(date) : date
+    
+    // Verificar que la fecha sea válida
+    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+      console.warn('Fecha inválida recibida:', date)
+      return 'N/A'
+    }
+    
+    // Verificar que toLocaleString existe y es una función
+    if (typeof dateObj.toLocaleString !== 'function') {
+      console.warn('toLocaleString no es una función para:', dateObj)
+      return 'N/A'
+    }
+    
+    try {
+      return dateObj.toLocaleString('es-CR')
+    } catch (error) {
+      console.error('Error formateando fecha:', error, 'Fecha:', date)
+      return 'N/A'
+    }
+  }
+
   // Si no hay haciendaSubmission, mostrar mensaje informativo
   if (!haciendaSubmission) {
     return (
@@ -171,7 +197,7 @@ export function HaciendaStatusModal({ isOpen, onClose, haciendaSubmission, conse
             <div className="md:col-span-2">
               <h4 className="font-medium text-sm text-gray-600 mb-1">Fecha</h4>
               <p className="text-sm">
-                {haciendaSubmission.fecha ? new Date(haciendaSubmission.fecha).toLocaleString() : 'N/A'}
+                {formatDate(haciendaSubmission.fecha)}
               </p>
             </div>
           </div>

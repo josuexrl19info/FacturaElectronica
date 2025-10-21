@@ -2,6 +2,8 @@
  * Servicio para generar XML de Notas de Crédito según schema NC 4.4 de Costa Rica
  */
 
+import { ExoneracionXML } from './xml-generator'
+
 export interface CreditNoteData {
   // Referencia a la factura original
   referenciaFactura: {
@@ -79,7 +81,8 @@ export interface CreditNoteData {
       codigo: string
       codigoTarifa: string
       tarifa: number
-      monto: number
+      monto?: number // Opcional cuando hay exoneración
+      exoneracion?: ExoneracionXML
     }
     impuestoNeto: number
     montoTotalLinea: number
@@ -244,12 +247,73 @@ ${data.items.map(item => this.generateLineaDetalleXML(item)).join('\n')}
         <Codigo>${item.impuesto.codigo}</Codigo>
         <CodigoTarifaIVA>${item.impuesto.codigoTarifa}</CodigoTarifaIVA>
         <Tarifa>${item.impuesto.tarifa}</Tarifa>
-        <Monto>${item.impuesto.monto}</Monto>
+        ${item.impuesto.monto !== undefined ? `<Monto>${item.impuesto.monto}</Monto>` : ''}${item.impuesto.exoneracion ? this.generateExoneracionXML(item.impuesto.exoneracion) : ''}
       </Impuesto>` : ''}
       <ImpuestoAsumidoEmisorFabrica>0</ImpuestoAsumidoEmisorFabrica>
       <ImpuestoNeto>${item.impuestoNeto}</ImpuestoNeto>
       <MontoTotalLinea>${item.montoTotalLinea}</MontoTotalLinea>
     </LineaDetalle>`
+  }
+
+  /**
+   * Genera el XML de Exoneración
+   */
+  private static generateExoneracionXML(exoneracion: ExoneracionXML): string {
+    let xml = '\n      <Exoneracion>'
+    xml += `\n        <TipoDocumentoEX1>${this.escapeXml(exoneracion.tipoDocumento)}</TipoDocumentoEX1>`
+    
+    // Campo "Otros" - obligatorio si tipoDocumento = '99'
+    if (exoneracion.tipoDocumento === '99' && exoneracion.tipoDocumentoOtro) {
+      xml += `\n        <TipoDocumentoOTRO>${this.escapeXml(exoneracion.tipoDocumentoOtro)}</TipoDocumentoOTRO>`
+    }
+    
+    xml += `\n        <NumeroDocumento>${this.escapeXml(exoneracion.numeroDocumento)}</NumeroDocumento>`
+    
+    // Nombre de la Ley Especial - opcional, para tipoDocumento = '03'
+    if (exoneracion.nombreLey) {
+      xml += `\n        <NombreLey>${this.escapeXml(exoneracion.nombreLey)}</NombreLey>`
+    }
+    
+    // Artículo e Inciso - opcionales
+    if (exoneracion.articulo) {
+      xml += `\n        <Articulo>${exoneracion.articulo}</Articulo>`
+    }
+    if (exoneracion.inciso) {
+      xml += `\n        <Inciso>${exoneracion.inciso}</Inciso>`
+    }
+    
+    // Porcentaje de Compra - opcional, para tipoDocumento = '03'
+    if (exoneracion.porcentajeCompra) {
+      xml += `\n        <PorcentajeCompra>${this.formatAmount(exoneracion.porcentajeCompra)}</PorcentajeCompra>`
+    }
+    
+    xml += `\n        <NombreInstitucion>${this.escapeXml(exoneracion.nombreInstitucion)}</NombreInstitucion>`
+    
+    // Campo "Otros" para institución - obligatorio si nombreInstitucion = '99'
+    if (exoneracion.nombreInstitucion === '99' && exoneracion.nombreInstitucionOtros) {
+      xml += `\n        <NombreInstitucionOtros>${this.escapeXml(exoneracion.nombreInstitucionOtros)}</NombreInstitucionOtros>`
+    }
+    
+    xml += `\n        <FechaEmisionEX>${this.escapeXml(exoneracion.fechaEmision)}</FechaEmisionEX>`
+    xml += `\n        <TarifaExonerada>${this.formatAmount(exoneracion.tarifaExonerada)}</TarifaExonerada>`
+    xml += `\n        <MontoExoneracion>${this.formatAmount(exoneracion.montoExoneracion)}</MontoExoneracion>`
+    xml += '\n      </Exoneracion>'
+    
+    return xml
+  }
+
+  /**
+   * Formatea un número a máximo 5 decimales para cumplir con las especificaciones de Hacienda
+   */
+  private static formatAmount(amount: number | string | null | undefined): string {
+    // Manejar valores nulos o indefinidos
+    if (amount === null || amount === undefined) return '0'
+    
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount
+    if (isNaN(num)) return '0'
+    
+    // Redondear a máximo 5 decimales y remover ceros innecesarios
+    return num.toFixed(5).replace(/\.?0+$/, '')
   }
 
   /**

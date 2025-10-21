@@ -218,14 +218,33 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
 
   const formatDate = (date: Date | string) => {
     if (!date) return 'N/A'
+    
     const dateObj = typeof date === 'string' ? new Date(date) : date
-    return dateObj.toLocaleDateString('es-CR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    
+    // Verificar que la fecha sea válida
+    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+      console.warn('Fecha inválida recibida:', date)
+      return 'N/A'
+    }
+    
+    // Verificar que toLocaleDateString existe y es una función
+    if (typeof dateObj.toLocaleDateString !== 'function') {
+      console.warn('toLocaleDateString no es una función para:', dateObj)
+      return 'N/A'
+    }
+    
+    try {
+      return dateObj.toLocaleDateString('es-CR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch (error) {
+      console.error('Error formateando fecha:', error, 'Fecha:', date)
+      return 'N/A'
+    }
   }
 
   const getStatusInfo = (status: string) => {

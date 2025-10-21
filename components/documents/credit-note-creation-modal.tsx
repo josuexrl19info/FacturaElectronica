@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
-import { Upload, Search, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Upload, Search, FileText, CheckCircle, XCircle, AlertCircle, Shield } from 'lucide-react'
 import { useToastNotification } from '@/components/providers/toast-provider'
 import { Invoice } from '@/lib/invoice-types'
 
@@ -123,6 +123,7 @@ export default function CreditNoteCreationModal({
   const [uploadedXml, setUploadedXml] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<any>(null)
 
   const [formData, setFormData] = useState<CreditNoteFormData>({
     facturaData: null,
@@ -303,8 +304,41 @@ export default function CreditNoteCreationModal({
     }
   }
 
+  // Buscar cliente por identificación
+  const fetchClientByIdentification = async (identification: string) => {
+    try {
+      const response = await fetch(`/api/clients?tenantId=${tenantId}&identification=${identification}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.clients && data.clients.length > 0) {
+          return data.clients[0] // Retornar el primer cliente encontrado
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching client:', error)
+    }
+    return null
+  }
+
   // Buscar facturas aceptadas en la BD
   const handleSearchInvoices = async () => {
+    // Debug: Verificar los valores recibidos
+    console.log('🔍 [Credit Note Modal] Debug config values:', {
+      tenantId: tenantId,
+      companyId: companyId,
+      hasTenantId: !!tenantId,
+      hasCompanyId: !!companyId,
+      tenantIdLength: tenantId?.length || 0,
+      companyIdLength: companyId?.length || 0
+    })
+    
+    // Validar que tenemos los datos necesarios
+    if (!tenantId || !companyId) {
+      console.error('❌ [Credit Note Modal] Missing config:', { tenantId, companyId })
+      toast.error('Error', 'Faltan datos de configuración (tenantId o companyId). Por favor, verifica que estés logueado y que se haya seleccionado una empresa.')
+      return
+    }
+
     setIsLoading(true)
     try {
       const response = await fetch(`/api/invoices?tenantId=${tenantId}&companyId=${companyId}`)
@@ -366,6 +400,10 @@ export default function CreditNoteCreationModal({
         facturaData: parsedData
       }))
 
+      // Buscar el cliente por identificación para obtener datos de exoneración
+      const clientData = await fetchClientByIdentification(parsedData.receptor.identificacion)
+      setSelectedClient(clientData)
+
       toast.success('XML cargado', 'La factura se ha cargado correctamente')
       setStep(2)
     } catch (error) {
@@ -377,7 +415,7 @@ export default function CreditNoteCreationModal({
   }
 
   // Seleccionar factura de la BD
-  const handleSelectInvoice = (invoice: Invoice) => {
+  const handleSelectInvoice = async (invoice: Invoice) => {
     setSelectedInvoice(invoice)
     
     // Parsear el XML firmado para extraer los datos
@@ -390,8 +428,13 @@ export default function CreditNoteCreationModal({
           facturaData: parsedData
         }))
         
+        // Buscar el cliente por identificación para obtener datos de exoneración
+        const clientData = await fetchClientByIdentification(parsedData.receptor.identificacion)
+        setSelectedClient(clientData)
+        
         console.log('✅ Factura seleccionada y parseada:', invoice.consecutivo)
         console.log('📄 Datos parseados:', parsedData)
+        console.log('👤 Cliente encontrado:', clientData)
         
         setStep(2)
       } else {
@@ -459,6 +502,7 @@ export default function CreditNoteCreationModal({
     setSearchTerm('')
     setInvoices([])
     setSelectedInvoice(null)
+    setSelectedClient(null)
     setUploadedXml(null)
     setFormData({
       facturaData: null,
@@ -486,7 +530,30 @@ export default function CreditNoteCreationModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Nueva Nota de Crédito</DialogTitle>
+          <DialogDescription>
+            Crea una nueva nota de crédito basada en una factura existente
+          </DialogDescription>
         </DialogHeader>
+
+        {/* Validación de configuración */}
+        {(!companyId || !tenantId) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+              <div>
+                <h4 className="text-red-800 font-medium">Configuración Incompleta</h4>
+                <p className="text-red-600 text-sm mt-1">
+                  {!companyId && !tenantId 
+                    ? 'Faltan el ID de empresa y el ID de inquilino. Por favor, verifica que estés logueado y que se haya seleccionado una empresa.'
+                    : !companyId 
+                    ? 'Falta el ID de empresa. Por favor, selecciona una empresa desde el menú.'
+                    : 'Falta el ID de inquilino. Por favor, verifica tu sesión de usuario.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Paso 1: Selección de factura */}
         {step === 1 && (
@@ -671,6 +738,45 @@ export default function CreditNoteCreationModal({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Indicativo de exoneración */}
+            {selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-1 mb-2">
+                    <Shield className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm font-semibold text-purple-800">🛡️ Cliente con Exoneración</span>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    {(selectedClient.exoneracion || selectedClient.exemption) && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-purple-700 font-medium">Tipo:</span>
+                          <span className="text-purple-800">
+                            {(selectedClient.exoneracion?.tipoDocumento || selectedClient.exemption?.exemptionType) && 
+                              (selectedClient.exoneracion?.tipoDocumento === '03' ? 'Ley Especial' :
+                               selectedClient.exoneracion?.tipoDocumento === '08' ? 'Zona Franca' :
+                               selectedClient.exoneracion?.tipoDocumento || selectedClient.exemption?.exemptionType || 'N/A')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-purple-700 font-medium">Documento:</span>
+                          <span className="text-purple-800 truncate">
+                            {selectedClient.exoneracion?.numeroDocumento || selectedClient.exemption?.documentNumber || 'N/A'}
+                          </span>
+                        </div>
+                        {selectedClient.exoneracion?.nombreLey && (
+                          <div className="flex justify-between">
+                            <span className="text-purple-700 font-medium">Ley:</span>
+                            <span className="text-purple-800 truncate">{selectedClient.exoneracion.nombreLey}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Tipo de nota de crédito */}
             <div className="space-y-2">
