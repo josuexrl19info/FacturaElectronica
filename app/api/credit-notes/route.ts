@@ -46,11 +46,16 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Ordenar por fecha de creación (más reciente primero)
+    // Ordenar por consecutivo descendente (más alto primero)
     creditNotes.sort((a, b) => {
-      const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt)
-      const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt)
-      return dateB.getTime() - dateA.getTime()
+      const consecutivoA = a.consecutivo || ''
+      const consecutivoB = b.consecutivo || ''
+      
+      // Extraer número del consecutivo para comparación numérica
+      const numeroA = parseInt(consecutivoA.replace(/[^\d]/g, '')) || 0
+      const numeroB = parseInt(consecutivoB.replace(/[^\d]/g, '')) || 0
+      
+      return numeroB - numeroA // Descendente: mayor primero
     })
 
     console.log(`✅ ${creditNotes.length} notas de crédito encontradas`)

@@ -116,6 +116,20 @@ export function useDocuments(documentType: DocumentType) {
         )
       }
 
+      // Ordenar por consecutivo descendente para notas de crédito
+      if (documentType === 'notas-credito') {
+        filteredDocuments.sort((a: any, b: any) => {
+          const consecutivoA = a.consecutivo || ''
+          const consecutivoB = b.consecutivo || ''
+          
+          // Extraer número del consecutivo para comparación numérica
+          const numeroA = parseInt(consecutivoA.replace(/[^\d]/g, '')) || 0
+          const numeroB = parseInt(consecutivoB.replace(/[^\d]/g, '')) || 0
+          
+          return numeroB - numeroA // Descendente: mayor primero
+        })
+      }
+
       setDocuments(filteredDocuments)
     } catch (err) {
       console.error('Error al obtener documentos:', err)

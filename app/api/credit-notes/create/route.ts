@@ -686,105 +686,98 @@ export async function POST(request: NextRequest) {
         })
       } else {
         console.log('⏰ Esperando 10 segundos para consultar estado real de Hacienda...')
+        console.log('📋 Datos de la NC:', {
+          id: docRef.id,
+          consecutivo: consecutivoNC,
+          tipoNotaCredito,
+          esAnulacionTotal
+        })
         
         // Esperar 10 segundos
         await new Promise(resolve => setTimeout(resolve, 10000))
         
         console.log('🔍 Consultando estado real de Hacienda...')
         console.log('📍 URL de consulta:', locationUrl)
+        console.log('🔑 Token de Hacienda disponible:', !!haciendaToken)
         
-        // Usar el servicio de consulta de estado
-        const statusResult = await HaciendaStatusService.checkDocumentStatus(locationUrl, haciendaToken!)
-        
-        if (statusResult.success) {
-          console.log('✅ Estado real obtenido de Hacienda:', statusResult.status)
-          
-          // Usar el campo "ind-estado" de la respuesta de Hacienda
-          const estadoHacienda = statusResult.status['ind-estado'] || statusResult.status.estado || statusResult.status.state
-          
-          // Interpretar el estado
-          const interpretedStatus = HaciendaStatusService.interpretStatus(statusResult.status)
-          
-          // Actualizar la nota de crédito con el estado real
-          await updateDoc(docRef, {
-            haciendaSubmission: statusResult.status,
-            status: estadoHacienda || interpretedStatus.status,
-            statusDescription: interpretedStatus.description,
-            isFinalStatus: interpretedStatus.isFinal,
-            updatedAt: serverTimestamp()
+        // Usar el endpoint de status de notas de crédito que incluye lógica de anulación
+        console.log('🚀 Iniciando consulta al endpoint de status...')
+        try {
+          const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/credit-notes/status`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              creditNoteId: docRef.id,
+              locationUrl: locationUrl,
+              accessToken: haciendaToken
+            })
           })
           
-          console.log('✅ Nota de Crédito actualizada con estado real de Hacienda:', interpretedStatus.status)
+          const statusResult = await statusResponse.json()
           
-          // Si la NC fue aceptada, enviar email al cliente
-          if (interpretedStatus.status === 'aceptado' || estadoHacienda === 'aceptado') {
-            console.log('🎉 Nota de Crédito APROBADA - Enviando email al cliente...')
+          if (statusResult.success) {
+            console.log('✅ Estado real obtenido de Hacienda:', statusResult.status)
+            console.log('📋 Mensaje:', statusResult.message)
             
-            try {
-              // Crear la NC completa con todos los datos actualizados
-              const completeCreditNoteData = {
-                ...creditNoteRecord,
-                id: docRef.id,
-                status: interpretedStatus.status,
-                statusDescription: interpretedStatus.description,
-                isFinalStatus: interpretedStatus.isFinal,
-                haciendaSubmission: statusResult.status,
-                xmlSigned: signedXml,
-                tipo: 'nota-credito' // Identificar como NC para el email
-              }
-              
-              console.log('📧 Enviando email con NC completa:', {
-                id: completeCreditNoteData.id,
-                consecutivo: completeCreditNoteData.consecutivo,
-                hasXmlSigned: !!completeCreditNoteData.xmlSigned,
-                hasHaciendaSubmission: !!completeCreditNoteData.haciendaSubmission,
-                hasRespuestaXml: !!completeCreditNoteData.haciendaSubmission?.['respuesta-xml']
-              })
-              
-              // Usar el mismo servicio de email (adaptado para NC)
-              const emailResult = await InvoiceEmailService.sendApprovalEmail(completeCreditNoteData as any)
-              
-              if (emailResult.success) {
-                console.log('✅ Email de aprobación enviado exitosamente')
-                console.log('📧 Message ID:', emailResult.messageId)
-                
-                // Actualizar NC con información del email enviado
-                await updateDoc(docRef, {
-                  emailSent: true,
-                  emailSentAt: serverTimestamp(),
-                  emailMessageId: emailResult.messageId,
-                  emailDeliveredTo: emailResult.deliveredTo
-                })
-              } else {
-                console.error('❌ Error enviando email de aprobación:', emailResult.error)
-                
-                // Marcar que hubo error enviando email
-                await updateDoc(docRef, {
-                  emailError: emailResult.error,
-                  emailErrorAt: serverTimestamp()
-                })
-              }
-            } catch (emailError) {
-              console.error('❌ Error en proceso de email:', emailError)
-              
-              // Marcar error en la NC
-              await updateDoc(docRef, {
-                emailError: emailError instanceof Error ? emailError.message : 'Error desconocido',
-                emailErrorAt: serverTimestamp()
-              })
+            // Si hay datos de factura anulada, mostrarlos
+            if (statusResult.facturaAnulada) {
+              console.log('🚨 Factura anulada automáticamente:', statusResult.facturaAnulada)
             }
+            
+            // Enviar email si la nota de crédito fue aceptada
+            if (statusResult.status === 'Aceptado') {
+              console.log('📧 Enviando email de nota de crédito aceptada...')
+              try {
+                // Obtener datos completos de la nota de crédito para el email
+                const creditNoteDoc = await getDoc(docRef)
+                const creditNoteData = creditNoteDoc.data()
+                
+                if (creditNoteData) {
+                  const emailResult = await InvoiceEmailService.sendApprovalEmail({
+                    ...creditNoteData,
+                    consecutivo: creditNoteData.consecutivo,
+                    cliente: creditNoteData.cliente,
+                    total: creditNoteData.total,
+                    tipo: 'nota-credito'
+                  } as any)
+                  
+                  if (emailResult.success) {
+                    console.log('✅ Email de nota de crédito enviado exitosamente')
+                    console.log('📧 Message ID:', emailResult.messageId)
+                    
+                    // Actualizar nota de crédito con información del email enviado
+                    await updateDoc(docRef, {
+                      emailSent: true,
+                      emailSentAt: serverTimestamp(),
+                      emailMessageId: emailResult.messageId,
+                      emailDeliveredTo: emailResult.deliveredTo
+                    })
+                  } else {
+                    console.error('❌ Error enviando email:', emailResult.error)
+                  }
+                }
+              } catch (emailError) {
+                console.error('❌ Error en envío de email:', emailError)
+              }
+            }
+          } else {
+            console.error('❌ Error consultando estado:', statusResult.error)
           }
-        } else {
-          console.error('❌ Error al consultar estado de Hacienda:', statusResult.error)
-          await updateDoc(docRef, {
-            status: 'Error Consulta Estado',
-            statusDescription: statusResult.error,
-            updatedAt: serverTimestamp()
-          })
+        } catch (statusError) {
+          console.error('❌ Error en consulta de estado:', statusError)
         }
       }
     } else {
-      console.log('⚠️ No hay location URL para consultar estado')
+      console.log('⚠️ No se pudo obtener URL de location de Hacienda')
+      
+      // Actualizar NC con error
+      await updateDoc(docRef, {
+        status: 'Error Sin Location',
+        statusDescription: 'No se pudo obtener URL de location de Hacienda',
+        updatedAt: serverTimestamp()
+      })
     }
 
     return NextResponse.json({
