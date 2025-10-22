@@ -712,16 +712,23 @@ export default function CreditNoteCreationModal({
                             </div>
                             <div className="text-right">
                               <div className="font-semibold text-green-600 mb-1">
-                                {invoice.currency === 'USD' ? '$' : '₡'}{(invoice.total || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {invoice.currency === 'USD' ? '$' : '₡'}{(() => {
+                                  // Para facturas con exoneración, mostrar solo el subtotal (sin IVA)
+                                  if (invoice.tieneExoneracion === true) {
+                                    return (invoice.subtotal || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                  }
+                                  // Para facturas normales, mostrar el total (con IVA)
+                                  return (invoice.total || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                })()}
                               </div>
                               <div className="text-xs text-gray-500 mb-1">
-                                Monto Total
+                                {invoice.tieneExoneracion === true ? 'Monto Total (Exonerado)' : 'Monto Total'}
                               </div>
                               <div className="font-semibold text-blue-600 mb-1">
                                 {invoice.currency === 'USD' ? '$' : '₡'}{(invoice.subtotal || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
                               <div className="text-xs text-gray-500 mb-2">
-                                Monto sin IVA
+                                {invoice.tieneExoneracion === true ? 'Monto sin IVA (Exonerado)' : 'Monto sin IVA'}
                               </div>
                               <div className="text-xs text-gray-500">
                                 {invoice.fecha ? (

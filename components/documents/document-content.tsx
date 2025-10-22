@@ -129,8 +129,9 @@ export function DocumentContent({
     setSelectedInvoice(null)
   }
 
-  // Filtrar documentos aceptados por Hacienda
+  // Filtrar documentos aceptados por Hacienda Y con status aceptado
   const acceptedDocuments = filteredDocuments.filter(document => 
+    document.status === 'aceptado' &&
     document.haciendaSubmission && 
     document.haciendaSubmission['ind-estado'] === 'aceptado'
   )

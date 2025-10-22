@@ -356,16 +356,20 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                       Exento
                     </Badge>
                   )}
+                  {invoice.haciendaSubmission && (
+                    <Badge 
+                      variant={invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? 'default' : 'destructive'} 
+                      className="text-xs px-1.5 py-0.5"
+                    >
+                      Hacienda: {invoice.haciendaSubmission['ind-estado']}
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
                   <span className="flex items-center gap-1">
                     <User className="w-3 h-3" />
-                    Cliente ID: {invoice.clientId}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Building className="w-3 h-3" />
-                    Empresa ID: {invoice.companyId}
+                    Cliente: {invoice.cliente?.nombre || invoice.cliente?.commercialName || 'Sin nombre'}
                   </span>
                 </div>
               </div>
@@ -500,25 +504,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                   <Calendar className="w-3 h-3" />
                   {formatDate(invoice.createdAt)}
                 </span>
-                {invoice.haciendaSubmission && (
-                  <Badge 
-                    variant={invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? 'default' : 'destructive'} 
-                    className="text-xs px-1.5 py-0.5"
-                  >
-                    Hacienda: {invoice.haciendaSubmission['ind-estado']}
-                  </Badge>
-                )}
               </div>
-
-              {/* Estado de Hacienda */}
-              {invoice.haciendaSubmission && (
-                <Badge 
-                  variant={invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? 'default' : 'destructive'}
-                  className="text-xs px-1.5 py-0.5"
-                >
-                  {invoice.haciendaSubmission['ind-estado'] === 'aceptado' ? '✓ Aceptada' : '✗ Rechazada'}
-                </Badge>
-              )}
             </div>
 
             {/* Información de items (si hay pocos) */}
