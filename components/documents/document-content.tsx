@@ -141,13 +141,38 @@ export function DocumentContent({
     totalDocuments: filteredDocuments.length,
     totalAmountCRC: acceptedDocuments
       .filter(document => document.currency === 'CRC' || !document.currency)
-      .reduce((sum, document) => sum + (document.total || 0), 0),
+      .reduce((sum, document) => {
+        // Si tiene exoneración, usar subtotal; si no, usar total
+        const amount = document.tieneExoneracion === true ? (document.subtotal || 0) : (document.total || 0)
+        return sum + amount
+      }, 0),
     totalAmountUSD: acceptedDocuments
       .filter(document => document.currency === 'USD')
-      .reduce((sum, document) => sum + (document.total || 0), 0),
+      .reduce((sum, document) => {
+        // Si tiene exoneración, usar subtotal; si no, usar total
+        const amount = document.tieneExoneracion === true ? (document.subtotal || 0) : (document.total || 0)
+        
+        // Debug logging para USD
+        console.log('🔍 [DEBUG USD] Documento:', {
+          consecutivo: document.consecutivo,
+          currency: document.currency,
+          tieneExoneracion: document.tieneExoneracion,
+          total: document.total,
+          subtotal: document.subtotal,
+          amountUsed: amount,
+          status: document.status,
+          haciendaStatus: document.haciendaSubmission?.['ind-estado']
+        })
+        
+        return sum + amount
+      }, 0),
     acceptedDocuments: acceptedDocuments.length,
     pendingDocuments: filteredDocuments.filter(document => document.status === 'pending').length
   }
+
+  // Debug logging para el total USD
+  console.log('💰 [DEBUG USD] Total calculado:', stats.totalAmountUSD)
+  console.log('📊 [DEBUG USD] Documentos aceptados USD:', acceptedDocuments.filter(d => d.currency === 'USD').length)
 
   const formatCurrency = (amount: number, currency: string = 'CRC') => {
     return new Intl.NumberFormat('es-CR', {
