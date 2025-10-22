@@ -105,66 +105,82 @@ export async function POST(request: NextRequest) {
       receptorNombre: facturaData.receptor?.nombre
     })
 
-    // Buscar datos del cliente en la base de datos para obtener información de exoneración
-    let clientData: any = null
-    try {
-      const clientsQuery = query(
-        collection(db, 'clients'),
-        where('identification', '==', clienteCompleto.identificacion),
-        where('tenantId', '==', tenantId)
-      )
-      const clientsSnapshot = await getDocs(clientsQuery)
-      
-      if (!clientsSnapshot.empty) {
-        clientData = clientsSnapshot.docs[0].data()
-        console.log('👤 Datos de cliente obtenidos:', clientData.name)
-        console.log('🛡️ Cliente con exoneración:', clientData.tieneExoneracion || clientData.hasExemption)
-      } else {
-        console.log('⚠️ Cliente no encontrado en base de datos:', clienteCompleto.identificacion)
-      }
-    } catch (error) {
-      console.error('❌ Error buscando cliente:', error)
-    }
-
-    // Mapear datos de exoneración del cliente para el XML de la nota de crédito
+    // IMPORTANTE: Para notas de crédito, SOLO usar exoneración si la factura original la tenía
+    // NO usar la exoneración actual del cliente en Firestore si la factura no la tenía
+    
+    // Verificar si la factura original tenía exoneraciones en el XML
+    const facturaOriginalTieneExoneracion = facturaData.items?.some((item: any) => item.impuesto?.exoneracion)
+    
+    console.log('🔍 Verificando exoneración en factura original:')
+    console.log('  - Factura tiene exoneración en XML:', facturaOriginalTieneExoneracion)
+    console.log('  - Total items en factura:', facturaData.items?.length || 0)
+    
+    // Solo definir clientExoneracion si la factura original tenía exoneraciones
     let clientExoneracion: ExoneracionXML | undefined = undefined
     
-    if (clientData && (clientData.tieneExoneracion || clientData.hasExemption)) {
-      console.log('🛡️ Cliente con exoneración detectada:', clientData.tieneExoneracion ? clientData.exoneracion : clientData.exemption)
+    if (facturaOriginalTieneExoneracion) {
+      console.log('✅ La factura original SÍ tiene exoneración - se replicará en la NC')
       
-      if (clientData.tieneExoneracion && clientData.exoneracion) {
-        // Formato nuevo
+      // Extraer exoneración del primer item que la tenga (todos deberían tener la misma)
+      const itemConExoneracion = facturaData.items?.find((item: any) => item.impuesto?.exoneracion)
+      
+      if (itemConExoneracion?.impuesto?.exoneracion) {
+        const exoXML = itemConExoneracion.impuesto.exoneracion
+        
+        console.log('🔍 EXONERACIÓN COMPLETA del XML original:')
+        console.log('  - exoXML completo:', JSON.stringify(exoXML, null, 2))
+        console.log('  - tipoDocumento:', exoXML.tipoDocumento, typeof exoXML.tipoDocumento)
+        console.log('  - tipoDocumentoOtro:', exoXML.tipoDocumentoOtro, typeof exoXML.tipoDocumentoOtro)
+        console.log('  - numeroDocumento:', exoXML.numeroDocumento, typeof exoXML.numeroDocumento)
+        console.log('  - nombreLey:', exoXML.nombreLey, typeof exoXML.nombreLey)
+        console.log('  - articulo:', exoXML.articulo, typeof exoXML.articulo)
+        console.log('  - inciso:', exoXML.inciso, typeof exoXML.inciso)
+        console.log('  - porcentajeCompra:', exoXML.porcentajeCompra, typeof exoXML.porcentajeCompra)
+        console.log('  - nombreInstitucion:', exoXML.nombreInstitucion, typeof exoXML.nombreInstitucion)
+        console.log('  - nombreInstitucionOtros:', exoXML.nombreInstitucionOtros, typeof exoXML.nombreInstitucionOtros)
+        console.log('  - fechaEmision:', exoXML.fechaEmision, typeof exoXML.fechaEmision)
+        console.log('  - tarifaExonerada:', exoXML.tarifaExonerada, typeof exoXML.tarifaExonerada)
+        console.log('  - montoExoneracion:', exoXML.montoExoneracion, typeof exoXML.montoExoneracion)
+        
+        // Solo crear campos que realmente existen y no son undefined
         clientExoneracion = {
-          tipoDocumento: clientData.exoneracion.tipoDocumento || '',
-          tipoDocumentoOtro: clientData.exoneracion.tipoDocumentoOtro || undefined,
-          numeroDocumento: clientData.exoneracion.numeroDocumento || '',
-          nombreLey: clientData.exoneracion.nombreLey || undefined,
-          articulo: clientData.exoneracion.articulo ? parseInt(clientData.exoneracion.articulo) : undefined,
-          inciso: clientData.exoneracion.inciso ? parseInt(clientData.exoneracion.inciso) : undefined,
-          porcentajeCompra: clientData.exoneracion.porcentajeCompra ? parseFloat(clientData.exoneracion.porcentajeCompra) : undefined,
-          nombreInstitucion: clientData.exoneracion.nombreInstitucion || '',
-          nombreInstitucionOtros: clientData.exoneracion.nombreInstitucionOtros || undefined,
-          fechaEmision: formatDateWithTimezone(clientData.exoneracion.fechaEmision || new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')),
-          tarifaExonerada: parseFloat(clientData.exoneracion.tarifaExonerada) || 0,
+          tipoDocumento: exoXML.tipoDocumento || '',
+          numeroDocumento: exoXML.numeroDocumento || '',
+          nombreInstitucion: exoXML.nombreInstitucion || '',
+          fechaEmision: formatDateWithTimezone(exoXML.fechaEmision || new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')),
+          tarifaExonerada: parseFloat(exoXML.tarifaExonerada) || 0,
           montoExoneracion: 0 // Se calculará dinámicamente por línea
         }
-      } else if (clientData.hasExemption && clientData.exemption) {
-        // Formato legacy
-        clientExoneracion = {
-          tipoDocumento: clientData.exemption.exemptionType || '',
-          tipoDocumentoOtro: clientData.exemption.exemptionTypeOthers || undefined,
-          numeroDocumento: clientData.exemption.documentNumber || '',
-          nombreLey: clientData.exemption.lawName || undefined,
-          articulo: clientData.exemption.article ? parseInt(clientData.exemption.article) : undefined,
-          inciso: clientData.exemption.subsection ? parseInt(clientData.exemption.subsection) : undefined,
-          porcentajeCompra: clientData.exemption.purchasePercentage ? parseFloat(clientData.exemption.purchasePercentage) : undefined,
-          nombreInstitucion: clientData.exemption.institutionName || '',
-          nombreInstitucionOtros: clientData.exemption.institutionNameOthers || undefined,
-          fechaEmision: formatDateWithTimezone(clientData.exemption.documentDate || new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' }).replace(' ', 'T')),
-          tarifaExonerada: parseFloat(clientData.exemption.tariffExempted) || 0,
-          montoExoneracion: 0 // Se calculará dinámicamente por línea
+        
+        // Solo agregar campos opcionales si existen y no son undefined
+        if (exoXML.tipoDocumentoOtro !== undefined && exoXML.tipoDocumentoOtro !== '') {
+          clientExoneracion.tipoDocumentoOtro = exoXML.tipoDocumentoOtro
         }
+        
+        if (exoXML.nombreLey !== undefined && exoXML.nombreLey !== '') {
+          clientExoneracion.nombreLey = exoXML.nombreLey
+        }
+        
+        if (exoXML.articulo !== undefined && exoXML.articulo !== '') {
+          clientExoneracion.articulo = parseInt(exoXML.articulo)
+        }
+        
+        if (exoXML.inciso !== undefined && exoXML.inciso !== '') {
+          clientExoneracion.inciso = parseInt(exoXML.inciso)
+        }
+        
+        if (exoXML.porcentajeCompra !== undefined && exoXML.porcentajeCompra !== '') {
+          clientExoneracion.porcentajeCompra = parseFloat(exoXML.porcentajeCompra)
+        }
+        
+        if (exoXML.nombreInstitucionOtros !== undefined && exoXML.nombreInstitucionOtros !== '') {
+          clientExoneracion.nombreInstitucionOtros = exoXML.nombreInstitucionOtros
+        }
+        
+        console.log('📋 Exoneración final construida:', JSON.stringify(clientExoneracion, null, 2))
       }
+    } else {
+      console.log('ℹ️ La factura original NO tiene exoneración - NC sin exoneración')
     }
 
     // 3. Generar consecutivo para la NC usando consecutiveNT de la empresa
@@ -272,13 +288,30 @@ export async function POST(request: NextRequest) {
       // Items: ya vienen parseados del XML con la estructura correcta, agregar valores por defecto
       items: itemsNC.map((item: any, index: number) => {
         // Calcular montos base
-        const montoImpuesto = item.impuesto?.monto || 0
         const baseImponible = item.baseImponible || item.subtotal || item.montoTotal || 0
-        const montoTotalOriginal = item.montoTotalLinea || (baseImponible + montoImpuesto)
-
-        // Detectar si hay exoneración en el XML original o del cliente
+        const tarifaImpuesto = item.impuesto?.tarifa || 13
+        
+        // Detectar si hay exoneración en el item del XML original
         const exoneracionDelXML = item.impuesto?.exoneracion
         const tieneExoneracion = exoneracionDelXML || clientExoneracion
+        
+        // IMPORTANTE: Calcular el monto del impuesto
+        // Si el XML trae monto > 0, usar ese valor
+        // Si el XML trae monto = 0 pero hay exoneración, calcular el monto teórico (baseImponible * tarifa / 100)
+        // Si no hay exoneración y monto = 0, mantener en 0
+        let montoImpuesto = item.impuesto?.monto || 0
+        
+        if (tieneExoneracion && montoImpuesto === 0) {
+          // Cuando hay exoneración y el monto es 0, calcular el monto teórico del impuesto
+          montoImpuesto = baseImponible * (tarifaImpuesto / 100)
+          console.log(`💡 Calculando monto teórico para línea ${index + 1}:`, {
+            baseImponible,
+            tarifa: tarifaImpuesto,
+            montoCalculado: montoImpuesto
+          })
+        }
+        
+        const montoTotalOriginal = item.montoTotalLinea || (baseImponible + montoImpuesto)
         
         // Variables para ajustar montos cuando hay exoneración
         // IMPORTANTE: Respetar el ImpuestoNeto original del XML
@@ -289,19 +322,50 @@ export async function POST(request: NextRequest) {
         let impuestoData = undefined
         if (item.impuesto) {
           if (tieneExoneracion) {
-            // Usar exoneración del XML original si está disponible, sino del cliente
+            // SIEMPRE usar exoneración del XML original de la factura
+            // clientExoneracion solo se define si la factura original tenía exoneración
             const exoneracionFuente = exoneracionDelXML || clientExoneracion
             
-            const exoneracionLinea = {
-              ...exoneracionFuente,
+            // Construir exoneracionLinea solo con campos que existen y no son undefined
+            const exoneracionLinea: any = {
+              tipoDocumento: exoneracionFuente.tipoDocumento || '',
+              numeroDocumento: exoneracionFuente.numeroDocumento || '',
+              nombreInstitucion: exoneracionFuente.nombreInstitucion || '',
+              fechaEmision: exoneracionFuente.fechaEmision || '',
+              tarifaExonerada: exoneracionFuente.tarifaExonerada || 0,
               montoExoneracion: exoneracionDelXML?.montoExoneracion || montoImpuesto
+            }
+            
+            // Solo agregar campos opcionales si existen y no son undefined
+            if (exoneracionFuente.tipoDocumentoOtro !== undefined && exoneracionFuente.tipoDocumentoOtro !== '') {
+              exoneracionLinea.tipoDocumentoOtro = exoneracionFuente.tipoDocumentoOtro
+            }
+            
+            if (exoneracionFuente.nombreLey !== undefined && exoneracionFuente.nombreLey !== '') {
+              exoneracionLinea.nombreLey = exoneracionFuente.nombreLey
+            }
+            
+            if (exoneracionFuente.articulo !== undefined && exoneracionFuente.articulo !== '') {
+              exoneracionLinea.articulo = exoneracionFuente.articulo
+            }
+            
+            if (exoneracionFuente.inciso !== undefined && exoneracionFuente.inciso !== '') {
+              exoneracionLinea.inciso = exoneracionFuente.inciso
+            }
+            
+            if (exoneracionFuente.porcentajeCompra !== undefined && exoneracionFuente.porcentajeCompra !== '') {
+              exoneracionLinea.porcentajeCompra = exoneracionFuente.porcentajeCompra
+            }
+            
+            if (exoneracionFuente.nombreInstitucionOtros !== undefined && exoneracionFuente.nombreInstitucionOtros !== '') {
+              exoneracionLinea.nombreInstitucionOtros = exoneracionFuente.nombreInstitucionOtros
             }
             
             impuestoData = {
               codigo: item.impuesto.codigo || '01',
               codigoTarifa: item.impuesto.codigoTarifa || item.impuesto.codigoTarifaIVA || '08',
               tarifa: item.impuesto.tarifa || 13,
-              // NO incluir 'monto' cuando hay exoneración
+              monto: montoImpuesto, // SIEMPRE incluir monto, aunque haya exoneración
               exoneracion: exoneracionLinea
             }
             
@@ -311,7 +375,16 @@ export async function POST(request: NextRequest) {
               montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
             }
             
-            console.log(`🛡️ Usando exoneración del ${exoneracionDelXML ? 'XML original' : 'cliente'} en línea ${index + 1}:`, exoneracionLinea)
+            console.log(`🛡️ Item con exoneración en línea ${index + 1}:`, {
+              baseImponible,
+              montoImpuestoDelXML: montoImpuesto,
+              montoImpuestoOriginal: item.impuesto?.monto,
+              tipoDocumento: exoneracionLinea.tipoDocumento,
+              numeroDocumento: exoneracionLinea.numeroDocumento,
+              montoExoneracion: exoneracionLinea.montoExoneracion
+            })
+            
+            console.log(`🔍 Exoneración completa para línea ${index + 1}:`, JSON.stringify(exoneracionLinea, null, 2))
           } else {
             // Sin exoneración, incluir el monto normal
             impuestoData = {
@@ -321,6 +394,12 @@ export async function POST(request: NextRequest) {
               monto: montoImpuesto
             }
           }
+        }
+
+        // 🔍 DEBUG: Verificar impuestoData antes de asignarlo
+        if (impuestoData && impuestoData.exoneracion) {
+          console.log(`🔍 impuestoData para línea ${index + 1}:`, JSON.stringify(impuestoData, null, 2))
+          console.log(`🔍 exoneracion en impuestoData:`, JSON.stringify(impuestoData.exoneracion, null, 2))
         }
 
         return {
@@ -340,18 +419,18 @@ export async function POST(request: NextRequest) {
       }),
       // Resumen: usar datos parseados del XML de la factura original con valores por defecto
       resumen: (() => {
-        // Calcular totales basados en si hay exoneraciones (del cliente o del XML original)
+        // Calcular totales basados en si hay exoneraciones en la factura original
         const tieneExoneracionesDelXML = itemsNC.some((item: any) => item.impuesto?.exoneracion)
         const tieneExoneraciones = !!clientExoneracion || tieneExoneracionesDelXML
         
         // Calcular totales de servicios exonerados si hay exoneraciones
         let totalServExonerado = 0
         if (tieneExoneraciones) {
-          // Si hay exoneraciones del XML, usar los datos del resumen original
-          if (tieneExoneracionesDelXML) {
-            totalServExonerado = facturaData.resumen.totalServExonerado || 0
-          } else {
-            // Si solo hay exoneraciones del cliente, calcular sumando las bases imponibles
+          // Usar los datos del resumen original de la factura
+          totalServExonerado = facturaData.resumen.totalServExonerado || 0
+          
+          // Si no está en el resumen, calcular sumando las bases imponibles
+          if (totalServExonerado === 0 && tieneExoneracionesDelXML) {
             totalServExonerado = itemsNC.reduce((sum: number, item: any) => {
               const baseImponible = item.baseImponible || item.subtotal || item.montoTotal || 0
               return sum + baseImponible
@@ -497,7 +576,7 @@ export async function POST(request: NextRequest) {
       xml,
       xmlSigned: signedXml,
       xmlFacturaOriginal, // Guardar el XML original de la factura
-      items: itemsNC,
+      items: creditNoteData.items,
       total: creditNoteData.resumen.totalComprobante,
       subtotal: creditNoteData.resumen.totalVenta,
       totalImpuesto: creditNoteData.resumen.totalImpuesto,
@@ -507,6 +586,85 @@ export async function POST(request: NextRequest) {
       createdAt: serverTimestamp(),
       createdBy: tenantId
     }
+
+    // 🔍 DEBUG: Verificar campos undefined antes de guardar en Firestore
+    console.log('🔍 Verificando campos undefined antes de guardar en Firestore...')
+    
+    const checkForUndefined = (obj: any, path: string = '') => {
+      for (const key in obj) {
+        const currentPath = path ? `${path}.${key}` : key
+        const value = obj[key]
+        
+        if (value === undefined) {
+          console.error(`❌ Campo undefined encontrado: ${currentPath}`)
+        } else if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+          // Recursivamente verificar objetos anidados (pero no arrays ni fechas)
+          checkForUndefined(value, currentPath)
+        }
+      }
+    }
+    
+    // Verificar campos principales
+    console.log('📋 Verificando campos principales:')
+    console.log('  - consecutivo:', typeof creditNoteRecord.consecutivo, creditNoteRecord.consecutivo)
+    console.log('  - consecutivo20Digitos:', typeof creditNoteRecord.consecutivo20Digitos, creditNoteRecord.consecutivo20Digitos)
+    console.log('  - clave:', typeof creditNoteRecord.clave, creditNoteRecord.clave)
+    console.log('  - tipoNotaCredito:', typeof creditNoteRecord.tipoNotaCredito, creditNoteRecord.tipoNotaCredito)
+    console.log('  - razon:', typeof creditNoteRecord.razon, creditNoteRecord.razon)
+    console.log('  - esAnulacionTotal:', typeof creditNoteRecord.esAnulacionTotal, creditNoteRecord.esAnulacionTotal)
+    console.log('  - companyId:', typeof creditNoteRecord.companyId, creditNoteRecord.companyId)
+    console.log('  - tenantId:', typeof creditNoteRecord.tenantId, creditNoteRecord.tenantId)
+    console.log('  - formaPago:', typeof creditNoteRecord.formaPago, creditNoteRecord.formaPago)
+    console.log('  - condicionVenta:', typeof creditNoteRecord.condicionVenta, creditNoteRecord.condicionVenta)
+    console.log('  - xml:', typeof creditNoteRecord.xml, creditNoteRecord.xml ? 'presente' : 'ausente')
+    console.log('  - xmlSigned:', typeof creditNoteRecord.xmlSigned, creditNoteRecord.xmlSigned ? 'presente' : 'ausente')
+    console.log('  - xmlFacturaOriginal:', typeof creditNoteRecord.xmlFacturaOriginal, creditNoteRecord.xmlFacturaOriginal ? 'presente' : 'ausente')
+    console.log('  - total:', typeof creditNoteRecord.total, creditNoteRecord.total)
+    console.log('  - subtotal:', typeof creditNoteRecord.subtotal, creditNoteRecord.subtotal)
+    console.log('  - totalImpuesto:', typeof creditNoteRecord.totalImpuesto, creditNoteRecord.totalImpuesto)
+    console.log('  - currency:', typeof creditNoteRecord.currency, creditNoteRecord.currency)
+    console.log('  - status:', typeof creditNoteRecord.status, creditNoteRecord.status)
+    console.log('  - createdBy:', typeof creditNoteRecord.createdBy, creditNoteRecord.createdBy)
+    
+    // Verificar cliente
+    console.log('👤 Verificando cliente:')
+    if (creditNoteRecord.cliente) {
+      console.log('  - cliente presente:', typeof creditNoteRecord.cliente)
+      checkForUndefined(creditNoteRecord.cliente, 'cliente')
+    } else {
+      console.log('  - cliente: undefined o null')
+    }
+    
+    // Verificar referenciaFactura
+    console.log('📄 Verificando referenciaFactura:')
+    checkForUndefined(creditNoteRecord.referenciaFactura, 'referenciaFactura')
+    
+    // Verificar items
+    console.log('📦 Verificando items:')
+    if (Array.isArray(creditNoteRecord.items)) {
+      console.log('  - items count:', creditNoteRecord.items.length)
+      creditNoteRecord.items.forEach((item, index) => {
+        console.log(`  - item ${index}:`, typeof item)
+        checkForUndefined(item, `items[${index}]`)
+      })
+    } else {
+      console.log('  - items: no es array o undefined')
+    }
+    
+    // Verificar haciendaSubmission
+    console.log('🏛️ Verificando haciendaSubmission:')
+    if (creditNoteRecord.haciendaSubmission) {
+      console.log('  - haciendaSubmission presente:', typeof creditNoteRecord.haciendaSubmission)
+      checkForUndefined(creditNoteRecord.haciendaSubmission, 'haciendaSubmission')
+    } else {
+      console.log('  - haciendaSubmission: undefined o null')
+    }
+    
+    // Verificar todo el objeto recursivamente
+    console.log('🔍 Verificación recursiva completa:')
+    checkForUndefined(creditNoteRecord)
+    
+    console.log('✅ Verificación de campos undefined completada')
 
     const docRef = await addDoc(collection(db, 'creditNotes'), creditNoteRecord)
     console.log('✅ Nota de Crédito guardada:', docRef.id)

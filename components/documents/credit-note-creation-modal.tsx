@@ -67,6 +67,21 @@ interface ParsedFacturaData {
       codigoTarifa: string
       tarifa: number
       monto: number
+      exoneracion?: {
+        tipoDocumento: string
+        numeroDocumento: string
+        nombreInstitucion: string
+        fechaEmision: string
+        tarifaExonerada: number
+        montoExoneracion: number
+        // Campos opcionales - solo se incluyen si existen en el XML
+        tipoDocumentoOtro?: string
+        nombreLey?: string
+        articulo?: number
+        inciso?: number
+        porcentajeCompra?: number
+        nombreInstitucionOtros?: string
+      }
     }
     impuestoNeto: number
     montoTotalLinea: number
@@ -240,11 +255,75 @@ export default function CreditNoteCreationModal({
         
         if (impuestoMatch) {
           const impuestoXML = impuestoMatch[1]
+          
+          // IMPORTANTE: Extraer el <Monto> ANTES de procesar la exoneración
+          // para evitar confusión con <MontoExoneracion>
+          // Crear una copia del XML sin el bloque de Exoneracion para extraer el Monto correctamente
+          const impuestoSinExoneracion = impuestoXML.replace(/<Exoneracion>[\s\S]*?<\/Exoneracion>/i, '')
+          const montoImpuesto = getTagNumber(impuestoSinExoneracion, 'Monto', 0)
+          
+          // Extraer exoneración si existe
+          const exoneracionMatch = impuestoXML.match(/<Exoneracion>([\s\S]*?)<\/Exoneracion>/i)
+          let exoneracion = undefined
+          
+          if (exoneracionMatch) {
+            const exoneracionXML = exoneracionMatch[1]
+            
+            // Solo crear campos que realmente existen en el XML
+            exoneracion = {
+              tipoDocumento: getTagValue(exoneracionXML, 'TipoDocumentoEX1', ''),
+              numeroDocumento: getTagValue(exoneracionXML, 'NumeroDocumento', ''),
+              nombreInstitucion: getTagValue(exoneracionXML, 'NombreInstitucion', ''),
+              fechaEmision: getTagValue(exoneracionXML, 'FechaEmisionEX', ''),
+              tarifaExonerada: getTagNumber(exoneracionXML, 'TarifaExonerada', 0),
+              montoExoneracion: getTagNumber(exoneracionXML, 'MontoExoneracion', 0)
+            } as any
+            
+            // Solo agregar campos opcionales si existen en el XML
+            const articulo = getTagNumber(exoneracionXML, 'Articulo', 0)
+            if (articulo > 0) {
+              exoneracion.articulo = articulo
+            }
+            
+            const inciso = getTagNumber(exoneracionXML, 'Inciso', 0)
+            if (inciso > 0) {
+              exoneracion.inciso = inciso
+            }
+            
+            const nombreLey = getTagValue(exoneracionXML, 'NombreLey', '')
+            if (nombreLey) {
+              exoneracion.nombreLey = nombreLey
+            }
+            
+            const porcentajeCompra = getTagNumber(exoneracionXML, 'PorcentajeCompra', 0)
+            if (porcentajeCompra > 0) {
+              exoneracion.porcentajeCompra = porcentajeCompra
+            }
+            
+            const tipoDocumentoOtro = getTagValue(exoneracionXML, 'TipoDocumentoOTRO', '')
+            if (tipoDocumentoOtro) {
+              exoneracion.tipoDocumentoOtro = tipoDocumentoOtro
+            }
+            
+            const nombreInstitucionOtros = getTagValue(exoneracionXML, 'NombreInstitucionOtros', '')
+            if (nombreInstitucionOtros) {
+              exoneracion.nombreInstitucionOtros = nombreInstitucionOtros
+            }
+            
+            // Log para debug del monto
+            console.log('📋 Parseando impuesto con exoneración:', {
+              montoExtraido: montoImpuesto,
+              montoExoneracion: exoneracion.montoExoneracion,
+              tieneExoneracion: true
+            })
+          }
+          
           impuesto = {
             codigo: getTagValue(impuestoXML, 'Codigo', '02'),
             codigoTarifa: getTagValue(impuestoXML, 'CodigoTarifaIVA', '08'),
             tarifa: getTagNumber(impuestoXML, 'Tarifa', 13),
-            monto: getTagNumber(impuestoXML, 'Monto', 0)
+            monto: montoImpuesto,
+            exoneracion: exoneracion
           }
         }
 
@@ -739,40 +818,48 @@ export default function CreditNoteCreationModal({
               </CardContent>
             </Card>
 
-            {/* Indicativo de exoneración */}
-            {selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
+            {/* Indicativo de exoneración - SOLO si la factura original tenía exoneración */}
+            {formData.facturaData?.items?.some(item => item.impuesto?.exoneracion) && (
               <Card className="bg-purple-50 border-purple-200">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-1 mb-2">
                     <Shield className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm font-semibold text-purple-800">🛡️ Cliente con Exoneración</span>
+                    <span className="text-sm font-semibold text-purple-800">🛡️ Factura con Exoneración</span>
                   </div>
                   <div className="space-y-1 text-xs">
-                    {(selectedClient.exoneracion || selectedClient.exemption) && (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-purple-700 font-medium">Tipo:</span>
-                          <span className="text-purple-800">
-                            {(selectedClient.exoneracion?.tipoDocumento || selectedClient.exemption?.exemptionType) && 
-                              (selectedClient.exoneracion?.tipoDocumento === '03' ? 'Ley Especial' :
-                               selectedClient.exoneracion?.tipoDocumento === '08' ? 'Zona Franca' :
-                               selectedClient.exoneracion?.tipoDocumento || selectedClient.exemption?.exemptionType || 'N/A')}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-purple-700 font-medium">Documento:</span>
-                          <span className="text-purple-800 truncate">
-                            {selectedClient.exoneracion?.numeroDocumento || selectedClient.exemption?.documentNumber || 'N/A'}
-                          </span>
-                        </div>
-                        {selectedClient.exoneracion?.nombreLey && (
-                          <div className="flex justify-between">
-                            <span className="text-purple-700 font-medium">Ley:</span>
-                            <span className="text-purple-800 truncate">{selectedClient.exoneracion.nombreLey}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    {(() => {
+                      // Buscar el primer item con exoneración para mostrar los datos
+                      const itemConExoneracion = formData.facturaData?.items?.find(item => item.impuesto?.exoneracion)
+                      const exoneracion = itemConExoneracion?.impuesto?.exoneracion
+                      
+                      if (exoneracion) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-purple-700 font-medium">Tipo:</span>
+                              <span className="text-purple-800">
+                                {exoneracion.tipoDocumento === '03' ? 'Ley Especial' :
+                                 exoneracion.tipoDocumento === '08' ? 'Zona Franca' :
+                                 exoneracion.tipoDocumento || 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-purple-700 font-medium">Documento:</span>
+                              <span className="text-purple-800 truncate">
+                                {exoneracion.numeroDocumento || 'N/A'}
+                              </span>
+                            </div>
+                            {exoneracion.nombreLey && (
+                              <div className="flex justify-between">
+                                <span className="text-purple-700 font-medium">Ley:</span>
+                                <span className="text-purple-800 truncate">{exoneracion.nombreLey}</span>
+                              </div>
+                            )}
+                          </>
+                        )
+                      }
+                      return null
+                    })()}
                   </div>
                 </CardContent>
               </Card>

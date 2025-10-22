@@ -247,7 +247,7 @@ ${data.items.map(item => this.generateLineaDetalleXML(item)).join('\n')}
         <Codigo>${item.impuesto.codigo}</Codigo>
         <CodigoTarifaIVA>${item.impuesto.codigoTarifa}</CodigoTarifaIVA>
         <Tarifa>${item.impuesto.tarifa}</Tarifa>
-        ${item.impuesto.monto !== undefined ? `<Monto>${item.impuesto.monto}</Monto>` : ''}${item.impuesto.exoneracion ? this.generateExoneracionXML(item.impuesto.exoneracion) : ''}
+        <Monto>${item.impuesto.monto !== undefined ? item.impuesto.monto : 0}</Monto>${item.impuesto.exoneracion ? this.generateExoneracionXML(item.impuesto.exoneracion) : ''}
       </Impuesto>` : ''}
       <ImpuestoAsumidoEmisorFabrica>0</ImpuestoAsumidoEmisorFabrica>
       <ImpuestoNeto>${item.impuestoNeto}</ImpuestoNeto>
