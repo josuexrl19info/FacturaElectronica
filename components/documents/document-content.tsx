@@ -151,28 +151,12 @@ export function DocumentContent({
       .reduce((sum, document) => {
         // Si tiene exoneración, usar subtotal; si no, usar total
         const amount = document.tieneExoneracion === true ? (document.subtotal || 0) : (document.total || 0)
-        
-        // Debug logging para USD
-        console.log('🔍 [DEBUG USD] Documento:', {
-          consecutivo: document.consecutivo,
-          currency: document.currency,
-          tieneExoneracion: document.tieneExoneracion,
-          total: document.total,
-          subtotal: document.subtotal,
-          amountUsed: amount,
-          status: document.status,
-          haciendaStatus: document.haciendaSubmission?.['ind-estado']
-        })
-        
         return sum + amount
       }, 0),
     acceptedDocuments: acceptedDocuments.length,
     pendingDocuments: filteredDocuments.filter(document => document.status === 'pending').length
   }
 
-  // Debug logging para el total USD
-  console.log('💰 [DEBUG USD] Total calculado:', stats.totalAmountUSD)
-  console.log('📊 [DEBUG USD] Documentos aceptados USD:', acceptedDocuments.filter(d => d.currency === 'USD').length)
 
   const formatCurrency = (amount: number, currency: string = 'CRC') => {
     return new Intl.NumberFormat('es-CR', {
@@ -408,15 +392,6 @@ export function DocumentContent({
           ? localStorage.getItem('selectedCompanyId')!
           : ''
         const tenantId = user.tenantId || ''
-        
-        // Debug logging
-        console.log('🔍 [Document Content] Credit Note Modal props:', {
-          companyId,
-          tenantId,
-          hasCompanyId: !!companyId,
-          hasTenantId: !!tenantId,
-          user: !!user
-        })
         
         // Solo renderizar si tenemos ambos valores
         if (!companyId || !tenantId) {

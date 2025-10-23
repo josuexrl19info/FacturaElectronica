@@ -401,15 +401,6 @@ export default function CreditNoteCreationModal({
 
   // Buscar facturas aceptadas en la BD
   const handleSearchInvoices = async () => {
-    // Debug: Verificar los valores recibidos
-    console.log('🔍 [Credit Note Modal] Debug config values:', {
-      tenantId: tenantId,
-      companyId: companyId,
-      hasTenantId: !!tenantId,
-      hasCompanyId: !!companyId,
-      tenantIdLength: tenantId?.length || 0,
-      companyIdLength: companyId?.length || 0
-    })
     
     // Validar que tenemos los datos necesarios
     if (!tenantId || !companyId) {

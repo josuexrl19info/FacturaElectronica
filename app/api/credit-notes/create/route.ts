@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
         // Calcular montos base
         const baseImponible = item.baseImponible || item.subtotal || item.montoTotal || 0
         const tarifaImpuesto = item.impuesto?.tarifa || 13
-        
+
         // Detectar si hay exoneración en el item del XML original
         const exoneracionDelXML = item.impuesto?.exoneracion
         const tieneExoneracion = exoneracionDelXML || clientExoneracion
@@ -427,7 +427,7 @@ export async function POST(request: NextRequest) {
         let totalServExonerado = 0
         if (tieneExoneraciones) {
           // Usar los datos del resumen original de la factura
-          totalServExonerado = facturaData.resumen.totalServExonerado || 0
+            totalServExonerado = facturaData.resumen.totalServExonerado || 0
           
           // Si no está en el resumen, calcular sumando las bases imponibles
           if (totalServExonerado === 0 && tieneExoneracionesDelXML) {
@@ -700,22 +700,17 @@ export async function POST(request: NextRequest) {
         console.log('📍 URL de consulta:', locationUrl)
         console.log('🔑 Token de Hacienda disponible:', !!haciendaToken)
         
-        // Usar el endpoint de status de notas de crédito que incluye lógica de anulación
-        console.log('🚀 Iniciando consulta al endpoint de status...')
+        // Usar la función directa de status de notas de crédito que incluye lógica de anulación
+        console.log('🚀 Iniciando consulta directa al status...')
         try {
-          const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/credit-notes/status`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              creditNoteId: docRef.id,
-              locationUrl: locationUrl,
-              accessToken: haciendaToken
-            })
-          })
+          // Importar la función de status desde el servicio
+          const { checkCreditNoteStatus } = await import('@/lib/services/credit-note-status')
           
-          const statusResult = await statusResponse.json()
+          const statusResult = await checkCreditNoteStatus(
+            docRef.id,
+            locationUrl,
+            haciendaToken || ''
+          )
           
           if (statusResult.success) {
             console.log('✅ Estado real obtenido de Hacienda:', statusResult.status)
@@ -742,19 +737,19 @@ export async function POST(request: NextRequest) {
                     total: creditNoteData.total,
                     tipo: 'nota-credito'
                   } as any)
-                  
-                  if (emailResult.success) {
+              
+              if (emailResult.success) {
                     console.log('✅ Email de nota de crédito enviado exitosamente')
-                    console.log('📧 Message ID:', emailResult.messageId)
-                    
+                console.log('📧 Message ID:', emailResult.messageId)
+                
                     // Actualizar nota de crédito con información del email enviado
-                    await updateDoc(docRef, {
-                      emailSent: true,
-                      emailSentAt: serverTimestamp(),
-                      emailMessageId: emailResult.messageId,
-                      emailDeliveredTo: emailResult.deliveredTo
-                    })
-                  } else {
+                await updateDoc(docRef, {
+                  emailSent: true,
+                  emailSentAt: serverTimestamp(),
+                  emailMessageId: emailResult.messageId,
+                  emailDeliveredTo: emailResult.deliveredTo
+                })
+              } else {
                     console.error('❌ Error enviando email:', emailResult.error)
                   }
                 }

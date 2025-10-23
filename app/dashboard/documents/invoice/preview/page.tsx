@@ -103,9 +103,6 @@ export default function InvoicePreviewPage() {
         throw new Error(data.error || 'Error al cargar datos')
       }
 
-      // Debug: Ver qué datos están llegando
-      console.log('🔍 DEBUG - Company data loaded:', !!data.company)
-      console.log('🔍 DEBUG - Logo available:', !!data.company?.logo?.fileData)
 
       // Convertir datos de Firestore a formato PDF
       const pdfData = PDFGeneratorService.convertInvoiceToPDFData(
@@ -114,7 +111,6 @@ export default function InvoicePreviewPage() {
         data.client
       )
 
-      console.log('🔍 DEBUG - PDF Data logo processed:', !!pdfData.company.logo)
 
       setInvoiceData(pdfData)
       setLoading(false)
