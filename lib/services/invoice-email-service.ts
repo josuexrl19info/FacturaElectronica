@@ -423,14 +423,20 @@ export class InvoiceEmailService {
     })
     
     // Detectar si el cliente está exento para ajustar el total mostrado
-    // Priorizar los campos directos de la factura según la estructura de Firebase
-    const isClientExempt = invoice.tieneExoneracion === true ||
-                          (invoice.exoneracion !== null && invoice.exoneracion !== undefined) ||
-                          (invoice.cliente && (invoice.cliente.tieneExoneracion || invoice.cliente.hasExemption)) ||
-                          (invoice.cliente && invoice.cliente.exoneracion && typeof invoice.cliente.exoneracion === 'object') ||
-                          (invoice as any).clientData && ((invoice as any).clientData.tieneExoneracion || (invoice as any).clientData.hasExemption)
+    // Lógica más estricta para evitar falsos positivos
+    const isClientExempt = Boolean(
+      invoice.tieneExoneracion === true ||
+      (invoice.cliente && invoice.cliente.tieneExoneracion === true) ||
+      (invoice as any).clientData && (invoice as any).clientData.tieneExoneracion === true
+    )
     
     console.log('🔍 [EMAIL] Cliente exento detectado:', isClientExempt)
+    console.log('🔍 [EMAIL] Debug Exoneración Detallado:', {
+      'invoice.tieneExoneracion': invoice.tieneExoneracion,
+      'invoice.cliente?.tieneExoneracion': invoice.cliente?.tieneExoneracion,
+      'invoice.clientData?.tieneExoneracion': (invoice as any).clientData?.tieneExoneracion,
+      'isClientExempt': isClientExempt
+    })
     
     // Si el cliente está exento, mostrar solo el subtotal (sin impuestos)
     const totalAmount = isClientExempt ? (invoice.subtotal || 0) : (invoice.total || 0)

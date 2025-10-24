@@ -863,17 +863,24 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
     'invoiceData.invoice?.clientData?.hasExemption': (invoiceData.invoice as any)?.clientData?.hasExemption
   })
 
-  // Detectar si el cliente está exento - priorizar campos directos de la factura según Firebase
-  const isClientExempt = invoiceData.tieneExoneracion === true ||
-                        invoiceData.exoneracion !== null && invoiceData.exoneracion !== undefined ||
-                        invoiceData.invoice?.tieneExoneracion === true ||
-                        invoiceData.invoice?.exoneracion !== null && invoiceData.invoice?.exoneracion !== undefined ||
-                        (invoiceData.client && (invoiceData.client.tieneExoneracion || invoiceData.client.hasExemption)) ||
-                        (invoiceData.invoice?.cliente && (invoiceData.invoice.cliente.tieneExoneracion || invoiceData.invoice.cliente.hasExemption)) ||
-                        (invoiceData.invoice?.cliente && invoiceData.invoice.cliente.exoneracion && typeof invoiceData.invoice.cliente.exoneracion === 'object') ||
-                        (invoiceData.invoice as any)?.clientData && ((invoiceData.invoice as any).clientData.tieneExoneracion || (invoiceData.invoice as any).clientData.hasExemption)
+  // Detectar si el cliente está exento - lógica más estricta para evitar falsos positivos
+  const isClientExempt = Boolean(
+    invoiceData.tieneExoneracion === true ||
+    invoiceData.invoice?.tieneExoneracion === true ||
+    (invoiceData.client && invoiceData.client.tieneExoneracion === true) ||
+    (invoiceData.invoice?.cliente && invoiceData.invoice.cliente.tieneExoneracion === true) ||
+    (invoiceData.invoice as any)?.clientData && (invoiceData.invoice as any).clientData.tieneExoneracion === true
+  )
   
   console.log('🔍 [PDF] Cliente exento detectado:', isClientExempt)
+  console.log('🔍 [PDF] Debug Exoneración Detallado:', {
+    'invoiceData.tieneExoneracion': invoiceData.tieneExoneracion,
+    'invoiceData.invoice?.tieneExoneracion': invoiceData.invoice?.tieneExoneracion,
+    'invoiceData.client?.tieneExoneracion': invoiceData.client?.tieneExoneracion,
+    'invoiceData.invoice?.cliente?.tieneExoneracion': invoiceData.invoice?.cliente?.tieneExoneracion,
+    'invoiceData.invoice?.clientData?.tieneExoneracion': (invoiceData.invoice as any)?.clientData?.tieneExoneracion,
+    'isClientExempt': isClientExempt
+  })
   
   // Obtener valores base
   const invoiceSubtotal = invoiceData.subtotal || invoiceData.invoice?.subtotal || 0
