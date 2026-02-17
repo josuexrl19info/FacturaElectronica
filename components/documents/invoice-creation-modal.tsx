@@ -27,7 +27,8 @@ import {
   Settings,
   Shield,
   AlertCircle,
-  CreditCard
+  CreditCard,
+  Mail
 } from "lucide-react"
 import { InvoiceFormData, InvoiceItemFormData, CONDICIONES_VENTA, METODOS_PAGO, TIPOS_IMPUESTO, TARIFAS_IMPUESTO, calculateInvoiceTotals } from '@/lib/invoice-types'
 import { useClients } from '@/hooks/use-clients'
@@ -261,10 +262,10 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(95vh-200px)]">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
             
             {/* Columna Izquierda: Cliente, Configuración, Productos y Líneas */}
-            <div className="lg:col-span-4 space-y-3">
+            <div className="lg:col-span-4 space-y-3 flex flex-col">
               {/* Cliente y Configuración en una sola fila */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {/* Cliente - Con más información */}
@@ -570,355 +571,404 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
               </div>
 
 
-              {/* Botones de Acción para Productos - Más compacto */}
-              <Card className="p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShoppingCart className="w-3 h-3 text-orange-600" />
-                  <h3 className="font-medium text-sm">Productos y Servicios</h3>
-                  <Badge variant="secondary" className="text-xs">{formData.items.length} items</Badge>
+              {/* Productos y Líneas de Detalle */}
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4 text-orange-600" />
+                    <h3 className="font-medium">Productos y Servicios</h3>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowProductSelector(!showProductSelector)}
+                      className="text-xs"
+                    >
+                      <Package className="w-3 h-3 mr-1" />
+                      Agregar Producto
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddManualItem}
+                      className="text-xs"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Agregar Manual
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button onClick={handleAddManualItem} variant="outline" size="sm" className="gap-1 flex-1 h-7 text-xs">
-                    <Plus className="w-3 h-3" />
-                    Línea Manual
-                  </Button>
-                  <Button onClick={() => setShowProductSelector(!showProductSelector)} size="sm" className="gap-1 flex-1 h-7 text-xs">
-                    <Package className="w-3 h-3" />
-                    {showProductSelector ? 'Ocultar' : 'Ver'} Productos
-                  </Button>
-                </div>
-              </Card>
-
-              {/* Selector de Productos - Más compacto */}
-              <AnimatePresence>
+                {/* Selector de productos */}
                 {showProductSelector && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
+                    className="mb-3 p-3 bg-muted rounded-lg"
                   >
-                    <Card className="p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Package className="w-3 h-3 text-green-600" />
-                        <h3 className="font-medium text-sm">Productos Disponibles</h3>
-                      </div>
-
+                    <div className="max-h-40 overflow-y-auto space-y-1">
                       {productsLoading ? (
-                        <div className="flex items-center justify-center py-3">
-                          <div className="flex items-center gap-2">
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            >
-                              <Package className="w-3 h-3" />
-                            </motion.div>
-                            <span className="text-xs">Cargando productos...</span>
-                          </div>
-                        </div>
+                        <div className="text-center py-2 text-xs text-muted-foreground">Cargando productos...</div>
+                      ) : products.length === 0 ? (
+                        <div className="text-center py-2 text-xs text-muted-foreground">No hay productos disponibles</div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
-                          {products.map((product) => (
-                            <motion.div
-                              key={product.id}
-                              whileHover={{ scale: 1.01 }}
-                              whileTap={{ scale: 0.99 }}
-                            >
-                              <Card className="p-2 hover:shadow-sm transition-all">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <h4 className="font-medium text-xs mb-1">{product.detalle}</h4>
-                                    <Badge variant="outline" className="text-xs">
-                                      {product.codigoCABYS}
-                                    </Badge>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleAddProduct(product)}
-                                    className="h-5 w-5 p-0"
-                                  >
-                                    <Plus className="w-2.5 h-2.5" />
-                                  </Button>
-                                </div>
-                                <div className="flex items-center justify-between text-xs mt-1">
-                                  <span className="text-muted-foreground">{product.unidadMedida}</span>
-                                  <span className="font-semibold text-green-600">
-                                    {formatCurrency(product.precioUnitario)}
-                                  </span>
-                                </div>
-                              </Card>
-                            </motion.div>
-                          ))}
-                        </div>
+                        products.map((product) => (
+                          <Button
+                            key={product.id}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAddProduct(product)}
+                            className="w-full justify-start text-xs h-auto py-2"
+                          >
+                            <Package className="w-3 h-3 mr-2" />
+                            <div className="text-left flex-1">
+                              <p className="font-medium">{product.detalle}</p>
+                              <p className="text-muted-foreground">
+                                {formatCurrency(product.precioUnitario)} • {product.codigoCABYS}
+                              </p>
+                            </div>
+                          </Button>
+                        ))
                       )}
-                    </Card>
+                    </div>
                   </motion.div>
                 )}
-              </AnimatePresence>
 
-              {/* Items de la Factura - Más compacto */}
-              {formData.items.length > 0 && (
-                <Card className="p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShoppingCart className="w-3 h-3 text-purple-600" />
-                    <h3 className="font-medium text-sm">Items de la Factura</h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    {formData.items.map((item, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="border rounded-lg p-3"
-                      >
-                        <div className="space-y-2">
-                          {/* Fila principal */}
-                          <div className="grid grid-cols-12 gap-2 items-end">
-                            {/* Descripción */}
-                            <div className="col-span-6">
-                              <Label className="text-xs">Descripción</Label>
-                              <Input
-                                placeholder="Descripción del producto/servicio"
-                                value={item.detalle}
-                                onChange={(e) => handleUpdateItem(index, 'detalle', e.target.value)}
-                                className="h-8 text-xs"
-                              />
-                            </div>
-
-                            {/* Cantidad */}
-                            <div className="col-span-1">
-                              <Label className="text-xs">Cant.</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={item.cantidad}
-                                onChange={(e) => handleUpdateItem(index, 'cantidad', Number(e.target.value))}
-                                className="h-8 text-xs"
-                              />
-                            </div>
-
-                            {/* Precio Unitario */}
-                            <div className="col-span-2">
-                              <Label className="text-xs">Precio Unit.</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.precioUnitario}
-                                onChange={(e) => handleUpdateItem(index, 'precioUnitario', Number(e.target.value))}
-                                className="h-8 text-xs"
-                              />
-                            </div>
-
-                            {/* Total */}
-                            <div className="col-span-2">
-                              <Label className="text-xs">Total</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.cantidad * item.precioUnitario}
-                                readOnly
-                                className="h-8 text-xs font-semibold text-green-600"
-                              />
-                            </div>
-
-                            {/* Botón Eliminar */}
-                            <div className="col-span-1 flex justify-end">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveItem(index)}
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Segunda fila: Código CABYS, % Impuesto, Tarifa */}
-                          <div className="grid grid-cols-12 gap-2">
-                            {/* Código CABYS */}
-                            <div className="col-span-6">
-                              <Label className="text-xs">Código CABYS</Label>
-                              <Input
-                                placeholder="8399000000000"
-                                value={item.codigoCABYS}
-                                onChange={(e) => handleUpdateItem(index, 'codigoCABYS', e.target.value)}
-                                className="h-8 text-xs"
-                              />
-                            </div>
-
-                            {/* % Impuesto */}
-                            <div className="col-span-3">
-                              <Label className="text-xs">% Impuesto</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.01"
-                                placeholder="13"
-                                value={item.tarifa || 13}
-                                onChange={(e) => handleUpdateItem(index, 'tarifa', Number(e.target.value))}
-                                className="h-8 text-xs"
-                              />
-                            </div>
-
-                            {/* Tarifa */}
-                            <div className="col-span-3">
-                              <Label className="text-xs">Tarifa IVA</Label>
-                              <Select value={item.codigoTarifa || '08'} onValueChange={(value) => {
-                                const tarifa = TARIFAS_IMPUESTO.find(t => t.codigo === value)
-                                if (tarifa) {
-                                  handleUpdateItem(index, 'codigoTarifa', value)
-                                  handleUpdateItem(index, 'tarifa', tarifa.porcentaje)
-                                }
-                              }}>
-                                <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue>
-                                    {item.codigoTarifa 
-                                      ? TARIFAS_IMPUESTO.find(t => t.codigo === item.codigoTarifa)?.descripcion || 'Seleccionar...'
-                                      : 'Seleccionar...'}
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {TARIFAS_IMPUESTO.map((tarifa) => (
-                                    <SelectItem key={tarifa.codigo} value={tarifa.codigo}>
-                                      {tarifa.descripcion}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                {/* Lista de items */}
+                <div className="space-y-2">
+                  {formData.items.map((item, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="p-3 border rounded-lg bg-muted/30"
+                    >
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-12 md:col-span-4">
+                          <Label className="text-xs">Descripción</Label>
+                          <Input
+                            value={item.detalle}
+                            onChange={(e) => handleUpdateItem(index, 'detalle', e.target.value)}
+                            placeholder="Descripción del producto/servicio"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="col-span-6 md:col-span-2">
+                          <Label className="text-xs">Cantidad</Label>
+                          <Input
+                            type="number"
+                            value={item.cantidad}
+                            onChange={(e) => handleUpdateItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
+                            className="h-8 text-xs"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div className="col-span-6 md:col-span-2">
+                          <Label className="text-xs">Precio Unit.</Label>
+                          <Input
+                            type="text"
+                            value={item.precioUnitario === 0 ? '' : item.precioUnitario.toString()}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              // Permitir vacío o solo números con decimales
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                const numValue = value === '' ? 0 : parseFloat(value)
+                                handleUpdateItem(index, 'precioUnitario', isNaN(numValue) ? 0 : numValue)
+                              }
+                            }}
+                            onBlur={(e) => {
+                              // Si está vacío al perder el foco, mantenerlo como 0 internamente pero mostrar vacío
+                              if (e.target.value === '') {
+                                handleUpdateItem(index, 'precioUnitario', 0)
+                              }
+                            }}
+                            placeholder="0.00"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="col-span-6 md:col-span-2">
+                          <Label className="text-xs">Tarifa IVA</Label>
+                          <Select
+                            value={item.codigoTarifa}
+                            onValueChange={(value) => {
+                              const tarifa = TARIFAS_IMPUESTO.find(t => t.codigo === value)
+                              handleUpdateItem(index, 'codigoTarifa', value)
+                              handleUpdateItem(index, 'tarifa', tarifa?.porcentaje || 13)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue>
+                                {item.codigoTarifa 
+                                  ? TARIFAS_IMPUESTO.find(t => t.codigo === item.codigoTarifa)?.descripcion || 'Seleccionar...'
+                                  : 'Seleccionar...'}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TARIFAS_IMPUESTO.map((tar) => (
+                                <SelectItem key={tar.codigo} value={tar.codigo}>
+                                  {tar.descripcion}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-6 md:col-span-1">
+                          <Label className="text-xs">Total</Label>
+                          <div className="h-8 flex items-center text-xs font-medium">
+                            {item.precioUnitario > 0 
+                              ? formatCurrency((item.cantidad * item.precioUnitario) + ((item.cantidad * item.precioUnitario) * item.tarifa / 100))
+                              : formatCurrency(0)
+                            }
                           </div>
                         </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </Card>
-              )}
+                        <div className="col-span-12 md:col-span-1 flex justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveItem(index)}
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="w-3 h-3 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <Label className="text-xs">Código CABYS</Label>
+                        <Input
+                          value={item.codigoCABYS}
+                          onChange={(e) => handleUpdateItem(index, 'codigoCABYS', e.target.value)}
+                          placeholder="8399000000000"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Notas */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="w-3 h-3 text-gray-600" />
+                  <h3 className="font-medium text-sm">Notas (Opcional)</h3>
+                </div>
+                <Textarea
+                  placeholder="Observaciones adicionales..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  className="text-xs resize-none"
+                />
+              </Card>
             </div>
 
-            {/* Columna Derecha: Solo Totales - Más angosta */}
-            <div className="lg:col-span-1 space-y-4">
-              {/* Resumen de Totales */}
-              <Card className="p-3 sticky top-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Calculator className="w-4 h-4 text-green-600" />
-                  <h3 className="font-semibold text-sm">Totales</h3>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs">Subtotal:</span>
-                    <span className="font-semibold text-xs">{formatCurrency(totals.subtotal)}</span>
+            {/* Columna Derecha: Resumen */}
+            <div className="lg:col-span-1 flex">
+              <Card className="p-4 w-full flex flex-col">
+                <div className="flex-1 overflow-y-auto">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calculator className="w-4 h-4 text-purple-600" />
+                    <h3 className="font-bold text-sm">Resumen de la Factura</h3>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs">Impuestos:</span>
-                    <div className="flex items-center gap-1">
-                      <span className="font-semibold text-xs">
-                        {formatCurrency(totals.totalImpuesto)}
-                      </span>
-                      {selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
-                        <Badge variant="outline" className="text-xs px-1 py-0">
-                          <Shield className="w-2 h-2 mr-1" />
-                          Exento
-                        </Badge>
-                      )}
+
+                  <Separator className="mb-4" />
+
+                  {/* Información del Cliente */}
+                  {selectedClient ? (
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-3.5 h-3.5 text-blue-600" />
+                        <h4 className="font-semibold text-xs">Cliente</h4>
+                      </div>
+                      <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="font-medium text-xs text-blue-900 truncate">{selectedClient.name}</p>
+                        <p className="text-xs text-blue-700 mt-1">Cédula: {selectedClient.identification}</p>
+                        {selectedClient.email && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Mail className="w-2.5 h-2.5 text-blue-600" />
+                            <p className="text-xs text-blue-700 truncate">{selectedClient.email}</p>
+                          </div>
+                        )}
+                        {selectedClient.economicActivity && selectedClient.economicActivity.codigo && (
+                          <div className="mt-1">
+                            <Badge variant="outline" className="text-xs px-1.5 py-0.5 border-blue-200 text-blue-700">
+                              Act. Econ: {selectedClient.economicActivity.codigo}
+                            </Badge>
+                          </div>
+                        )}
+                        {(selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 mt-1 border-purple-200 text-purple-700">
+                            <Shield className="w-2.5 h-2.5 mr-1" />
+                            Exonerado
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-sm">Total:</span>
-                    <span className="font-bold text-green-600 text-sm break-all">{formatCurrency(totals.total)}</span>
-                  </div>
-                </div>
-
-                {/* Datos de la Empresa */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded text-xs"
-                >
-                  <div className="flex items-center gap-1 mb-1">
-                    <Building className="w-3 h-3 text-gray-600" />
-                    <span className="font-medium text-gray-800">Empresa</span>
-                  </div>
-                  <p className="text-gray-800">{(() => {
-                    try {
-                      const companyData = JSON.parse(localStorage.getItem('selectedCompanyData') || '{}');
-                      return companyData.nombreComercial || companyData.name || 'Empresa';
-                    } catch {
-                      return 'Empresa';
-                    }
-                  })()}</p>
-                </motion.div>
-
-                {selectedClient && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs"
-                  >
-                    <div className="flex items-center gap-1 mb-1">
-                      <User className="w-3 h-3 text-blue-600" />
-                      <span className="font-medium text-blue-800">Cliente</span>
-                    </div>
-                    <p className="text-blue-700">{selectedClient.name}</p>
-                  </motion.div>
-                )}
-
-                {/* Notas */}
-                <div className="mt-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="w-3 h-3 text-gray-600" />
-                    <h3 className="font-medium text-xs">Notas (Opcional)</h3>
-                  </div>
-                  <Textarea
-                    placeholder="Observaciones adicionales..."
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    rows={3}
-                    className="text-xs h-16 resize-none"
-                  />
-                </div>
-
-                <Button 
-                  onClick={handleSubmit}
-                  disabled={!canSubmit || isSubmitting}
-                  className="w-full mt-4 gap-2 h-8 text-xs"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      >
-                        <FileText className="w-3 h-3" />
-                      </motion.div>
-                      Creando...
-                    </>
                   ) : (
-                    <>
-                      <FileText className="w-3 h-3" />
-                      Crear Factura
-                    </>
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-3.5 h-3.5 text-muted-foreground" />
+                        <h4 className="font-semibold text-xs text-muted-foreground">Cliente</h4>
+                      </div>
+                      <div className="p-2 bg-muted/50 rounded-lg border border-dashed">
+                        <p className="text-xs text-muted-foreground text-center">Selecciona un cliente</p>
+                      </div>
+                    </div>
                   )}
-                </Button>
 
-                {!canSubmit && formData.items.length > 0 && formData.clientId && !clienteTieneActividadEconomica && (
-                  <p className="text-xs text-red-600 mt-2 text-center">
-                    El cliente debe tener actividad económica configurada para generar facturas electrónicas
-                  </p>
-                )}
+                  <Separator className="my-4" />
 
-                {!canSubmit && formData.items.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Agrega al menos un producto
-                  </p>
-                )}
+                  {/* Configuración */}
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Settings className="w-3.5 h-3.5 text-purple-600" />
+                      <h4 className="font-semibold text-xs">Configuración</h4>
+                    </div>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Moneda:</span>
+                        <span className="font-medium">
+                          {CURRENCIES.find(c => c.code === formData.currency)?.symbol} {formData.currency}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Condición:</span>
+                        <span className="font-medium">
+                          {CONDICIONES_VENTA.find(c => c.codigo === formData.condicionVenta)?.descripcion || formData.condicionVenta}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pago:</span>
+                        <span className="font-medium">
+                          {METODOS_PAGO.find(m => m.codigo === formData.paymentMethod)?.descripcion || formData.paymentMethod}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Líneas de la Venta */}
+                  {formData.items.length > 0 ? (
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShoppingCart className="w-3.5 h-3.5 text-orange-600" />
+                        <h4 className="font-semibold text-xs">Líneas ({formData.items.length})</h4>
+                      </div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {formData.items.map((item, index) => {
+                          const itemSubtotal = item.cantidad * item.precioUnitario
+                          const itemTax = (itemSubtotal * (item.tarifa || 0)) / 100
+                          const itemTotal = itemSubtotal + itemTax
+                          return (
+                            <div key={index} className="p-2 bg-muted/30 rounded-lg border border-border/50">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <p className="font-medium text-xs flex-1 truncate">{item.detalle || `Línea ${index + 1}`}</p>
+                                <span className="font-semibold text-xs">{formatCurrency(itemTotal)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{item.cantidad}x</span>
+                                <span>{formatCurrency(item.precioUnitario)}</span>
+                                {item.tarifa && item.tarifa > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{item.tarifa}% IVA</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShoppingCart className="w-3.5 h-3.5 text-muted-foreground" />
+                        <h4 className="font-semibold text-xs text-muted-foreground">Líneas</h4>
+                      </div>
+                      <div className="p-2 bg-muted/50 rounded-lg border border-dashed">
+                        <p className="text-xs text-muted-foreground text-center">No hay productos agregados</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator className="my-4" />
+
+                  {/* Totales */}
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-3.5 h-3.5 text-green-600" />
+                      <h4 className="font-semibold text-xs">Totales</h4>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal:</span>
+                        <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">IVA:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{formatCurrency(totals.totalImpuesto)}</span>
+                          {selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
+                            <Badge variant="outline" className="text-xs px-1 py-0">
+                              <Shield className="w-2 h-2 mr-0.5" />
+                              Exento
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-sm">Total:</span>
+                        <span className="font-bold text-lg text-green-600">{formatCurrency(totals.total)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-shrink-0 mt-4">
+                  <Button 
+                    onClick={handleSubmit}
+                    disabled={!canSubmit || isSubmitting}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="mr-2"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </motion.div>
+                        Creando Factura...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Crear Factura
+                      </>
+                    )}
+                  </Button>
+                  {!canSubmit && formData.items.length > 0 && formData.clientId && !clienteTieneActividadEconomica && (
+                    <p className="text-xs text-red-600 mt-2 text-center">
+                      El cliente debe tener actividad económica configurada para generar facturas electrónicas
+                    </p>
+                  )}
+                  {!canSubmit && formData.items.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Agrega al menos un producto
+                    </p>
+                  )}
+                </div>
               </Card>
             </div>
           </div>

@@ -234,23 +234,45 @@ export function HaciendaStatusModal({ isOpen, onClose, haciendaSubmission, conse
                       <User className="w-4 h-4 text-blue-600" />
                       <h3 className="font-semibold text-sm">Cliente</h3>
                     </div>
-                    {document.cliente ? (
+                    {document.cliente || (document as any).clientData || document.clientId ? (
                       <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-2">
                         <div className="flex justify-between">
                           <span className="text-xs text-muted-foreground">Nombre:</span>
-                          <span className="text-sm font-medium">{document.cliente.nombre || document.cliente.commercialName || 'N/A'}</span>
+                          <span className="text-sm font-medium">
+                            {document.cliente?.nombre || 
+                             document.cliente?.commercialName || 
+                             (document as any).clientData?.name ||
+                             (document as any).receptor?.nombre ||
+                             'N/A'}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-xs text-muted-foreground">Identificación:</span>
-                          <span className="text-sm font-medium">{document.cliente.identificacion || 'N/A'}</span>
+                          <span className="text-sm font-medium">
+                            {document.cliente?.identificacion || 
+                             document.cliente?.identification ||
+                             (document as any).clientData?.identification ||
+                             (document as any).receptor?.identificacion ||
+                             (document as any).receptor?.numeroIdentificacion ||
+                             'N/A'}
+                          </span>
                         </div>
-                        {document.cliente.email && (
+                        {(document.cliente?.email || 
+                          (document as any).clientData?.email ||
+                          (document as any).receptor?.correoElectronico) && (
                           <div className="flex justify-between">
                             <span className="text-xs text-muted-foreground">Email:</span>
-                            <span className="text-sm font-medium truncate">{document.cliente.email}</span>
+                            <span className="text-sm font-medium truncate">
+                              {document.cliente?.email || 
+                               (document as any).clientData?.email ||
+                               (document as any).receptor?.correoElectronico}
+                            </span>
                           </div>
                         )}
-                        {(document.cliente.tieneExoneracion || document.cliente.hasExemption) && (
+                        {(document.cliente?.tieneExoneracion || 
+                          document.cliente?.hasExemption ||
+                          (document as any).clientData?.tieneExoneracion ||
+                          (document as any).clientData?.hasExemption) && (
                           <Badge variant="outline" className="w-full justify-center mt-2">
                             <Shield className="w-3 h-3 mr-1" />
                             Cliente Exonerado
