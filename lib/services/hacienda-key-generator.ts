@@ -195,16 +195,37 @@ export class HaciendaKeyGenerator {
     console.log('   - Tipo:', typeof consecutivo)
     console.log('   - Longitud:', consecutivo.length)
     
-    // Extraer solo los números del consecutivo (ignorar prefijo FE-)
+    // Extraer solo los números del consecutivo (ignorar prefijos como FE-, TIQ-, etc.)
     let numeroConsecutivo = consecutivo
     
-    // Si tiene formato FE-XXXXXXXXXX, extraer solo los números
-    const match = consecutivo.match(/FE-(\d+)/)
-    if (match) {
-      numeroConsecutivo = match[1]
-      console.log('   - Match encontrado (FE-):', match[1])
+    // Si tiene formato FE-XXXXXXXXXX (Factura), extraer solo los números
+    const matchFE = consecutivo.match(/FE-(\d+)/)
+    if (matchFE) {
+      numeroConsecutivo = matchFE[1]
+      console.log('   - Match encontrado (FE-):', matchFE[1])
     } else {
-      console.log('   - No se encontró formato FE-XXXXXXXXXX')
+      // Si tiene formato TIQ-XXXXXXXXXX (Tiquete), extraer solo los números
+      const matchTIQ = consecutivo.match(/TIQ-(\d+)/)
+      if (matchTIQ) {
+        numeroConsecutivo = matchTIQ[1]
+        console.log('   - Match encontrado (TIQ-):', matchTIQ[1])
+      } else {
+        // Si tiene formato FAC-XXXXXXXXXX (Factura alternativo), extraer solo los números
+        const matchFAC = consecutivo.match(/FAC-(\d+)/)
+        if (matchFAC) {
+          numeroConsecutivo = matchFAC[1]
+          console.log('   - Match encontrado (FAC-):', matchFAC[1])
+        } else {
+          // Si no tiene prefijo, extraer solo los dígitos
+          const soloDigitos = consecutivo.replace(/\D/g, '')
+          if (soloDigitos) {
+            numeroConsecutivo = soloDigitos
+            console.log('   - Extraídos solo dígitos:', numeroConsecutivo)
+          } else {
+            console.log('   - No se encontró formato conocido, usando consecutivo tal cual')
+          }
+        }
+      }
     }
     
     // Formato: 0010000101XXXXXXXXXX (20 dígitos)

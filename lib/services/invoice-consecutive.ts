@@ -19,11 +19,13 @@ export interface ConsecutiveResult {
 
 export class InvoiceConsecutiveService {
   /**
-   * Obtiene el siguiente consecutivo para una empresa
+   * Obtiene el siguiente consecutivo para una empresa según el tipo de documento
+   * @param companyId ID de la empresa
+   * @param documentType Tipo de documento: 'facturas' (consecutive), 'tiquetes' (consecutiveTK), 'notas-credito' (consecutiveNT)
    */
-  static async getNextConsecutive(companyId: string): Promise<ConsecutiveResult> {
+  static async getNextConsecutive(companyId: string, documentType?: 'facturas' | 'tiquetes' | 'notas-credito'): Promise<ConsecutiveResult> {
     try {
-      console.log('🔢 Obteniendo siguiente consecutivo para empresa:', companyId)
+      console.log('🔢 Obteniendo siguiente consecutivo para empresa:', companyId, 'tipo:', documentType || 'facturas')
 
       // Obtener datos de la empresa
       const companyRef = doc(db, 'companies', companyId)
@@ -37,12 +39,31 @@ export class InvoiceConsecutiveService {
       }
 
       const companyData = companySnap.data()
-      const currentConsecutive = companyData.consecutive || 0
+      
+      // Determinar qué campo usar según el tipo de documento
+      let fieldName: string
+      let prefix: string
+      
+      if (documentType === 'tiquetes') {
+        fieldName = 'consecutiveTK'
+        prefix = 'TE'
+      } else if (documentType === 'notas-credito') {
+        fieldName = 'consecutiveNT'
+        prefix = 'NC'
+      } else {
+        // Por defecto: facturas
+        fieldName = 'consecutive'
+        prefix = 'FE'
+      }
+      
+      // Obtener el consecutivo actual (si no existe, usar 0)
+      const currentConsecutive = companyData[fieldName] ?? 0
 
       // Generar el siguiente consecutivo
       const nextConsecutive = currentConsecutive + 1
-      const consecutiveFormatted = `FE-${nextConsecutive.toString().padStart(10, '0')}`
+      const consecutiveFormatted = `${prefix}-${nextConsecutive.toString().padStart(10, '0')}`
 
+      console.log('📊 Campo usado:', fieldName)
       console.log('📊 Consecutivo actual:', currentConsecutive)
       console.log('📊 Siguiente consecutivo:', nextConsecutive)
       console.log('📊 Formato:', consecutiveFormatted)
@@ -62,11 +83,13 @@ export class InvoiceConsecutiveService {
   }
 
   /**
-   * Actualiza el consecutivo de una empresa después de crear una factura
+   * Actualiza el consecutivo de una empresa después de crear un documento
+   * @param companyId ID de la empresa
+   * @param documentType Tipo de documento: 'facturas' (consecutive), 'tiquetes' (consecutiveTK), 'notas-credito' (consecutiveNT)
    */
-  static async updateCompanyConsecutive(companyId: string): Promise<ConsecutiveResult> {
+  static async updateCompanyConsecutive(companyId: string, documentType?: 'facturas' | 'tiquetes' | 'notas-credito'): Promise<ConsecutiveResult> {
     try {
-      console.log('🔄 Actualizando consecutivo de empresa:', companyId)
+      console.log('🔄 Actualizando consecutivo de empresa:', companyId, 'tipo:', documentType || 'facturas')
 
       // Obtener datos actuales de la empresa
       const companyRef = doc(db, 'companies', companyId)
@@ -80,18 +103,39 @@ export class InvoiceConsecutiveService {
       }
 
       const companyData = companySnap.data()
-      const currentConsecutive = companyData.consecutive || 0
+      
+      // Determinar qué campo usar según el tipo de documento
+      let fieldName: string
+      let prefix: string
+      
+      if (documentType === 'tiquetes') {
+        fieldName = 'consecutiveTK'
+        prefix = 'TE'
+      } else if (documentType === 'notas-credito') {
+        fieldName = 'consecutiveNT'
+        prefix = 'NC'
+      } else {
+        // Por defecto: facturas
+        fieldName = 'consecutive'
+        prefix = 'FE'
+      }
+      
+      // Obtener el consecutivo actual (si no existe, usar 0)
+      const currentConsecutive = companyData[fieldName] ?? 0
       const newConsecutive = currentConsecutive + 1
 
       // Actualizar el consecutivo en la empresa
-      await updateDoc(companyRef, {
-        consecutive: newConsecutive,
+      const updateData: any = {
+        [fieldName]: newConsecutive,
         updatedAt: serverTimestamp()
-      })
+      }
+      
+      await updateDoc(companyRef, updateData)
 
-      const consecutiveFormatted = `FE-${newConsecutive.toString().padStart(10, '0')}`
+      const consecutiveFormatted = `${prefix}-${newConsecutive.toString().padStart(10, '0')}`
 
       console.log('✅ Consecutivo actualizado:', {
+        campo: fieldName,
         anterior: currentConsecutive,
         nuevo: newConsecutive,
         formato: consecutiveFormatted
@@ -113,19 +157,21 @@ export class InvoiceConsecutiveService {
 
   /**
    * Proceso completo: obtener consecutivo y actualizar empresa
+   * @param companyId ID de la empresa
+   * @param documentType Tipo de documento: 'facturas' (consecutive), 'tiquetes' (consecutiveTK), 'notas-credito' (consecutiveNT)
    */
-  static async getAndUpdateConsecutive(companyId: string): Promise<ConsecutiveResult> {
+  static async getAndUpdateConsecutive(companyId: string, documentType?: 'facturas' | 'tiquetes' | 'notas-credito'): Promise<ConsecutiveResult> {
     try {
-      console.log('🚀 Proceso completo de consecutivo para empresa:', companyId)
+      console.log('🚀 Proceso completo de consecutivo para empresa:', companyId, 'tipo:', documentType || 'facturas')
 
       // 1. Obtener el siguiente consecutivo
-      const getResult = await this.getNextConsecutive(companyId)
+      const getResult = await this.getNextConsecutive(companyId, documentType)
       if (!getResult.success) {
         return getResult
       }
 
       // 2. Actualizar el consecutivo en la empresa
-      const updateResult = await this.updateCompanyConsecutive(companyId)
+      const updateResult = await this.updateCompanyConsecutive(companyId, documentType)
       if (!updateResult.success) {
         return updateResult
       }

@@ -26,8 +26,8 @@ export interface ReceptorData {
   distrito: string
   otrasSenas: string
   codigoPais: string
-  numeroTelefono: string
-  correoElectronico: string
+  numeroTelefono?: string | null
+  correoElectronico?: string | null
 }
 
 export interface ExoneracionXML {
@@ -124,16 +124,36 @@ export class XMLGenerator {
     cantonRelativo: string
     distritoRelativo: string
   } {
-    // Provincia se mantiene igual
-    const provinciaRelativa = provincia
+    // Provincia se mantiene igual (validar que sea un número válido)
+    const provinciaNum = parseInt(provincia) || 1
+    const provinciaRelativa = provinciaNum.toString()
 
+    // Validar y convertir cantón
+    // Si el cantón viene como número negativo o inválido, usar valor por defecto
+    let cantonNum = parseInt(canton)
+    if (isNaN(cantonNum) || cantonNum < 0) {
+      console.warn(`⚠️ Cantón inválido: ${canton}, usando valor por defecto basado en provincia`)
+      cantonNum = provinciaNum * 100 + 1 // Cantón 01 de la provincia
+    }
+    
     // Cantón: restar prefijo de provincia (multiplicar por 100)
-    const provinciaPrefix = parseInt(provincia) * 100
-    const cantonRelativo = (parseInt(canton) - provinciaPrefix).toString().padStart(2, '0')
+    const provinciaPrefix = provinciaNum * 100
+    const cantonRelativoNum = cantonNum - provinciaPrefix
+    // Asegurar que el cantón relativo sea positivo y válido
+    const cantonRelativo = Math.max(1, cantonRelativoNum).toString().padStart(2, '0')
 
+    // Validar y convertir distrito
+    let distritoNum = parseInt(distrito)
+    if (isNaN(distritoNum) || distritoNum < 0) {
+      console.warn(`⚠️ Distrito inválido: ${distrito}, usando valor por defecto basado en cantón`)
+      distritoNum = cantonNum * 100 + 1 // Distrito 01 del cantón
+    }
+    
     // Distrito: restar prefijo de cantón (multiplicar por 100)
-    const cantonPrefix = parseInt(canton) * 100
-    const distritoRelativo = (parseInt(distrito) - cantonPrefix).toString().padStart(2, '0')
+    const cantonPrefix = cantonNum * 100
+    const distritoRelativoNum = distritoNum - cantonPrefix
+    // Asegurar que el distrito relativo sea positivo y válido
+    const distritoRelativo = Math.max(1, distritoRelativoNum).toString().padStart(2, '0')
 
     return {
       provinciaRelativa,
@@ -178,19 +198,24 @@ export class XMLGenerator {
   /**
    * Genera el XML de un Tiquete Electrónico
    */
-  static generateTiqueteXML(tiqueteData: FacturaData): string {
+  static generateTiqueteXML(tiqueteData: FacturaData & { receptor?: ReceptorData | null }): string {
+    // En tiquetes electrónicos, el receptor es opcional
+    // Si no hay cliente, no se incluye el bloque Receptor
+    const receptorXML = tiqueteData.receptor 
+      ? this.generateReceptorXML(tiqueteData.receptor)
+      : ''
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <TiqueteElectronico xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico.xsd">
   <Clave>${this.escapeXml(tiqueteData.clave)}</Clave>
   <ProveedorSistemas>${this.escapeXml(tiqueteData.proveedorSistemas)}</ProveedorSistemas>
   <CodigoActividadEmisor>${this.escapeXml(tiqueteData.codigoActividadEmisor)}</CodigoActividadEmisor>
-  <CodigoActividadReceptor>${this.escapeXml(tiqueteData.codigoActividadReceptor)}</CodigoActividadReceptor>
   <NumeroConsecutivo>${this.escapeXml(tiqueteData.numeroConsecutivo)}</NumeroConsecutivo>
   <FechaEmision>${this.escapeXml(tiqueteData.fechaEmision)}</FechaEmision>
   
   ${this.generateEmisorXML(tiqueteData.emisor)}
   
-  ${this.generateReceptorXML(tiqueteData.receptor)}
+${receptorXML ? `  ${receptorXML}` : ''}
   
   <CondicionVenta>${this.escapeXml(tiqueteData.condicionVenta)}</CondicionVenta>
   
@@ -198,7 +223,7 @@ export class XMLGenerator {
     ${tiqueteData.lineasDetalle.map(linea => this.generateLineaDetalleXML(linea)).join('\n    ')}
   </DetalleServicio>
   
-  ${this.generateResumenFacturaXML(tiqueteData)}
+  ${this.generateResumenTiqueteXML(tiqueteData)}
   
   <Otros>
     <OtroTexto>${this.escapeXml(tiqueteData.otros || '--- Sistema de Facturación Electrónica ---')}</OtroTexto>
@@ -219,6 +244,17 @@ export class XMLGenerator {
       emisor.distrito
     )
 
+    // Validar teléfono: NumTelefono debe ser un entero válido (mínimo 8 dígitos según schema)
+    // Si no hay teléfono válido, no incluir el bloque Telefono
+    const numeroTelefonoLimpio = emisor.numeroTelefono?.replace(/\D/g, '') || ''
+    const tieneTelefonoValido = numeroTelefonoLimpio.length >= 8 // Mínimo 8 dígitos según schema
+    const telefonoXML = tieneTelefonoValido 
+      ? `  <Telefono>
+    <CodigoPais>${this.escapeXml(emisor.codigoPais)}</CodigoPais>
+    <NumTelefono>${numeroTelefonoLimpio}</NumTelefono>
+  </Telefono>`
+      : ''
+
     return `<Emisor>
   <Nombre>${this.escapeXml(emisor.nombre)}</Nombre>
   <Identificacion>
@@ -232,10 +268,7 @@ export class XMLGenerator {
     <Distrito>${this.escapeXml(distritoRelativo)}</Distrito>
     <OtrasSenas>${this.escapeXml(emisor.otrasSenas)}</OtrasSenas>
   </Ubicacion>
-  <Telefono>
-    <CodigoPais>${this.escapeXml(emisor.codigoPais)}</CodigoPais>
-    <NumTelefono>${this.escapeXml(emisor.numeroTelefono)}</NumTelefono>
-  </Telefono>
+${telefonoXML}
   <CorreoElectronico>${this.escapeXml(emisor.correoElectronico)}</CorreoElectronico>
 </Emisor>`
   }
@@ -251,6 +284,27 @@ export class XMLGenerator {
       receptor.distrito
     )
 
+    // Validar teléfono: NumTelefono debe ser un entero válido (mínimo 8 dígitos según schema)
+    // Si no hay teléfono válido, no incluir el bloque Telefono
+    const numeroTelefonoLimpio = receptor.numeroTelefono?.replace(/\D/g, '') || ''
+    const tieneTelefonoValido = numeroTelefonoLimpio.length >= 8 // Mínimo 8 dígitos según schema
+    const telefonoXML = tieneTelefonoValido 
+      ? `  <Telefono>
+    <CodigoPais>${this.escapeXml(receptor.codigoPais)}</CodigoPais>
+    <NumTelefono>${numeroTelefonoLimpio}</NumTelefono>
+  </Telefono>`
+      : ''
+
+    // Validar correo electrónico: debe tener formato válido según schema Hacienda
+    // Patrón: \s*\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*\s*
+    const emailRegex = /^\s*\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*\s*$/
+    const tieneEmailValido = receptor.correoElectronico && 
+                              receptor.correoElectronico.trim() !== '' && 
+                              emailRegex.test(receptor.correoElectronico)
+    const correoXML = tieneEmailValido
+      ? `  <CorreoElectronico>${this.escapeXml(receptor.correoElectronico.trim())}</CorreoElectronico>`
+      : ''
+
     return `<Receptor>
   <Nombre>${this.escapeXml(receptor.nombre)}</Nombre>
   <Identificacion>
@@ -265,11 +319,8 @@ export class XMLGenerator {
     <OtrasSenas>${this.escapeXml(receptor.otrasSenas)}</OtrasSenas>
   </Ubicacion>
   <OtrasSenasExtranjero>${this.escapeXml(receptor.otrasSenas)}</OtrasSenasExtranjero>
-  <Telefono>
-    <CodigoPais>${this.escapeXml(receptor.codigoPais)}</CodigoPais>
-    <NumTelefono>${this.escapeXml(receptor.numeroTelefono)}</NumTelefono>
-  </Telefono>
-  <CorreoElectronico>${this.escapeXml(receptor.correoElectronico)}</CorreoElectronico>
+${telefonoXML}
+${correoXML}
 </Receptor>`
   }
 
@@ -358,8 +409,10 @@ export class XMLGenerator {
   /**
    * Escapa caracteres especiales XML
    */
-  private static escapeXml(text: string): string {
-    return text
+  private static escapeXml(text: string | number | undefined | null): string {
+    // Convertir a string si no lo es, o retornar string vacío si es null/undefined
+    const textStr = text === null || text === undefined ? '' : String(text)
+    return textStr
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -447,6 +500,61 @@ export class XMLGenerator {
       <TotalMedioPago>${this.formatAmount(facturaData.totalMedioPago)}</TotalMedioPago>
     </MedioPago>
     <TotalComprobante>${this.formatAmount(facturaData.totalComprobante)}</TotalComprobante>
+  </ResumenFactura>`
+    
+    return resumen
+  }
+
+  /**
+   * Genera el resumen para tiquetes electrónicos (sin TotalMedioPago)
+   */
+  private static generateResumenTiqueteXML(tiqueteData: FacturaData): string {
+    // Verificar si hay exoneraciones en las líneas
+    const tieneExoneraciones = tiqueteData.lineasDetalle.some(linea => linea.impuesto?.exoneracion)
+    
+    let resumen = `<ResumenFactura>
+    <CodigoTipoMoneda>
+      <CodigoMoneda>${this.escapeXml(tiqueteData.codigoMoneda)}</CodigoMoneda>
+      <TipoCambio>${this.formatAmount(tiqueteData.tipoCambio)}</TipoCambio>
+    </CodigoTipoMoneda>`
+    
+    if (tieneExoneraciones) {
+      const totalServExonerado = tiqueteData.lineasDetalle
+        .filter(linea => linea.impuesto?.exoneracion)
+        .reduce((sum, linea) => sum + linea.baseImponible, 0)
+      
+      const totalExonerado = totalServExonerado
+      
+      resumen += `\n    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
+    <TotalServExonerado>${this.formatAmount(totalServExonerado)}</TotalServExonerado>
+    <TotalGravado>${this.formatAmount(0)}</TotalGravado>
+    <TotalExonerado>${this.formatAmount(totalExonerado)}</TotalExonerado>
+    <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>
+    <TotalImpuesto>${this.formatAmount(0)}</TotalImpuesto>`
+    } else {
+      resumen += `\n    <TotalServGravados>${this.formatAmount(tiqueteData.totalServGravados || 0)}</TotalServGravados>
+    <TotalGravado>${this.formatAmount(tiqueteData.totalGravado || 0)}</TotalGravado>
+    <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>`
+      
+      if (tiqueteData.totalDesgloseImpuesto && tiqueteData.totalDesgloseImpuesto.totalMontoImpuesto > 0) {
+        resumen += `\n    <TotalDesgloseImpuesto>
+      <Codigo>${this.escapeXml(tiqueteData.totalDesgloseImpuesto.codigo)}</Codigo>
+      <CodigoTarifaIVA>${this.escapeXml(tiqueteData.totalDesgloseImpuesto.codigoTarifaIVA)}</CodigoTarifaIVA>
+      <TotalMontoImpuesto>${this.formatAmount(tiqueteData.totalDesgloseImpuesto.totalMontoImpuesto)}</TotalMontoImpuesto>
+    </TotalDesgloseImpuesto>`
+      }
+      
+      resumen += `\n    <TotalImpuesto>${this.formatAmount(tiqueteData.totalImpuesto || 0)}</TotalImpuesto>`
+    }
+    
+    // Para tiquetes, incluir TipoMedioPago y TotalMedioPago (igual que facturas)
+    resumen += `\n    <MedioPago>
+      <TipoMedioPago>${this.escapeXml(tiqueteData.tipoMedioPago)}</TipoMedioPago>
+      <TotalMedioPago>${this.formatAmount(tiqueteData.totalMedioPago)}</TotalMedioPago>
+    </MedioPago>
+    <TotalComprobante>${this.formatAmount(tiqueteData.totalComprobante)}</TotalComprobante>
   </ResumenFactura>`
     
     return resumen

@@ -6,7 +6,10 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Building2, CheckCircle, AlertCircle, Star } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Loader2, Building2, CheckCircle, AlertCircle, Star, X } from 'lucide-react'
 import { EconomicActivity, HaciendaCompanyInfo } from '@/lib/company-wizard-types'
 
 interface EconomicActivitySelectorProps {
@@ -28,6 +31,7 @@ export function EconomicActivitySelector({
   const [error, setError] = useState<string | null>(null)
   const [companyInfo, setCompanyInfo] = useState<HaciendaCompanyInfo | null>(null)
   const [activities, setActivities] = useState<EconomicActivity[]>([])
+  const [skipEconomicActivity, setSkipEconomicActivity] = useState(false)
 
   // Estabilizar la función onChange para evitar bucles infinitos
   const stableOnChange = useCallback(onChange, [onChange])
@@ -37,9 +41,17 @@ export function EconomicActivitySelector({
     if (taxId && taxId.length >= 9) {
       const cleanTaxId = taxId.replace(/[-\s]/g, '')
       if (/^\d{9,10}$/.test(cleanTaxId)) {
-        // Solo hacer consulta si no tenemos una actividad económica ya seleccionada
+        // Solo hacer consulta si no tenemos una actividad económica ya seleccionada y no está marcado como "omitir"
         if (!value || !value.codigo) {
-          searchCompanyInfo(cleanTaxId)
+          if (!skipEconomicActivity) {
+            searchCompanyInfo(cleanTaxId)
+          } else {
+            // Si está marcado como "omitir", limpiar datos y asegurar que onChange se llama con undefined
+            setCompanyInfo(null)
+            setActivities([])
+            setError(null)
+            stableOnChange(undefined)
+          }
         }
       }
     } else {
@@ -48,10 +60,18 @@ export function EconomicActivitySelector({
         setError(null) // Limpiar error también
         setCompanyInfo(null)
         setActivities([])
+        setSkipEconomicActivity(false)
         stableOnChange(undefined)
       }
     }
-  }, [taxId, stableOnChange, value])
+  }, [taxId, stableOnChange, value, skipEconomicActivity])
+  
+  // Resetear skipEconomicActivity cuando se selecciona una actividad
+  useEffect(() => {
+    if (value && value.codigo) {
+      setSkipEconomicActivity(false)
+    }
+  }, [value])
 
   const searchCompanyInfo = async (cleanTaxId?: string) => {
     const taxIdToUse = cleanTaxId || taxId.replace(/[-\s]/g, '')
@@ -221,15 +241,74 @@ export function EconomicActivitySelector({
               )}
 
               {activities.length === 0 && (
-                <Alert className="py-2">
-                  <AlertCircle className="h-3 w-3" />
-                  <AlertDescription className="text-xs">
-                    Esta empresa no tiene códigos de actividad económica registrados actualmente en Hacienda.
-                  </AlertDescription>
-                </Alert>
+                <div className="space-y-3">
+                  <Alert className="py-2">
+                    <AlertCircle className="h-3 w-3" />
+                    <AlertDescription className="text-xs">
+                      Esta empresa no tiene códigos de actividad económica registrados actualmente en Hacienda.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  {/* Opción para omitir actividad económica */}
+                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border border-dashed">
+                    <Checkbox
+                      id="skip-economic-activity"
+                      checked={skipEconomicActivity}
+                      onCheckedChange={(checked) => {
+                        const newSkipValue = checked === true
+                        setSkipEconomicActivity(newSkipValue)
+                        if (newSkipValue) {
+                          // Limpiar actividad económica cuando se marca como "omitir"
+                          stableOnChange(undefined)
+                        }
+                      }}
+                    />
+                    <Label 
+                      htmlFor="skip-economic-activity" 
+                      className="text-xs font-normal cursor-pointer flex-1"
+                    >
+                      <div className="space-y-1">
+                        <div className="font-medium">Omitir actividad económica</div>
+                        <div className="text-muted-foreground">
+                          Este cliente se podrá usar solo para generar tiquetes electrónicos (no facturas electrónicas)
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
+        )}
+        
+        {/* Mostrar opción para omitir también cuando no hay companyInfo pero hay taxId válido */}
+        {!companyInfo && !isLoading && !error && taxId && taxId.replace(/[-\s]/g, '').length >= 9 && !value && (
+          <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-dashed">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="skip-economic-activity-no-info"
+                checked={skipEconomicActivity}
+                onCheckedChange={(checked) => {
+                  const newSkipValue = checked === true
+                  setSkipEconomicActivity(newSkipValue)
+                  if (newSkipValue) {
+                    stableOnChange(undefined)
+                  }
+                }}
+              />
+              <Label 
+                htmlFor="skip-economic-activity-no-info" 
+                className="text-xs font-normal cursor-pointer flex-1"
+              >
+                <div className="space-y-1">
+                  <div className="font-medium">Omitir actividad económica</div>
+                  <div className="text-muted-foreground">
+                    Este cliente se podrá usar solo para generar tiquetes electrónicos (no facturas electrónicas)
+                  </div>
+                </div>
+              </Label>
+            </div>
+          </div>
         )}
 
         {value && (

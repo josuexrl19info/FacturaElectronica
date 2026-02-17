@@ -107,7 +107,7 @@ export function useDocuments(documentType: DocumentType) {
       const data = await response.json()
       
       // Para facturas, filtrar por documentType si existe
-      let filteredDocuments = data.documents || data.invoices || data.creditNotes || []
+      let filteredDocuments = data.documents || data.invoices || data.tickets || data.creditNotes || []
       
       if (documentType === 'facturas') {
         // Mostrar solo facturas (documentType === 'facturas' o undefined para compatibilidad)

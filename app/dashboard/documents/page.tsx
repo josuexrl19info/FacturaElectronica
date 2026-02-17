@@ -41,18 +41,14 @@ export default function DocumentsPage() {
       const totalDescuento = 0 // Por ahora sin descuentos
       const total = subtotal + totalImpuesto - totalDescuento
 
-      // Generar consecutivo según el tipo de documento
-      const consecutivoPrefix = {
-        'facturas': 'FAC',
-        'tiquetes': 'TIQ',
-        'notas-credito': 'NCR',
-        'notas-debito': 'NDB'
-      }
-
+      // NO generar consecutivo en el frontend - la API lo generará automáticamente
+      // La API generará el consecutivo usando el servicio de consecutivos (consecutive, consecutiveTK, consecutiveNT)
+      
       // Convertir los datos del formulario al formato correcto según estructura Firestore
       const documentPayload = {
         // Información básica del documento
-        consecutivo: `${consecutivoPrefix[activeType]}-${Date.now()}`, // Generar consecutivo único según tipo
+        // consecutivo: se generará automáticamente en la API usando el servicio de consecutivos
+        // No enviar consecutivo desde el frontend para que la API lo genere correctamente
         status: 'draft' as const, // Estado inicial como borrador
         documentType: activeType, // Agregar tipo de documento
         
@@ -131,16 +127,26 @@ export default function DocumentsPage() {
         throw new Error(result.error || 'Error al crear documento')
       }
 
-      console.log('✅ Documento creado exitosamente:', result.documentId || result.invoiceId)
+      console.log('✅ Documento creado exitosamente:', result.documentId || result.invoiceId || result.ticketId)
       
       // Mostrar mensaje de éxito
+      // El consecutivo viene en el resultado de la API o en documentPayload
+      const consecutivoMostrar = result.consecutivo || documentPayload.consecutivo || 'N/A'
+      const tipoDocumento = activeType === 'facturas' ? 'Factura' : 
+                           activeType === 'tiquetes' ? 'Tiquete' : 
+                           activeType === 'notas-credito' ? 'Nota de Crédito' : 'Documento'
+      
       toast({
         title: "✅ Documento creado",
-        description: `${consecutivoPrefix[activeType]} ${documentPayload.consecutivo} creado exitosamente`,
+        description: `${tipoDocumento} ${consecutivoMostrar} creado exitosamente`,
       })
       
       // Cerrar modal
       setShowCreateModal(false)
+      
+      // Esperar un momento para que el documento se guarde en Firestore antes de refrescar
+      // La lista se actualizará automáticamente cuando el componente se re-renderice
+      // o cuando el usuario haga clic en "Actualizar"
     } catch (error) {
       console.error('❌ Error al crear documento:', error)
       

@@ -41,29 +41,73 @@ export async function POST(request: NextRequest) {
     // Generar PDF usando la implementación optimizada
     const doc = await generateInvoicePDFOptimized(invoiceData)
     
-    // Generar PDF como string de datos primero
-    const pdfDataString = doc.output('datauristring')
-    const base64Data = pdfDataString.split(',')[1] // Extraer solo la parte base64
+    // Validar que el documento se haya generado correctamente
+    if (!doc) {
+      throw new Error('Error: El documento PDF no se generó correctamente')
+    }
     
-    // Calcular el tamaño del PDF original estimado
-    const estimatedPdfSize = Math.round(base64Data.length * 0.75) // base64 es ~33% más grande
-    const pdfSizeKB = Math.round(estimatedPdfSize / 1024)
-    const pdfSizeMB = (estimatedPdfSize / (1024 * 1024)).toFixed(2)
+    // Generar PDF como ArrayBuffer primero para validar el formato
+    const pdfArrayBuffer = doc.output('arraybuffer')
     
-    console.log(`📄 [PDF] Tamaño estimado del PDF: ${pdfSizeKB}KB (${pdfSizeMB}MB)`)
-    console.log(`📄 [PDF] Tamaño base64 real: ${Math.round(base64Data.length / 1024)}KB`)
+    // Validar que el PDF tenga el formato correcto (debe empezar con %PDF)
+    const pdfHeader = new Uint8Array(pdfArrayBuffer.slice(0, 4))
+    const pdfHeaderString = String.fromCharCode(...pdfHeader)
     
+    if (pdfHeaderString !== '%PDF') {
+      console.error('❌ [PDF] Error: El PDF generado no tiene el formato correcto')
+      console.error('❌ [PDF] Header encontrado:', pdfHeaderString)
+      throw new Error('El PDF generado no tiene el formato correcto (debe empezar con %PDF)')
+    }
+    
+    console.log('✅ [PDF] Validación de formato: El PDF tiene el header correcto (%PDF)')
+    
+    // Convertir ArrayBuffer a base64
+    const base64Data = Buffer.from(pdfArrayBuffer).toString('base64')
+    
+    // Validar que el base64 no esté vacío
+    if (!base64Data || base64Data.length === 0) {
+      throw new Error('Error: El PDF en base64 está vacío')
+    }
+    
+    // Validar formato base64 (debe contener solo caracteres válidos)
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/
+    if (!base64Regex.test(base64Data)) {
+      console.warn('⚠️ [PDF] Advertencia: El base64 puede tener caracteres inválidos')
+    }
+    
+    // Calcular el tamaño del PDF original
+    const pdfSizeBytes = pdfArrayBuffer.byteLength
+    const pdfSizeKB = Math.round(pdfSizeBytes / 1024)
+    const pdfSizeMB = (pdfSizeBytes / (1024 * 1024)).toFixed(2)
+    
+    // Calcular el tamaño del base64
     const base64Size = Buffer.byteLength(base64Data, 'utf8')
+    const base64SizeKB = Math.round(base64Size / 1024)
     const base64SizeMB = (base64Size / (1024 * 1024)).toFixed(2)
     
-    console.log('✅ PDF optimizado generado:', base64Data.length, 'caracteres base64')
-    console.log(`📊 Tamaño base64: ${base64SizeMB} MB (esperado: ~${(estimatedPdfSize * 1.33 / (1024 * 1024)).toFixed(2)} MB)`)
+    console.log(`📄 [PDF] Tamaño del PDF: ${pdfSizeKB}KB (${pdfSizeMB}MB)`)
+    console.log(`📄 [PDF] Tamaño base64: ${base64SizeKB}KB (${base64SizeMB}MB)`)
+    console.log(`📄 [PDF] Ratio base64/PDF: ${((base64Size / pdfSizeBytes) * 100).toFixed(1)}% (esperado ~133%)`)
+    console.log(`✅ [PDF] PDF generado correctamente: ${base64Data.length} caracteres base64`)
     
-    // Verificar si el PDF es razonable (usando el tamaño base64)
+    // Verificar si el PDF es razonable
     if (base64Size > 5 * 1024 * 1024) { // 5 MB
       console.warn(`⚠️ ADVERTENCIA: PDF muy grande (${base64SizeMB} MB), considere optimizar más`)
     } else {
       console.log(`✅ PDF de tamaño óptimo (${base64SizeMB} MB)`)
+    }
+    
+    // Validar que el base64 se pueda decodificar correctamente
+    try {
+      const decodedBuffer = Buffer.from(base64Data, 'base64')
+      const decodedHeader = decodedBuffer.slice(0, 4).toString('utf8')
+      if (decodedHeader !== '%PDF') {
+        throw new Error('El base64 decodificado no produce un PDF válido')
+      }
+      console.log('✅ [PDF] Validación de decodificación: El base64 se puede decodificar correctamente')
+    } catch (error) {
+      console.error('❌ [PDF] Error al validar decodificación del base64:', error)
+      throw new Error('El base64 generado no se puede decodificar correctamente')
     }
     
     return NextResponse.json({
@@ -73,8 +117,10 @@ export async function POST(request: NextRequest) {
       size_mb: base64SizeMB,
       pdf_size_kb: pdfSizeKB,
       pdf_size_mb: pdfSizeMB,
+      pdf_size_bytes: pdfSizeBytes,
       method: 'jsPDF-optimized-arraybuffer',
-      compressed: true
+      compressed: true,
+      format_valid: true
     })
     
   } catch (error) {

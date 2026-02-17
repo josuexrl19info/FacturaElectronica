@@ -253,10 +253,10 @@ export function EnhancedClientWizard({ onClose, onSubmit, editingClient }: Enhan
     updateField("economicActivity", activity)
   }, [])
 
-  // Validaciones por paso
-  const canProceedStep1 = formData.name && formData.identification && formData.email && formData.identificationType && formData.phone && formData.phoneCountryCode && formData.province && formData.canton && formData.district && formData.otrasSenas && formData.economicActivity && formData.economicActivity.codigo && formData.economicActivity.descripcion
+  // Validaciones por paso - Actividad económica es OPCIONAL
+  const canProceedStep1 = formData.name && formData.identification && formData.email && formData.identificationType && formData.phone && formData.phoneCountryCode && formData.province && formData.canton && formData.district && formData.otrasSenas
   
-  // Para modo edición, permitir avanzar si ya tiene actividad económica cargada desde la base de datos
+  // Para modo edición, permitir avanzar sin actividad económica (es opcional)
   const canProceedStep1ForEdit = editingClient && 
     formData.name && 
     formData.identification && 
@@ -267,10 +267,7 @@ export function EnhancedClientWizard({ onClose, onSubmit, editingClient }: Enhan
     formData.province && 
     formData.canton && 
     formData.district && 
-    formData.otrasSenas && 
-    formData.economicActivity && 
-    formData.economicActivity.codigo && 
-    formData.economicActivity.descripcion
+    formData.otrasSenas
   
   const canProceedStep2 = !formData.hasExemption || (formData.hasExemption && formData.exemptionType && formData.exemptionDocumentNumber)
   const canProceedStep3 = true // El resumen siempre se puede ver
@@ -568,7 +565,11 @@ export function EnhancedClientWizard({ onClose, onSubmit, editingClient }: Enhan
                         onChange={handleEconomicActivityChange}
                       />
                       <p className="text-sm text-muted-foreground">
-                        Se consultará automáticamente la información desde Hacienda basada en la cédula ingresada
+                        Se consultará automáticamente la información desde Hacienda basada en la cédula ingresada.
+                        <br />
+                        <span className="text-xs text-amber-600 font-medium">
+                          ⚠️ Nota: Si el cliente no tiene actividad económica, solo se podrán generar tiquetes electrónicos (no facturas electrónicas).
+                        </span>
                       </p>
                     </div>
                   </div>

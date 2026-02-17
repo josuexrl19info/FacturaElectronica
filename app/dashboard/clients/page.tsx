@@ -11,7 +11,7 @@ import { EnhancedClientWizard } from "@/components/clients/enhanced-client-wizar
 import { ClientCard } from "@/components/clients/client-card"
 import { ClientViewDetails } from "@/components/clients/client-view-details"
 import { useClients, Client } from "@/hooks/use-clients"
-import { Plus, Search, Users, DollarSign, FileText, Loader2, RefreshCw } from "lucide-react"
+import { Plus, Search, Users, FileText, Loader2, RefreshCw } from "lucide-react"
 
 export default function ClientsPage() {
   const [showWizard, setShowWizard] = useState(false)
@@ -30,15 +30,39 @@ export default function ClientsPage() {
     fetchClients()
   }
 
+  const handleViewClient = (client: Client) => {
+    setSelectedClient(client)
+    setShowViewModal(true)
+  }
+
   const handleEditClient = (client: Client) => {
     setSelectedClient(client)
     setIsEditing(true)
     setShowWizard(true)
   }
 
-  const handleViewClient = (client: Client) => {
-    setSelectedClient(client)
-    setShowViewModal(true)
+  const handleToggleStatus = async (client: Client) => {
+    try {
+      const newStatus = client.status === 'active' ? 'inactive' : 'active'
+      
+      const response = await fetch(`/api/clients/${client.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el estado del cliente')
+      }
+
+      // Refrescar la lista de clientes
+      await fetchClients()
+    } catch (error) {
+      console.error('Error al cambiar estado del cliente:', error)
+      // Aquí podrías mostrar un toast de error
+    }
   }
 
   const handleCloseWizard = () => {
@@ -74,24 +98,14 @@ export default function ClientsPage() {
   const stats = useMemo(() => {
     const totalClients = clients.length
     const activeClients = clients.filter(c => c.status === 'active').length
-    const totalAmount = clients.reduce((sum, c) => sum + c.totalAmount, 0)
-    const totalInvoices = clients.reduce((sum, c) => sum + c.totalInvoices, 0)
+    const totalInvoices = clients.reduce((sum, c) => sum + (c.totalInvoices || 0), 0)
 
     return {
       totalClients,
       activeClients,
-      totalAmount,
       totalInvoices
     }
   }, [clients])
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CR', {
-      style: 'currency',
-      currency: 'CRC',
-      minimumFractionDigits: 0
-    }).format(amount)
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -238,35 +252,6 @@ export default function ClientsPage() {
             </Card>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Card className="p-6 hover:shadow-md transition-all duration-300">
-              <div className="flex items-center gap-3">
-                <motion.div 
-                  className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center"
-                  whileHover={{ rotate: 10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <DollarSign className="w-5 h-5 text-orange-600" />
-                </motion.div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Monto Total</p>
-                  <motion.p 
-                    className="text-2xl font-bold"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.5, duration: 0.3 }}
-                  >
-                    {formatCurrency(stats.totalAmount)}
-                  </motion.p>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
         </motion.div>
 
         {/* Loading State */}
@@ -318,8 +303,8 @@ export default function ClientsPage() {
                   >
                     <ClientCard
                       client={client}
+                      onToggleStatus={handleToggleStatus}
                       onEdit={handleEditClient}
-                      onDelete={(clientId) => console.log('Delete client:', clientId)}
                       onView={handleViewClient}
                     />
                   </motion.div>
@@ -375,7 +360,7 @@ export default function ClientsPage() {
       {/* View Client Modal */}
       {showViewModal && selectedClient && (
         <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-7xl max-h-[90vh] overflow-y-auto w-full">
             <DialogHeader>
               <DialogTitle>Detalles del Cliente</DialogTitle>
             </DialogHeader>

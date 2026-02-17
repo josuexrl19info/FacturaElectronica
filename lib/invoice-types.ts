@@ -202,11 +202,11 @@ export const TIPOS_IMPUESTO = [
 ]
 
 export const TARIFAS_IMPUESTO = [
-  { codigo: '07', descripcion: '13%', porcentaje: 13 },
-  { codigo: '08', descripcion: '4%', porcentaje: 4 },
-  { codigo: '09', descripcion: '2%', porcentaje: 2 },
-  { codigo: '10', descripcion: '1%', porcentaje: 1 },
-  { codigo: '11', descripcion: '0%', porcentaje: 0 },
+  { codigo: '08', descripcion: '13%', porcentaje: 13 },
+  { codigo: '04', descripcion: '4%', porcentaje: 4 },
+  { codigo: '02', descripcion: '2%', porcentaje: 2 },
+  { codigo: '01', descripcion: '1%', porcentaje: 1 },
+  { codigo: '00', descripcion: '0%', porcentaje: 0 },
   { codigo: '12', descripcion: 'Exento', porcentaje: 0 }
 ]
 

@@ -6,25 +6,26 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Edit, 
-  Trash2, 
   Eye, 
   Package,
   DollarSign,
   Percent,
   Calendar,
   Tag,
-  FileText
+  FileText,
+  Power,
+  PowerOff
 } from "lucide-react"
 import { Product, UNIDADES_MEDIDA, TIPOS_IMPUESTO, TARIFAS_IMPUESTO } from '@/lib/product-types'
 
 interface ProductCardProps {
   product: Product
   onEdit?: (product: Product) => void
-  onDelete?: (productId: string) => void
+  onToggleStatus?: (product: Product) => void
   onView?: (product: Product) => void
 }
 
-export function ProductCard({ product, onEdit, onDelete, onView }: ProductCardProps) {
+export function ProductCard({ product, onEdit, onToggleStatus, onView }: ProductCardProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CR', {
       style: 'currency',
@@ -126,18 +127,28 @@ export function ProductCard({ product, onEdit, onDelete, onView }: ProductCardPr
                 animate={{ x: 0 }}
               >
                 {onView && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(product)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(product)} title="Ver detalles">
                     <Eye className="w-3 h-3" />
                   </Button>
                 )}
                 {onEdit && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(product)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(product)} title="Editar producto">
                     <Edit className="w-3 h-3" />
                   </Button>
                 )}
-                {onDelete && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(product.id)}>
-                    <Trash2 className="w-3 h-3 text-destructive" />
+                {onToggleStatus && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={`h-7 w-7 ${product.activo ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}`}
+                    onClick={() => onToggleStatus(product)}
+                    title={product.activo ? 'Inactivar producto' : 'Activar producto'}
+                  >
+                    {product.activo ? (
+                      <PowerOff className="w-3 h-3" />
+                    ) : (
+                      <Power className="w-3 h-3" />
+                    )}
                   </Button>
                 )}
               </motion.div>

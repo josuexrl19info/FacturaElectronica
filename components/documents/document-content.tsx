@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { InvoiceCard } from "@/components/documents/invoice-card"
 import { InvoiceCreationModal } from "@/components/documents/invoice-creation-modal"
+import { TicketCreationModal } from "@/components/documents/ticket-creation-modal"
 import CreditNoteCreationModal from "@/components/documents/credit-note-creation-modal"
 import { HaciendaStatusModal } from "@/components/documents/hacienda-status-modal"
 import { useDocuments } from "@/hooks/use-documents"
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { InvoiceFormData, Invoice } from "@/lib/invoice-types"
 import { DocumentType } from "@/components/documents/document-type-tabs"
 import { Plus, Search, FileText, DollarSign, TrendingUp, RefreshCw, Receipt, CreditCard } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/firebase-client"
 
@@ -100,6 +101,11 @@ export function DocumentContent({
   onShowCreateModal
 }: DocumentContentProps) {
   const { documents, loading, error, isReady, fetchDocuments } = useDocuments(documentType)
+  
+  // Refrescar documentos cuando cambie el tipo de documento
+  useEffect(() => {
+    fetchDocuments()
+  }, [documentType, fetchDocuments])
   const { toast } = useToast()
   const { user } = useAuth()
   const [showHaciendaModal, setShowHaciendaModal] = useState(false)
@@ -111,14 +117,17 @@ export function DocumentContent({
   
   // Filtrar documentos por búsqueda
   const filteredDocuments = documents.filter(document =>
-    document.consecutivo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    document.clientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    document.status.toLowerCase().includes(searchTerm.toLowerCase())
+    (document.consecutivo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (document.clientId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (document.status || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Función para refrescar documentos
   const handleRefresh = () => {
     fetchDocuments()
+    if (onRefresh) {
+      onRefresh()
+    }
   }
 
   const handleViewHaciendaStatus = (invoice: Invoice) => {
@@ -424,6 +433,14 @@ export function DocumentContent({
         />
       )}
 
+      {/* Modal de Creación de Tiquete */}
+      {showCreateModal && documentType === 'tiquetes' && (
+        <TicketCreationModal
+          onClose={() => onShowCreateModal(false)}
+          onSubmit={onCreateDocument}
+        />
+      )}
+
       {/* Modal de Nota de Crédito */}
       {showCreateModal && documentType === 'notas-credito' && user && (() => {
         // Obtener companyId de manera segura
@@ -462,6 +479,7 @@ export function DocumentContent({
           onClose={handleCloseHaciendaModal}
           haciendaSubmission={selectedInvoice.haciendaSubmission}
           consecutivo={selectedInvoice.consecutivo}
+          document={selectedInvoice}
         />
       )}
     </motion.div>

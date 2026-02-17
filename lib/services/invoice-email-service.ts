@@ -161,15 +161,25 @@ export class InvoiceEmailService {
    * Crea los datos del email para factura/NC aprobada
    */
   private static async createApprovalEmailData(invoice: Invoice, recipientEmail: string): Promise<InvoiceEmailData> {
-    // Detectar si es Nota de Crédito
+    // Detectar tipo de documento
     const isNotaCredito = (invoice as any).tipo === 'nota-credito' || 
                           (invoice as any).tipoNotaCredito ||
                           (invoice as any).referenciaFactura
     
-    const tipoDocumento = isNotaCredito ? 'Nota de Crédito Electrónica' : 'Factura Electrónica'
+    const isTiquete = (invoice as any).documentType === 'tiquetes' ||
+                      (invoice as any).tipo === 'tiquete' ||
+                      (invoice.consecutivo?.startsWith('TE-') || false)
+    
+    let tipoDocumento = 'Factura Electrónica'
+    if (isNotaCredito) {
+      tipoDocumento = 'Nota de Crédito Electrónica'
+    } else if (isTiquete) {
+      tipoDocumento = 'Tiquete Electrónico'
+    }
+    
     const subject = `${tipoDocumento} ${invoice.consecutivo} - Aprobada por Hacienda`
     
-    const message = this.createApprovalEmailHTML(invoice, isNotaCredito)
+    const message = this.createApprovalEmailHTML(invoice, isNotaCredito, isTiquete)
     
     // Preparar XMLs en base64
     let xml1_base64: string | undefined
@@ -289,9 +299,44 @@ export class InvoiceEmailService {
       pdf_base64 = result.pdf_base64
       console.log('✅ PDF generado en base64:', pdf_base64.length, 'caracteres')
       
+      // Validar formato del PDF antes de usarlo
+      if (pdf_base64) {
+        try {
+          // Validar que el base64 no esté vacío
+          if (!pdf_base64 || pdf_base64.length === 0) {
+            throw new Error('El PDF en base64 está vacío')
+          }
+          
+          // Validar formato base64
+          const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/
+          if (!base64Regex.test(pdf_base64)) {
+            throw new Error('El PDF en base64 tiene formato inválido')
+          }
+          
+          // Decodificar y validar que sea un PDF válido
+          const decodedBuffer = Buffer.from(pdf_base64, 'base64')
+          const pdfHeader = decodedBuffer.slice(0, 4).toString('utf8')
+          
+          if (pdfHeader !== '%PDF') {
+            console.error('❌ [EMAIL] Error: El PDF decodificado no tiene el formato correcto')
+            console.error('❌ [EMAIL] Header encontrado:', pdfHeader)
+            throw new Error('El PDF decodificado no tiene el formato correcto (debe empezar con %PDF)')
+          }
+          
+          console.log('✅ [EMAIL] Validación de PDF: Formato correcto (%PDF)')
+          console.log('✅ [EMAIL] Tamaño del PDF decodificado:', decodedBuffer.length, 'bytes')
+          
+        } catch (validationError) {
+          console.error('❌ [EMAIL] Error validando formato del PDF:', validationError)
+          console.warn('⚠️ [EMAIL] Continuando sin PDF adjunto debido a error de validación')
+          pdf_base64 = undefined
+        }
+      }
+      
     } catch (error) {
       console.error('❌ Error generando PDF:', error)
       console.warn('⚠️ Continuando sin PDF adjunto')
+      pdf_base64 = undefined
     }
     
     // Determinar BCC (correo de la empresa u otros)
@@ -367,9 +412,44 @@ export class InvoiceEmailService {
       invoiceData: {
         id: invoice.id || '',
         consecutivo: invoice.consecutivo || '',
-        cliente: invoice.cliente?.nombre || invoice.cliente?.razonSocial || 'Cliente',
+        cliente: invoice.cliente?.nombre || invoice.cliente?.razonSocial || invoice.cliente?.name || 'Cliente',
         total: invoice.total || 0,
-        fecha: invoice.fecha?.toLocaleDateString('es-ES') || new Date().toLocaleDateString('es-ES'),
+        fecha: (() => {
+          try {
+            if (invoice.fecha) {
+              // Manejar diferentes tipos de fecha: Date, string, Timestamp de Firestore
+              let dateObj: Date
+              if (invoice.fecha instanceof Date) {
+                dateObj = invoice.fecha
+              } else if (typeof invoice.fecha === 'string') {
+                dateObj = new Date(invoice.fecha)
+              } else if (invoice.fecha && typeof invoice.fecha === 'object' && 'toDate' in invoice.fecha) {
+                // Timestamp de Firestore
+                dateObj = (invoice.fecha as any).toDate()
+              } else if (invoice.fecha && typeof invoice.fecha === 'object' && 'seconds' in invoice.fecha) {
+                // Timestamp de Firestore (formato alternativo)
+                dateObj = new Date((invoice.fecha as any).seconds * 1000)
+              } else {
+                dateObj = new Date()
+              }
+              
+              if (!isNaN(dateObj.getTime())) {
+                return dateObj.toLocaleDateString('es-ES')
+              }
+            }
+            // Si no hay fecha válida, usar fechaEmision o fecha actual
+            if (invoice.fechaEmision) {
+              const dateObj = new Date(invoice.fechaEmision)
+              if (!isNaN(dateObj.getTime())) {
+                return dateObj.toLocaleDateString('es-ES')
+              }
+            }
+            return new Date().toLocaleDateString('es-ES')
+          } catch (error) {
+            console.error('Error formateando fecha en invoiceData:', error)
+            return new Date().toLocaleDateString('es-ES')
+          }
+        })(),
         estado: 'Aceptado'
       }
     }
@@ -378,7 +458,7 @@ export class InvoiceEmailService {
   /**
    * Crea el HTML del email de aprobación
    */
-  private static createApprovalEmailHTML(invoice: Invoice, isNotaCredito: boolean = false): string {
+  private static createApprovalEmailHTML(invoice: Invoice, isNotaCredito: boolean = false, isTiquete: boolean = false): string {
     // Mejorar la obtención del nombre del cliente buscando en múltiples campos
     const cliente = invoice.cliente?.nombre || 
                    invoice.cliente?.razonSocial || 
@@ -475,8 +555,16 @@ export class InvoiceEmailService {
                          'la empresa emisora' // Fallback por si no se encuentra
     
     // Texto dinámico según el tipo de documento
-    const tipoDocumento = isNotaCredito ? 'Nota de Crédito Electrónica' : 'Factura Electrónica'
-    const colorPrincipal = isNotaCredito ? '#9333EA' : '#3B82F6' // Morado para NC, Azul para Factura
+    let tipoDocumento = 'Factura Electrónica'
+    let colorPrincipal = '#3B82F6' // Azul por defecto
+    
+    if (isNotaCredito) {
+      tipoDocumento = 'Nota de Crédito Electrónica'
+      colorPrincipal = '#9333EA' // Morado para NC
+    } else if (isTiquete) {
+      tipoDocumento = 'Tiquete Electrónico'
+      colorPrincipal = '#10b981' // Verde para Tiquete
+    }
 
     return `
       <!DOCTYPE html>
@@ -636,7 +724,7 @@ export class InvoiceEmailService {
           <!-- Header -->
           <div class="header">
             <h1>${tipoDocumento} Aprobada</h1>
-            <div class="subtitle">Su ${isNotaCredito ? 'nota de crédito' : 'factura'} ha sido aceptada por Hacienda</div>
+            <div class="subtitle">Su ${isNotaCredito ? 'nota de crédito' : isTiquete ? 'tiquete' : 'factura'} ha sido aceptada por Hacienda</div>
           </div>
 
           <!-- Content -->
@@ -653,10 +741,10 @@ export class InvoiceEmailService {
 
             <!-- Detalles del Documento -->
             <div class="invoice-details">
-              <h3>📋 Detalles ${isNotaCredito ? 'de la Nota de Crédito' : 'de la Factura'}</h3>
+              <h3>📋 Detalles ${isNotaCredito ? 'de la Nota de Crédito' : isTiquete ? 'del Tiquete' : 'de la Factura'}</h3>
               
               <div class="detail-row">
-                <span class="detail-label">Número ${isNotaCredito ? 'de NC' : 'de Factura'}:</span>
+                <span class="detail-label">Número ${isNotaCredito ? 'de NC' : isTiquete ? 'de Tiquete' : 'de Factura'}:</span>
                 <span class="detail-value">${consecutivo}</span>
               </div>
               
@@ -694,7 +782,7 @@ export class InvoiceEmailService {
 
 
             <p>
-              Si tiene alguna pregunta sobre esta factura, no dude en contactarnos. 
+              Si tiene alguna pregunta sobre este ${isNotaCredito ? 'documento' : isTiquete ? 'tiquete' : 'factura'}, no dude en contactarnos. 
               Estamos aquí para ayudarle.
             </p>
 

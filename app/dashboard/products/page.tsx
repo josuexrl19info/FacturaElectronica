@@ -8,13 +8,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/products/product-card"
 import { ProductForm } from "@/components/products/product-form"
+import { ProductViewDetails } from "@/components/products/product-view-details"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useProducts } from "@/hooks/use-products"
-import { ProductFormData } from "@/lib/product-types"
+import { ProductFormData, Product } from "@/lib/product-types"
 import { Plus, Search, Package, DollarSign, FileText, Loader2, RefreshCw, TrendingUp } from "lucide-react"
 
 export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const { products, loading, error, fetchProducts, addProduct } = useProducts()
 
   const handleAddProduct = async (data: ProductFormData) => {
@@ -27,8 +32,13 @@ export default function ProductsPage() {
         throw new Error('Usuario no autenticado')
       }
 
-      const response = await fetch('/api/products/create', {
-        method: 'POST',
+      const url = isEditing && selectedProduct 
+        ? `/api/products/update/${selectedProduct.id}`
+        : '/api/products/create'
+      const method = isEditing && selectedProduct ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -42,27 +52,67 @@ export default function ProductsPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al crear producto')
+        throw new Error(result.error || `Error al ${isEditing ? 'actualizar' : 'crear'} producto`)
       }
 
-      console.log('✅ Producto creado exitosamente:', result)
+      console.log(`✅ Producto ${isEditing ? 'actualizado' : 'creado'} exitosamente:`, result)
       
       // Cerrar formulario y refrescar lista
-      setShowForm(false)
+      handleCloseForm()
       fetchProducts()
       
-      // Mostrar toast de éxito (opcional)
-      // toast.success('Producto creado exitosamente')
-      
     } catch (error) {
-      console.error('❌ Error al crear producto:', error)
-      // Mostrar toast de error (opcional)
-      // toast.error('Error al crear producto: ' + error.message)
+      console.error(`❌ Error al ${isEditing ? 'actualizar' : 'crear'} producto:`, error)
     }
   }
 
   const handleRefresh = () => {
     fetchProducts()
+  }
+
+  const handleViewProduct = (product: Product) => {
+    setSelectedProduct(product)
+    setShowViewModal(true)
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setSelectedProduct(product)
+    setIsEditing(true)
+    setShowForm(true)
+  }
+
+  const handleToggleStatus = async (product: Product) => {
+    try {
+      const newStatus = !product.activo
+      
+      const response = await fetch(`/api/products/${product.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ activo: newStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el estado del producto')
+      }
+
+      // Refrescar la lista de productos
+      await fetchProducts()
+    } catch (error) {
+      console.error('Error al cambiar estado del producto:', error)
+    }
+  }
+
+  const handleCloseViewModal = () => {
+    setShowViewModal(false)
+    setSelectedProduct(null)
+  }
+
+  const handleCloseForm = () => {
+    setShowForm(false)
+    setIsEditing(false)
+    setSelectedProduct(null)
   }
 
   // Filtrar productos basado en el término de búsqueda
@@ -325,9 +375,9 @@ export default function ProductsPage() {
                   >
                     <ProductCard
                       product={product}
-                      onEdit={(product) => console.log('Edit product:', product)}
-                      onDelete={(productId) => console.log('Delete product:', productId)}
-                      onView={(product) => console.log('View product:', product)}
+                      onEdit={handleEditProduct}
+                      onToggleStatus={handleToggleStatus}
+                      onView={handleViewProduct}
                     />
                   </motion.div>
                 ))}
@@ -373,9 +423,22 @@ export default function ProductsPage() {
       {/* Product Form Modal */}
       {showForm && (
         <ProductForm 
-          onClose={() => setShowForm(false)} 
-          onSubmit={handleAddProduct} 
+          onClose={handleCloseForm} 
+          onSubmit={handleAddProduct}
+          editingProduct={isEditing ? selectedProduct : undefined}
         />
+      )}
+
+      {/* View Product Modal */}
+      {showViewModal && selectedProduct && (
+        <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+          <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-7xl max-h-[90vh] overflow-y-auto w-full">
+            <DialogHeader>
+              <DialogTitle>Detalles del Producto</DialogTitle>
+            </DialogHeader>
+            <ProductViewDetails product={selectedProduct} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

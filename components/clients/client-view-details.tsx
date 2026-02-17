@@ -303,15 +303,10 @@ export function ClientViewDetails({ client }: ClientViewDetailsProps) {
           <h3 className="text-lg font-semibold">Estadísticas</h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground">Total de Facturas</label>
-            <p className="text-2xl font-bold">{client.totalInvoices}</p>
-          </div>
-          
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Monto Total</label>
-            <p className="text-2xl font-bold">{formatCurrency(client.totalAmount)}</p>
+            <p className="text-2xl font-bold">{client.totalInvoices || 0}</p>
           </div>
           
           {client.createdAt && (

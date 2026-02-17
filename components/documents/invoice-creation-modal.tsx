@@ -25,7 +25,9 @@ import {
   CheckCircle,
   Globe,
   Settings,
-  Shield
+  Shield,
+  AlertCircle,
+  CreditCard
 } from "lucide-react"
 import { InvoiceFormData, InvoiceItemFormData, CONDICIONES_VENTA, METODOS_PAGO, TIPOS_IMPUESTO, TARIFAS_IMPUESTO, calculateInvoiceTotals } from '@/lib/invoice-types'
 import { useClients } from '@/hooks/use-clients'
@@ -79,6 +81,11 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
     const client = clients.find(c => c.id === clientId)
     setSelectedClient(client)
     setFormData(prev => ({ ...prev, clientId }))
+    
+    // Validar que el cliente tenga actividad económica para facturas electrónicas
+    if (client && (!client.economicActivity || !client.economicActivity.codigo)) {
+      toast.error('Cliente sin actividad económica', 'Este cliente no tiene actividad económica configurada. Solo se pueden generar tiquetes electrónicos para clientes sin actividad económica. Para generar facturas electrónicas, el cliente debe tener una actividad económica configurada.')
+    }
   }
 
   const handleAddProduct = (product: any) => {
@@ -141,6 +148,29 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
       return
     }
 
+    // Validar que el cliente tenga actividad económica (requerida para facturas electrónicas)
+    if (selectedClient && (!selectedClient.economicActivity || !selectedClient.economicActivity.codigo)) {
+      toast.error('Cliente sin actividad económica', 'Este cliente no tiene actividad económica configurada. Solo se pueden generar tiquetes electrónicos para clientes sin actividad económica. Para generar facturas electrónicas, el cliente debe tener una actividad económica configurada.')
+      return
+    }
+
+    // Validar que todos los precios unitarios sean mayores a 0
+    const itemsConPrecioInvalido = formData.items.filter((item, index) => {
+      const precioUnitario = item.precioUnitario || 0
+      return precioUnitario <= 0
+    })
+
+    if (itemsConPrecioInvalido.length > 0) {
+      const lineasInvalidas = itemsConPrecioInvalido.map((_, idx) => {
+        const itemIndex = formData.items.findIndex((item, i) => 
+          item === itemsConPrecioInvalido[idx]
+        )
+        return itemIndex + 1
+      }).join(', ')
+      toast.error('Precio inválido', `El precio unitario debe ser mayor a cero en todas las líneas. Líneas con precio inválido: ${lineasInvalidas}`)
+      return
+    }
+
     setIsSubmitting(true)
     try {
       await onSubmit(formData)
@@ -184,7 +214,16 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
     }
   }
 
-  const canSubmit = formData.clientId && formData.items.length > 0
+  // Validar que todos los precios unitarios sean mayores a 0
+  const todosLosPreciosValidos = formData.items.every(item => (item.precioUnitario || 0) > 0)
+  
+  // Validar que el cliente tenga actividad económica (requerida para facturas electrónicas)
+  const clienteTieneActividadEconomica = selectedClient && selectedClient.economicActivity && selectedClient.economicActivity.codigo
+  
+  const canSubmit = formData.clientId && 
+                    formData.items.length > 0 && 
+                    todosLosPreciosValidos &&
+                    clienteTieneActividadEconomica
 
   return (
     <motion.div
@@ -249,25 +288,28 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                     </div>
                   ) : (
                     <Select value={formData.clientId} onValueChange={handleClientSelect}>
-                      <SelectTrigger className="h-9 text-sm w-full min-w-0">
+                      <SelectTrigger className="h-10 text-sm w-full min-w-0 border-2 hover:border-primary/50 transition-colors bg-background">
                         <SelectValue placeholder="Seleccionar cliente...">
                           {selectedClient ? (
                             <div className="flex items-center gap-2 w-full min-w-0">
-                              <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                              <span className="truncate text-sm">
-                                {selectedClient.name.length > 30 
-                                  ? `${selectedClient.name.substring(0, 30)}...` 
-                                  : selectedClient.name
-                                }
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                                <User className="w-3.5 h-3.5 text-white" />
+                              </div>
+                              <span className="font-medium text-sm truncate text-foreground">
+                                {selectedClient.name}
                               </span>
+                              <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0 ml-auto" />
                             </div>
                           ) : (
-                            "Seleccionar cliente..."
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <User className="w-4 h-4" />
+                              <span>Seleccionar cliente...</span>
+                            </div>
                           )}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="max-w-md">
-                        {clients.map((client) => (
+                        {clients.filter(client => client.status === 'active').map((client) => (
                           <SelectItem key={client.id} value={client.id}>
                             <div className="flex items-center gap-3 w-full py-1 max-w-full min-w-0">
                               <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -306,32 +348,70 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                       className="mt-2 space-y-2"
                     >
                       {/* Información básica del cliente */}
-                      <div className="p-2 bg-green-50 border border-green-200 rounded text-xs">
-                        <div className="flex items-center gap-1 mb-1">
-                          <CheckCircle className="w-2.5 h-2.5 text-green-600" />
-                          <span className="font-medium text-green-800">Cliente Seleccionado</span>
+                      <div className="p-4 border-2 rounded-xl shadow-md transition-all bg-gradient-to-br from-green-50 via-green-50 to-emerald-50 border-green-400">
+                        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-green-300/30">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br from-green-500 to-emerald-600">
+                            <CheckCircle className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-sm text-green-900">Cliente Seleccionado</h4>
+                            <p className="text-xs text-green-700">Listo para generar factura electrónica</p>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-green-700 font-medium">Nombre:</span>
-                            <span className="text-green-800">{selectedClient.name}</span>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-green-700">Nombre</p>
+                            <p className="text-sm font-medium text-green-900">{selectedClient.name}</p>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-green-700 font-medium">Cédula:</span>
-                            <span className="text-green-800">{selectedClient.identification}</span>
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-green-700">Cédula</p>
+                            <p className="text-sm font-medium text-green-900">{selectedClient.identification}</p>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-green-700 font-medium">Email:</span>
-                            <span className="text-green-800 truncate">{selectedClient.email}</span>
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-green-700">Email</p>
+                            <p className="text-sm font-medium truncate text-green-900">{selectedClient.email}</p>
                           </div>
                           {selectedClient.phone && (
-                            <div className="flex justify-between">
-                              <span className="text-green-700 font-medium">Teléfono:</span>
-                              <span className="text-green-800">{selectedClient.phone}</span>
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold text-green-700">Teléfono</p>
+                              <p className="text-sm font-medium text-green-900">{selectedClient.phone}</p>
                             </div>
                           )}
                         </div>
                       </div>
+
+                      {/* Advertencia si no tiene actividad económica */}
+                      {(!selectedClient.economicActivity || !selectedClient.economicActivity.codigo) && (
+                        <div className="p-2 bg-red-50 border border-red-200 rounded text-xs">
+                          <div className="flex items-center gap-1 mb-1">
+                            <AlertCircle className="w-2.5 h-2.5 text-red-600" />
+                            <span className="font-medium text-red-800">⚠️ Cliente sin Actividad Económica</span>
+                          </div>
+                          <p className="text-red-700">
+                            Este cliente no tiene actividad económica configurada. Solo se pueden generar <strong>tiquetes electrónicos</strong> para clientes sin actividad económica. Para generar <strong>facturas electrónicas</strong>, el cliente debe tener una actividad económica configurada.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Indicativo de actividad económica si la tiene */}
+                      {selectedClient.economicActivity && selectedClient.economicActivity.codigo && (
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                          <div className="flex items-center gap-1 mb-1">
+                            <CheckCircle className="w-2.5 h-2.5 text-blue-600" />
+                            <span className="font-medium text-blue-800">✅ Actividad Económica Configurada</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-blue-700 font-medium">Código:</span>
+                              <span className="text-blue-800">{selectedClient.economicActivity.codigo}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-blue-700 font-medium">Descripción:</span>
+                              <span className="text-blue-800 truncate">{selectedClient.economicActivity.descripcion || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Indicativo de exoneración */}
                       {(selectedClient.tieneExoneracion || selectedClient.hasExemption) && (
@@ -380,19 +460,35 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                     <h3 className="font-medium text-sm">Configuración</h3>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2">
-                    <div>
-                      <Label className="text-xs">Moneda</Label>
+                  <div className="space-y-3">
+                    <div className="w-full">
+                      <Label className="text-xs mb-1.5 block">Moneda</Label>
                       <Select value={formData.currency} onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="w-full h-10 text-sm border-2 hover:border-primary/50 transition-colors bg-background">
+                          <SelectValue>
+                            {formData.currency ? (
+                              <div className="flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-primary" />
+                                <span className="font-medium">
+                                  {CURRENCIES.find(c => c.code === formData.currency)?.symbol} {formData.currency}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Seleccionar moneda...</span>
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {CURRENCIES.map((currency) => (
-                            <SelectItem key={currency.code} value={currency.code}>
-                              <div className="flex items-center gap-1">
-                                <Globe className="w-2.5 h-2.5" />
-                                <span className="text-xs">{currency.symbol} {currency.name}</span>
+                            <SelectItem key={currency.code} value={currency.code} className="py-2.5">
+                              <div className="flex items-center gap-3 w-full">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                  <DollarSign className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm">{currency.symbol} {currency.name}</p>
+                                  <p className="text-xs text-muted-foreground">Código: {currency.code}</p>
+                                </div>
                               </div>
                             </SelectItem>
                           ))}
@@ -400,32 +496,70 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                       </Select>
                     </div>
 
-                    <div>
-                      <Label className="text-xs">Tipo de Venta</Label>
+                    <div className="w-full">
+                      <Label className="text-xs mb-1.5 block">Tipo de Venta</Label>
                       <Select value={formData.condicionVenta} onValueChange={(value) => setFormData(prev => ({ ...prev, condicionVenta: value }))}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="w-full h-10 text-sm border-2 hover:border-primary/50 transition-colors bg-background">
+                          <SelectValue>
+                            {formData.condicionVenta ? (
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span className="font-medium">
+                                  {CONDICIONES_VENTA.find(c => c.codigo === formData.condicionVenta)?.descripcion || formData.condicionVenta}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Seleccionar condición...</span>
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {CONDICIONES_VENTA.map((condicion) => (
-                            <SelectItem key={condicion.codigo} value={condicion.codigo}>
-                              <span className="text-xs">{condicion.descripcion}</span>
+                            <SelectItem key={condicion.codigo} value={condicion.codigo} className="py-2.5">
+                              <div className="flex items-center gap-3 w-full">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                  <Calendar className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm">{condicion.descripcion}</p>
+                                  <p className="text-xs text-muted-foreground">Código: {condicion.codigo}</p>
+                                </div>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div>
-                      <Label className="text-xs">Medio de Pago</Label>
+                    <div className="w-full">
+                      <Label className="text-xs mb-1.5 block">Medio de Pago</Label>
                       <Select value={formData.paymentMethod} onValueChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="w-full h-10 text-sm border-2 hover:border-primary/50 transition-colors bg-background">
+                          <SelectValue>
+                            {formData.paymentMethod ? (
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-primary" />
+                                <span className="font-medium">
+                                  {METODOS_PAGO.find(m => m.codigo === formData.paymentMethod)?.descripcion || formData.paymentMethod}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Seleccionar método...</span>
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {METODOS_PAGO.map((metodo) => (
-                            <SelectItem key={metodo.codigo} value={metodo.codigo}>
-                              <span className="text-xs">{metodo.descripcion}</span>
+                            <SelectItem key={metodo.codigo} value={metodo.codigo} className="py-2.5">
+                              <div className="flex items-center gap-3 w-full">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                  <CreditCard className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm">{metodo.descripcion}</p>
+                                  <p className="text-xs text-muted-foreground">Código: {metodo.codigo}</p>
+                                </div>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -634,7 +768,7 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
 
                             {/* Tarifa */}
                             <div className="col-span-3">
-                              <Label className="text-xs">Tarifa</Label>
+                              <Label className="text-xs">Tarifa IVA</Label>
                               <Select value={item.codigoTarifa || '08'} onValueChange={(value) => {
                                 const tarifa = TARIFAS_IMPUESTO.find(t => t.codigo === value)
                                 if (tarifa) {
@@ -643,12 +777,16 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                                 }
                               }}>
                                 <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue placeholder="Seleccionar..." />
+                                  <SelectValue>
+                                    {item.codigoTarifa 
+                                      ? TARIFAS_IMPUESTO.find(t => t.codigo === item.codigoTarifa)?.descripcion || 'Seleccionar...'
+                                      : 'Seleccionar...'}
+                                  </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                   {TARIFAS_IMPUESTO.map((tarifa) => (
                                     <SelectItem key={tarifa.codigo} value={tarifa.codigo}>
-                                      <span className="text-xs">{tarifa.descripcion} ({tarifa.porcentaje}%)</span>
+                                      {tarifa.descripcion}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -769,6 +907,18 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                     </>
                   )}
                 </Button>
+
+                {!canSubmit && formData.items.length > 0 && formData.clientId && !clienteTieneActividadEconomica && (
+                  <p className="text-xs text-red-600 mt-2 text-center">
+                    El cliente debe tener actividad económica configurada para generar facturas electrónicas
+                  </p>
+                )}
+
+                {!canSubmit && formData.items.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Agrega al menos un producto
+                  </p>
+                )}
               </Card>
             </div>
           </div>

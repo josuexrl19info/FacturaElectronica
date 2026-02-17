@@ -10,12 +10,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { X, Package, DollarSign, Percent, FileText, Calendar } from "lucide-react"
-import { ProductFormData, UNIDADES_MEDIDA, TIPOS_IMPUESTO, TARIFAS_IMPUESTO } from '@/lib/product-types'
+import { ProductFormData, Product, UNIDADES_MEDIDA, TIPOS_IMPUESTO, TARIFAS_IMPUESTO } from '@/lib/product-types'
 
 interface ProductFormProps {
   onClose: () => void
   onSubmit: (data: ProductFormData) => void
-  editingProduct?: ProductFormData
+  editingProduct?: Product | ProductFormData
 }
 
 export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormProps) {
@@ -39,7 +39,24 @@ export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormPr
 
   useEffect(() => {
     if (editingProduct) {
-      setFormData(editingProduct)
+      // Convertir Product a ProductFormData si es necesario
+      // Si ya es ProductFormData, se usa directamente
+      const productData: ProductFormData = {
+        codigoCABYS: editingProduct.codigoCABYS || '',
+        detalle: editingProduct.detalle || '',
+        precioUnitario: editingProduct.precioUnitario || 0,
+        unidadMedida: editingProduct.unidadMedida || 'Sp',
+        tipoImpuesto: editingProduct.tipoImpuesto || '01',
+        codigoTarifaImpuesto: editingProduct.codigoTarifaImpuesto || '08',
+        tarifaImpuesto: editingProduct.tarifaImpuesto || 13,
+        tieneExoneracion: editingProduct.tieneExoneracion || false,
+        porcentajeExoneracion: editingProduct.porcentajeExoneracion || 0,
+        numeroDocumentoExoneracion: editingProduct.numeroDocumentoExoneracion || '',
+        nombreInstitucionExoneracion: editingProduct.nombreInstitucionExoneracion || '',
+        fechaEmisionExoneracion: editingProduct.fechaEmisionExoneracion || '',
+        montoExoneracion: editingProduct.montoExoneracion || 0
+      }
+      setFormData(productData)
     }
   }, [editingProduct])
 

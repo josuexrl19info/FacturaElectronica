@@ -371,7 +371,10 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   doc.setTextColor(colors.accentForeground)
   doc.setFontSize(8) // Aumentado de 7 a 8
   doc.setFont('times', 'bold') // Cambio a fuente más elegante
-  const badgeText = isNotaCredito ? 'Nota Crédito Electrónica' : 'Factura Electrónica'
+  
+  // Badge genérico para todos los tipos de documentos
+  const badgeText = 'Documento Electrónico'
+  
   doc.text(badgeText, badgeX + badgeWidth/2, badgeY + badgeHeight/2 + 1, { align: 'center' })
   
   // Número consecutivo debajo del badge - más pequeño
@@ -1021,7 +1024,14 @@ export async function formatInvoiceDataForPDFOptimized(invoice: any, company: an
   const result = {
     invoice: {
       ...invoice,
-      tipo: isNotaCredito ? 'Nota Crédito Electrónica' : 'Factura Electrónica',
+      tipo: (() => {
+        const isTiquete = invoiceData.invoice?.documentType === 'tiquetes' ||
+                          invoiceData.invoice?.tipo === 'tiquete' ||
+                          (invoiceData.invoice?.consecutivo?.startsWith('TE-') || false)
+        if (isNotaCredito) return 'Nota Crédito Electrónica'
+        if (isTiquete) return 'Tiquete Electrónico'
+        return 'Factura Electrónica'
+      })(),
       fechaEmision: formatDate(invoice.fechaEmision || invoice.haciendaResponse?.fecha),
       consecutivo: invoice.consecutivo || invoice.number || 'N/A',
       clave: invoice.haciendaResponse?.clave || invoice.clave || invoice.key || 'N/A',

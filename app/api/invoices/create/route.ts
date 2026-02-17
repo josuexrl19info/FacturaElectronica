@@ -74,6 +74,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validar que todos los precios unitarios sean mayores a 0
+    const itemsConPrecioInvalido = items.filter((item: any) => {
+      const precioUnitario = item.precioUnitario || 0
+      return precioUnitario <= 0
+    })
+
+    if (itemsConPrecioInvalido.length > 0) {
+      return NextResponse.json(
+        { error: `El precio unitario debe ser mayor a cero en todas las líneas. Líneas con precio inválido: ${itemsConPrecioInvalido.map((item: any, idx: number) => idx + 1).join(', ')}` },
+        { status: 400 }
+      )
+    }
+
     // 1. Generar consecutivo automáticamente
     console.log('🔢 Generando consecutivo para empresa:', companyId)
     const consecutiveResult = await InvoiceConsecutiveService.getAndUpdateConsecutive(companyId)
@@ -180,6 +193,14 @@ export async function POST(req: NextRequest) {
 
       const clientData = clientDoc.data()
       console.log('👤 Datos de cliente obtenidos:', clientData.name)
+      
+      // Validar que el cliente tenga actividad económica (requerida para facturas electrónicas)
+      if (!clientData.economicActivity || !clientData.economicActivity.codigo) {
+        return NextResponse.json(
+          { error: 'El cliente no tiene actividad económica configurada. Solo se pueden generar tiquetes electrónicos para clientes sin actividad económica. Para generar facturas electrónicas, el cliente debe tener una actividad económica configurada.' },
+          { status: 400 }
+        )
+      }
       console.log('📞 Campos del cliente desde Firestore:', {
         keys: Object.keys(clientData),
         phone: clientData.phone,
@@ -258,7 +279,8 @@ export async function POST(req: NextRequest) {
         cedulaEmisor: companyData.identification || '',
         consecutivo: generatedConsecutivo, // Pasar el consecutivo completo
         pais: companyData.countryCode || '506',
-        situacion: '1' // Normal
+        situacion: '1', // Normal
+        tipoComprobante: '01' // 01 = Factura Electrónica (04 = Tiquete Electrónico)
       })
       
       if (!keyResult.success) {

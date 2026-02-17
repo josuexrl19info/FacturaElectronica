@@ -393,8 +393,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                       stopClick(event)
                       onViewHaciendaStatus(invoice)
                     }}
-                    title="Ver estado de Hacienda"
-                    disabled={!invoice.haciendaSubmission}
+                    title="Ver detalles del documento"
                   >
                     <Eye className="w-3 h-3" />
                   </Button>

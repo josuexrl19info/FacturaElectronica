@@ -9,25 +9,25 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  Edit, 
-  Trash2, 
   Eye, 
   Building2,
   Calendar,
-  DollarSign,
-  FileText
+  FileText,
+  Power,
+  PowerOff,
+  Edit
 } from "lucide-react"
 import { Client } from '@/hooks/use-clients'
 import { getLocationNames, getIdentificationTypeName, getEconomicActivityStatusName } from '@/lib/services/location-service'
 
 interface ClientCardProps {
   client: Client
+  onToggleStatus?: (client: Client) => void
   onEdit?: (client: Client) => void
-  onDelete?: (clientId: string) => void
   onView?: (client: Client) => void
 }
 
-export function ClientCard({ client, onEdit, onDelete, onView }: ClientCardProps) {
+export function ClientCard({ client, onToggleStatus, onEdit, onView }: ClientCardProps) {
   const [locationNames, setLocationNames] = useState({
     provincia: '',
     canton: '',
@@ -79,13 +79,6 @@ export function ClientCard({ client, onEdit, onDelete, onView }: ClientCardProps
     })
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CR', {
-      style: 'currency',
-      currency: 'CRC',
-      minimumFractionDigits: 0
-    }).format(amount)
-  }
 
   return (
     <motion.div
@@ -147,18 +140,28 @@ export function ClientCard({ client, onEdit, onDelete, onView }: ClientCardProps
                 animate={{ x: 0 }}
               >
                 {onView && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(client)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(client)} title="Ver detalles">
                     <Eye className="w-3.5 h-3.5" />
                   </Button>
                 )}
                 {onEdit && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(client)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(client)} title="Editar cliente">
                     <Edit className="w-3.5 h-3.5" />
                   </Button>
                 )}
-                {onDelete && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(client.id)}>
-                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                {onToggleStatus && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={`h-8 w-8 ${client.status === 'active' ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}`}
+                    onClick={() => onToggleStatus(client)}
+                    title={client.status === 'active' ? 'Inactivar cliente' : 'Activar cliente'}
+                  >
+                    {client.status === 'active' ? (
+                      <PowerOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Power className="w-3.5 h-3.5" />
+                    )}
                   </Button>
                 )}
               </motion.div>
@@ -201,24 +204,9 @@ export function ClientCard({ client, onEdit, onDelete, onView }: ClientCardProps
                 </span>
                 <span className="flex items-center gap-1">
                   <FileText className="w-3 h-3" />
-                  {client.totalInvoices}
+                  {client.totalInvoices || 0} facturas
                 </span>
               </div>
-
-              {/* Saldo pendiente compacto */}
-              {client.totalAmount > 0 && (
-                <motion.div 
-                  className="flex items-center gap-1"
-                  initial={{ scale: 0.9 }}
-                  animate={{ scale: 1 }}
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <DollarSign className="w-3 h-3 text-orange-500" />
-                  <span className="font-semibold text-orange-600 text-sm">
-                    {formatCurrency(client.totalAmount)}
-                  </span>
-                </motion.div>
-              )}
             </div>
 
             {/* Exoneración compacta */}
