@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Eye, EyeOff, Download, Copy, CheckCircle, XCircle, Clock, AlertCircle, FileText, Building, User, ShoppingCart, DollarSign, Receipt, Package } from 'lucide-react'
+import { Eye, EyeOff, Download, Copy, CheckCircle, XCircle, Clock, AlertCircle, FileText, Building, User, ShoppingCart, DollarSign, Receipt, Package, Shield } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Invoice } from '@/lib/invoice-types'
 
@@ -147,7 +147,10 @@ export function HaciendaStatusModal({ isOpen, onClose, haciendaSubmission, conse
     }
   }
 
-  const estado = haciendaSubmission?.['ind-estado'] || haciendaSubmission?.estado || haciendaSubmission?.state
+  const estado = haciendaSubmission?.['ind-estado'] || 
+                 haciendaSubmission?.estado || 
+                 haciendaSubmission?.state ||
+                 (document?.status === 'error' || document?.status === 'Error' || document?.status === 'Error Consulta Hacienda' || document?.status === 'Error Envío Hacienda' ? document.status : null)
   const xmlDecodificado = haciendaSubmission ? decodeResponseXml() : 'No hay respuesta XML disponible'
 
   // Función para formatear moneda
@@ -382,7 +385,7 @@ export function HaciendaStatusModal({ isOpen, onClose, haciendaSubmission, conse
 
           {/* Tab: Estado de Hacienda */}
           <TabsContent value="hacienda" className="flex-1 overflow-auto space-y-4 mt-4">
-            {!haciendaSubmission ? (
+            {!haciendaSubmission && (!document || (document.status !== 'error' && document.status !== 'Error' && document.status !== 'Error Consulta Hacienda' && document.status !== 'Error Envío Hacienda')) ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Building className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No hay información de envío a Hacienda disponible</p>
@@ -394,80 +397,101 @@ export function HaciendaStatusModal({ isOpen, onClose, haciendaSubmission, conse
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <h4 className="font-medium text-sm text-gray-600 mb-1">Estado</h4>
-                    <Badge className={getStatusBadgeColor(estado)}>
-                      {getStatusIcon(estado)}
-                      <span className="ml-1">{estado || 'Desconocido'}</span>
+                    <Badge className={getStatusBadgeColor(estado || document?.status || 'Desconocido')}>
+                      {getStatusIcon(estado || document?.status || 'Desconocido')}
+                      <span className="ml-1">{estado || document?.status || 'Desconocido'}</span>
                     </Badge>
                   </div>
                   
                   <div className="md:col-span-2">
                     <h4 className="font-medium text-sm text-gray-600 mb-1">Fecha</h4>
                     <p className="text-sm">
-                      {formatDate(haciendaSubmission.fecha)}
+                      {haciendaSubmission?.fecha ? formatDate(haciendaSubmission.fecha) : (document?.updatedAt ? formatDate(document.updatedAt) : 'N/A')}
                     </p>
                   </div>
                 </div>
 
                 {/* Clave en sección separada */}
-                <div>
-                  <h4 className="font-medium text-sm text-gray-600 mb-2">Clave de Hacienda</h4>
-                  <div className="bg-gray-100 p-3 rounded-lg">
-                    <p className="text-xs font-mono break-all select-all">
-                      {haciendaSubmission.clave || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Mensaje de error de Hacienda */}
-                {haciendaSubmission.DetalleMensaje && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm text-gray-600">Mensaje de Error de Hacienda</h4>
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-                      <p className="text-sm text-red-800 whitespace-pre-wrap leading-relaxed">
-                        {haciendaSubmission.DetalleMensaje}
+                {haciendaSubmission?.clave && (
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-600 mb-2">Clave de Hacienda</h4>
+                    <div className="bg-gray-100 p-3 rounded-lg">
+                      <p className="text-xs font-mono break-all select-all">
+                        {haciendaSubmission.clave}
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* XML de respuesta */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm text-gray-600">Respuesta XML de Hacienda</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowXml(!showXml)}
-                      className="flex items-center gap-1"
-                    >
-                      {showXml ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      {showXml ? 'Ocultar' : 'Mostrar'} XML
-                    </Button>
-                  </div>
+                <Separator />
 
-                  {showXml && (
-                    <div className="bg-gray-900 text-green-400 p-4 rounded-lg max-h-80 overflow-auto">
-                      <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">
-                        {xmlDecodificado}
-                      </pre>
+                {/* Mensaje de error de Hacienda o del documento */}
+                {(haciendaSubmission?.DetalleMensaje || 
+                  haciendaSubmission?.error || 
+                  (document as any)?.errorMessage ||
+                  (document as any)?.haciendaError ||
+                  (document as any)?.submissionError ||
+                  (document?.status === 'error' || document?.status === 'Error' || document?.status === 'Error Consulta Hacienda' || document?.status === 'Error Envío Hacienda')) && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm text-gray-600 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      Motivo del Error
+                    </h4>
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+                      <p className="text-sm text-red-800 whitespace-pre-wrap leading-relaxed">
+                        {haciendaSubmission?.DetalleMensaje || 
+                         haciendaSubmission?.error || 
+                         (document as any)?.errorMessage ||
+                         (document as any)?.haciendaError ||
+                         (document as any)?.submissionError ||
+                         (document?.status === 'error' || document?.status === 'Error' || document?.status === 'Error Consulta Hacienda' || document?.status === 'Error Envío Hacienda') 
+                          ? `El documento tiene estado de error: ${document?.status || 'Error desconocido'}. ${haciendaSubmission?.error || (document as any)?.errorMessage || (document as any)?.haciendaError || (document as any)?.submissionError || 'No hay detalles adicionales disponibles.'}`
+                          : 'Error desconocido'}
+                      </p>
                     </div>
-                  )}
-                </div>
-
-                {/* Datos completos con XML decodificado */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-gray-600">Datos Completos de Respuesta</h4>
-                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg max-h-60 overflow-auto">
-                    <pre className="text-xs font-mono leading-relaxed">
-                      {JSON.stringify({
-                        ...haciendaSubmission,
-                        'respuesta-xml-decoded': xmlDecodificado
-                      }, null, 2)}
-                    </pre>
                   </div>
-                </div>
+                )}
+
+                {/* XML de respuesta - Solo si hay haciendaSubmission */}
+                {haciendaSubmission && (
+                  <>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm text-gray-600">Respuesta XML de Hacienda</h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowXml(!showXml)}
+                          className="flex items-center gap-1"
+                        >
+                          {showXml ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showXml ? 'Ocultar' : 'Mostrar'} XML
+                        </Button>
+                      </div>
+
+                      {showXml && (
+                        <div className="bg-gray-900 text-green-400 p-4 rounded-lg max-h-80 overflow-auto">
+                          <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                            {xmlDecodificado}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Datos completos con XML decodificado */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm text-gray-600">Datos Completos de Respuesta</h4>
+                      <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg max-h-60 overflow-auto">
+                        <pre className="text-xs font-mono leading-relaxed">
+                          {JSON.stringify({
+                            ...haciendaSubmission,
+                            'respuesta-xml-decoded': xmlDecodificado
+                          }, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </TabsContent>

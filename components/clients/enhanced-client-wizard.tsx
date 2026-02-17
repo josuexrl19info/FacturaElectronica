@@ -481,9 +481,15 @@ export function EnhancedClientWizard({ onClose, onSubmit, editingClient }: Enhan
                           placeholder="Ej: XYZ Corp"
                           value={formData.commercialName}
                           onChange={(e) => updateField("commercialName", e.target.value)}
+                          maxLength={80}
                           className="h-12"
                         />
-                        <p className="text-sm text-muted-foreground">Nombre con el que se conoce comercialmente</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Nombre con el que se conoce comercialmente (máximo 80 caracteres)</p>
+                          <p className={`text-xs ${formData.commercialName.length >= 80 ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                            {formData.commercialName.length}/80
+                          </p>
+                        </div>
                       </div>
                     </div>
 

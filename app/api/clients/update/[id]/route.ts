@@ -88,6 +88,14 @@ export async function PUT(
       )
     }
 
+    // Validar longitud del nombre comercial (máximo 80 caracteres)
+    if (commercialName && commercialName.length > 80) {
+      return NextResponse.json(
+        { error: 'El nombre comercial no puede tener más de 80 caracteres' },
+        { status: 400 }
+      )
+    }
+
     // Preparar datos para Firestore (solo los campos que se van a actualizar)
     const updateData: any = {
       // Información general
