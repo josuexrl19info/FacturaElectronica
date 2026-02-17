@@ -4,6 +4,13 @@ import { Badge } from "@/components/ui/badge"
 import { FileText, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+function normalizeStatus(status?: string) {
+  const value = (status || "").toLowerCase()
+  if (value.includes("acept")) return "Aceptado"
+  if (value.includes("rechaz")) return "Rechazado"
+  return "Pendiente"
+}
+
 export type RecentDocumentFilter = "all" | "facturas" | "tiquetes" | "notas-credito"
 
 export interface RecentDocumentItem {
@@ -88,10 +95,10 @@ export function RecentDocuments({ documents, loading = false, onViewAll }: Recen
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-semibold">{doc.id}</p>
                   <Badge
-                    variant={doc.status === "Aceptado" ? "default" : "secondary"}
-                    className={doc.status === "Aceptado" ? "bg-green-500" : ""}
+                    variant={normalizeStatus(doc.status) === "Aceptado" ? "default" : "secondary"}
+                    className={normalizeStatus(doc.status) === "Aceptado" ? "bg-green-500" : ""}
                   >
-                    {doc.status}
+                    {normalizeStatus(doc.status)}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground truncate">{doc.client}</p>

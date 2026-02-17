@@ -42,13 +42,17 @@ export default function DashboardPage() {
   const [documentsThisMonth, setDocumentsThisMonth] = useState(0)
   const [clientsCount, setClientsCount] = useState(0)
   const [productsCount, setProductsCount] = useState(0)
-  const [ivaMonthly, setIvaMonthly] = useState(0)
-  const [ivaAnnual, setIvaAnnual] = useState(0)
+  const [ivaMonthlyCRC, setIvaMonthlyCRC] = useState(0)
+  const [ivaMonthlyUSD, setIvaMonthlyUSD] = useState(0)
+  const [ivaAnnualCRC, setIvaAnnualCRC] = useState(0)
+  const [ivaAnnualUSD, setIvaAnnualUSD] = useState(0)
   const [statusSummary, setStatusSummary] = useState({ accepted: 0, pending: 0, rejected: 0 })
   const [recentDocuments, setRecentDocuments] = useState<RecentDocumentItem[]>([])
 
-  const formattedIvaMonthly = useMemo(() => formatCurrency(ivaMonthly, "CRC"), [ivaMonthly])
-  const formattedIvaAnnual = useMemo(() => formatCurrency(ivaAnnual, "CRC"), [ivaAnnual])
+  const formattedIvaMonthlyCRC = useMemo(() => formatCurrency(ivaMonthlyCRC, "CRC"), [ivaMonthlyCRC])
+  const formattedIvaMonthlyUSD = useMemo(() => formatCurrency(ivaMonthlyUSD, "USD"), [ivaMonthlyUSD])
+  const formattedIvaAnnualCRC = useMemo(() => formatCurrency(ivaAnnualCRC, "CRC"), [ivaAnnualCRC])
+  const formattedIvaAnnualUSD = useMemo(() => formatCurrency(ivaAnnualUSD, "USD"), [ivaAnnualUSD])
 
   useEffect(() => {
     const companyId = typeof window !== "undefined" ? localStorage.getItem("selectedCompanyId") : null
@@ -104,29 +108,40 @@ export default function DashboardPage() {
         const parsedCreditNotes = creditNotes.map((doc) => normalizeDocument(doc, "Nota de Crédito", "notas-credito"))
 
         const allDocs = [...parsedInvoices, ...parsedTickets, ...parsedCreditNotes]
+        const ivaDocs = [...parsedInvoices, ...parsedTickets]
         const allDocsThisMonth = allDocs.filter((doc) => isSameMonth(doc.dateRaw))
 
         setDocumentsThisMonth(allDocsThisMonth.length)
         setClientsCount(clientsData.total ?? clientsData.clients?.length ?? 0)
         setProductsCount(productsData.total ?? productsData.products?.length ?? 0)
 
-        const ivaMonthlyTotal = [...parsedInvoices, ...parsedTickets].reduce((sum, doc) => {
-          if (!isSameMonth(doc.dateRaw)) return sum
-          return sum + (doc.totalImpuesto || 0)
-        }, 0)
+        const getCode = (currency?: string) => (currency || "CRC").toUpperCase()
 
-        const ivaAnnualTotal = [...parsedInvoices, ...parsedTickets].reduce((sum, doc) => {
-          if (!isSameYear(doc.dateRaw)) return sum
-          return sum + (doc.totalImpuesto || 0)
-        }, 0)
+        const ivaMonthlyCRCVal = ivaDocs
+          .filter((doc) => isSameMonth(doc.dateRaw) && getCode(doc.currency) === "CRC")
+          .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
 
-        setIvaMonthly(ivaMonthlyTotal)
-        setIvaAnnual(ivaAnnualTotal)
+        const ivaMonthlyUSDVal = ivaDocs
+          .filter((doc) => isSameMonth(doc.dateRaw) && getCode(doc.currency) === "USD")
+          .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
+
+        const ivaAnnualCRCVal = ivaDocs
+          .filter((doc) => isSameYear(doc.dateRaw) && getCode(doc.currency) === "CRC")
+          .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
+
+        const ivaAnnualUSDVal = ivaDocs
+          .filter((doc) => isSameYear(doc.dateRaw) && getCode(doc.currency) === "USD")
+          .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
+
+        setIvaMonthlyCRC(ivaMonthlyCRCVal)
+        setIvaMonthlyUSD(ivaMonthlyUSDVal)
+        setIvaAnnualCRC(ivaAnnualCRCVal)
+        setIvaAnnualUSD(ivaAnnualUSDVal)
 
         setStatusSummary({
-          accepted: allDocs.filter((doc) => normalizeStatus(doc.status) === "aceptado").length,
-          pending: allDocs.filter((doc) => normalizeStatus(doc.status) === "pendiente").length,
-          rejected: allDocs.filter((doc) => normalizeStatus(doc.status) === "rechazado").length
+          accepted: allDocs.filter((doc) => normalizeStatus(doc.status) === "Aceptado").length,
+          pending: allDocs.filter((doc) => normalizeStatus(doc.status) === "Pendiente").length,
+          rejected: allDocs.filter((doc) => normalizeStatus(doc.status) === "Rechazado").length
         })
 
         const recent = allDocs
@@ -137,7 +152,7 @@ export default function DashboardPage() {
             kind: doc.kind,
             client: doc.clientName,
             amount: formatCurrency(doc.total || 0, doc.currency || "CRC"),
-            status: doc.status || "Pendiente",
+            status: normalizeStatus(doc.status) || "Pendiente",
             date: formatDate(doc.dateRaw)
           }))
 
@@ -192,11 +207,16 @@ export default function DashboardPage() {
           />
           <StatCard
             title="IVA del Mes"
-            value={loading ? "—" : formattedIvaMonthly}
-            change="Facturas + Tiquetes"
+            value={
+              loading
+                ? "—"
+                : `${formattedIvaMonthlyCRC} / ${formattedIvaMonthlyUSD}`
+            }
+            change="CRC / USD (Facturas + Tiquetes)"
             changeType="neutral"
             icon={TrendingUp}
             color="#ec4899"
+            compact={true}
           />
         </div>
 
@@ -249,13 +269,17 @@ export default function DashboardPage() {
                 <div className="w-full p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Mes actual</p>
-                    <p className="font-semibold text-sm">{loading ? "—" : formattedIvaMonthly}</p>
+                    <p className="font-semibold text-sm">
+                      {loading ? "—" : `${formattedIvaMonthlyCRC} / ${formattedIvaMonthlyUSD}`}
+                    </p>
                   </div>
                 </div>
                 <div className="w-full p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Año en curso</p>
-                    <p className="font-semibold text-sm">{loading ? "—" : formattedIvaAnnual}</p>
+                    <p className="font-semibold text-sm">
+                      {loading ? "—" : `${formattedIvaAnnualCRC} / ${formattedIvaAnnualUSD}`}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -293,9 +317,9 @@ export default function DashboardPage() {
 
 function normalizeStatus(status?: string) {
   const value = (status || "").toLowerCase()
-  if (value.includes("acept")) return "aceptado"
-  if (value.includes("rechaz")) return "rechazado"
-  return "pendiente"
+  if (value.includes("acept")) return "Aceptado"
+  if (value.includes("rechaz")) return "Rechazado"
+  return "Pendiente"
 }
 
 function normalizeDate(value?: string | Date) {
