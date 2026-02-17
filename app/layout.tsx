@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
@@ -7,12 +7,6 @@ import type React from "react"
 import { Suspense } from "react"
 import { AuthProvider, CompaniesProvider } from "@/lib/firebase-client"
 import { ToastProvider } from "@/components/providers/toast-provider"
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-})
 
 export const metadata: Metadata = {
   title: "Sistema de Facturación Electrónica",
@@ -27,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
         <html lang="es">
-          <body className={`font-sans ${inter.variable} ${GeistMono.variable}`}>
+          <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
             <AuthProvider>
               <CompaniesProvider>
                 <ToastProvider>

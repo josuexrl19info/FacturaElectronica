@@ -33,23 +33,14 @@ interface InvoiceCardProps {
 export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaStatus }: InvoiceCardProps) {
   const router = useRouter()
   
-  const formatCurrency = (amount: number) => {
+  const formatAmount = (amount: number, currency: string = 'CRC') => {
+    const currencyCode = (currency || 'CRC').toUpperCase()
     return new Intl.NumberFormat('es-CR', {
       style: 'currency',
-      currency: 'CRC',
-      minimumFractionDigits: 0
+      currency: currencyCode,
+      minimumFractionDigits: currencyCode === 'USD' ? 2 : 0,
+      maximumFractionDigits: currencyCode === 'USD' ? 2 : 0
     }).format(amount)
-  }
-
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('es-CR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount)
-  }
-
-  const getCurrencySymbol = (currency: string) => {
-    return currency === 'USD' ? '$' : '₡'
   }
 
   const downloadXMLFile = (content: string, filename: string) => {
@@ -318,6 +309,16 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
   const isClientExempt = (invoice.cliente && (invoice.cliente.tieneExoneracion || invoice.cliente.hasExemption)) ||
                         (invoice as any).clientData && ((invoice as any).clientData.tieneExoneracion || (invoice as any).clientData.hasExemption)
 
+  const handleCardClick = () => {
+    if (onView) {
+      onView(invoice)
+    }
+  }
+
+  const stopClick = (event: React.MouseEvent) => {
+    event.stopPropagation()
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -329,7 +330,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
       }}
       className="group"
     >
-      <Card className="p-4 hover:shadow-md transition-all duration-300 border-l-4 border-l-primary/20 hover:border-l-primary/60 cursor-pointer">
+      <Card
+        className="p-4 hover:shadow-md transition-all duration-300 border-l-4 border-l-primary/20 hover:border-l-primary/60 cursor-pointer"
+        onClick={handleCardClick}
+      >
         <div className="flex items-start gap-3">
           {/* Icono de la factura */}
           <motion.div 
@@ -385,7 +389,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                     variant="ghost" 
                     size="icon" 
                     className="h-7 w-7" 
-                    onClick={() => onViewHaciendaStatus(invoice)}
+                    onClick={(event) => {
+                      stopClick(event)
+                      onViewHaciendaStatus(invoice)
+                    }}
                     title="Ver estado de Hacienda"
                     disabled={!invoice.haciendaSubmission}
                   >
@@ -402,7 +409,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                       variant="ghost" 
                       size="icon" 
                       className="h-7 w-7" 
-                      onClick={handleDownloadPDF}
+                      onClick={(event) => {
+                        stopClick(event)
+                        handleDownloadPDF()
+                      }}
                       title="Descargar PDF"
                     >
                       <FileDown className="w-3 h-3" />
@@ -413,7 +423,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                       variant="ghost" 
                       size="icon" 
                       className="h-7 w-7" 
-                      onClick={handleDownloadSignedXML}
+                      onClick={(event) => {
+                        stopClick(event)
+                        handleDownloadSignedXML()
+                      }}
                       title="Descargar XML firmado"
                       disabled={!invoice.xmlSigned || !invoice.haciendaSubmission?.clave}
                     >
@@ -425,7 +438,10 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                       variant="ghost" 
                       size="icon" 
                       className="h-7 w-7" 
-                      onClick={handleDownloadResponseXML}
+                      onClick={(event) => {
+                        stopClick(event)
+                        handleDownloadResponseXML()
+                      }}
                       title="Descargar XML de respuesta de Hacienda"
                       disabled={!invoice.haciendaSubmission?.['respuesta-xml']}
                     >
@@ -445,7 +461,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
               >
                 <div>
                   <p className="font-semibold text-green-600 text-xs">
-                    {getCurrencySymbol(invoice.currency)}{formatAmount(isClientExempt ? (invoice.subtotal || 0) : invoice.total)}
+                    {formatAmount(isClientExempt ? (invoice.subtotal || 0) : invoice.total, invoice.currency)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {isClientExempt ? 'Monto Total (Exento)' : 'Monto Total'}
@@ -460,7 +476,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
               >
                 <div>
                   <p className="font-semibold text-blue-600 text-xs">
-                    {getCurrencySymbol(invoice.currency)}{formatAmount(invoice.subtotal || 0)}
+                    {formatAmount(invoice.subtotal || 0, invoice.currency)}
                   </p>
                   <p className="text-xs text-muted-foreground">Monto sin IVA</p>
                 </div>
@@ -474,7 +490,7 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
                 <div>
                   <div className="flex items-center gap-1">
                     <p className={`font-semibold text-xs ${isClientExempt ? 'text-purple-600' : 'text-orange-600'}`}>
-                      {getCurrencySymbol(invoice.currency)}{formatAmount(isClientExempt ? 0 : (invoice.totalImpuesto || 0))}
+                      {formatAmount(isClientExempt ? 0 : (invoice.totalImpuesto || 0), invoice.currency)}
                     </p>
                     {isClientExempt && (
                       <Shield className="w-3 h-3 text-purple-600" />

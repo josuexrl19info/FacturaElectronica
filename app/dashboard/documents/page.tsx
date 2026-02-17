@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { DashboardHeader } from "@/components/layout/dashboard-header"
 import { DocumentTypeTabs, useDocumentTabs, DocumentType } from "@/components/documents/document-type-tabs"
@@ -16,9 +17,21 @@ export default function DocumentsPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const { activeType, changeType } = useDocumentTabs()
+  const searchParams = useSearchParams()
   
   // Obtener el ID de la compañía seleccionada desde localStorage
   const selectedCompanyId = typeof window !== 'undefined' ? localStorage.getItem('selectedCompanyId') : null
+
+  const didApplyTabParam = useRef(false)
+
+  useEffect(() => {
+    if (didApplyTabParam.current) return
+    const tabParam = searchParams.get("tab")
+    if (tabParam && isDocumentType(tabParam)) {
+      changeType(tabParam)
+    }
+    didApplyTabParam.current = true
+  }, [searchParams, changeType])
 
   const handleCreateDocument = async (invoiceData: InvoiceFormData) => {
     try {
@@ -177,4 +190,8 @@ export default function DocumentsPage() {
       </AnimatePresence>
     </div>
   )
+}
+
+function isDocumentType(value: string): value is DocumentType {
+  return value === "facturas" || value === "tiquetes" || value === "notas-credito" || value === "notas-debito"
 }

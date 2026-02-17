@@ -14,6 +14,7 @@ import { InvoiceFormData, Invoice } from "@/lib/invoice-types"
 import { DocumentType } from "@/components/documents/document-type-tabs"
 import { Plus, Search, FileText, DollarSign, TrendingUp, RefreshCw, Receipt, CreditCard } from "lucide-react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/firebase-client"
 
 interface DocumentContentProps {
@@ -103,6 +104,7 @@ export function DocumentContent({
   const { user } = useAuth()
   const [showHaciendaModal, setShowHaciendaModal] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const router = useRouter()
   
   const config = documentConfig[documentType]
   const Icon = config.icon
@@ -137,22 +139,31 @@ export function DocumentContent({
   )
 
   // Calcular totales separados por moneda (solo documentos aceptados)
+  const getCurrencyCode = (currency?: string) => (currency || 'CRC').toUpperCase()
+  const getIvaAmount = (document: any) => (document.tieneExoneracion === true ? 0 : (document.totalImpuesto || 0))
+
   const stats = {
     totalDocuments: filteredDocuments.length,
     totalAmountCRC: acceptedDocuments
-      .filter(document => document.currency === 'CRC' || !document.currency)
+      .filter(document => getCurrencyCode(document.currency) === 'CRC')
       .reduce((sum, document) => {
         // Si tiene exoneración, usar subtotal; si no, usar total
         const amount = document.tieneExoneracion === true ? (document.subtotal || 0) : (document.total || 0)
         return sum + amount
       }, 0),
     totalAmountUSD: acceptedDocuments
-      .filter(document => document.currency === 'USD')
+      .filter(document => getCurrencyCode(document.currency) === 'USD')
       .reduce((sum, document) => {
         // Si tiene exoneración, usar subtotal; si no, usar total
         const amount = document.tieneExoneracion === true ? (document.subtotal || 0) : (document.total || 0)
         return sum + amount
       }, 0),
+    totalIvaCRC: acceptedDocuments
+      .filter(document => getCurrencyCode(document.currency) === 'CRC')
+      .reduce((sum, document) => sum + getIvaAmount(document), 0),
+    totalIvaUSD: acceptedDocuments
+      .filter(document => getCurrencyCode(document.currency) === 'USD')
+      .reduce((sum, document) => sum + getIvaAmount(document), 0),
     acceptedDocuments: acceptedDocuments.length,
     pendingDocuments: filteredDocuments.filter(document => document.status === 'pending').length
   }
@@ -188,7 +199,7 @@ export function DocumentContent({
     >
       {/* Stats Cards */}
       <motion.div 
-        className="grid grid-cols-1 md:grid-cols-5 gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
@@ -222,6 +233,30 @@ export function DocumentContent({
               <p className="text-xs font-medium text-muted-foreground">Monto Total ($)</p>
               <p className="text-xs text-green-600 mb-1">Solo Aceptados</p>
               <p className="text-lg font-bold">{formatCurrency(stats.totalAmountUSD, 'USD')}</p>
+            </div>
+            <DollarSign className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </Card>
+
+        {/* IVA en Colones (Solo Aceptados) */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">IVA (₡)</p>
+              <p className="text-xs text-green-600 mb-1">Solo Aceptados</p>
+              <p className="text-lg font-bold">{formatCurrency(stats.totalIvaCRC, 'CRC')}</p>
+            </div>
+            <DollarSign className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </Card>
+
+        {/* IVA en Dólares (Solo Aceptados) */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">IVA ($)</p>
+              <p className="text-xs text-green-600 mb-1">Solo Aceptados</p>
+              <p className="text-lg font-bold">{formatCurrency(stats.totalIvaUSD, 'USD')}</p>
             </div>
             <DollarSign className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -365,7 +400,11 @@ export function DocumentContent({
                 >
                   <InvoiceCard 
                     invoice={document as any}
-                    onView={(document) => console.log('Ver documento:', document)}
+                    onView={(document) => {
+                      if (documentType === 'facturas') {
+                        router.push(`/dashboard/documents/invoice/preview?id=${document.id}`)
+                      }
+                    }}
                     onEdit={(document) => console.log('Editar documento:', document)}
                     onDelete={(documentId) => console.log('Eliminar documento:', documentId)}
                     onViewHaciendaStatus={handleViewHaciendaStatus}

@@ -46,8 +46,8 @@
 }
 
 @theme inline {
-  /* Updated to use elegant Inter font */
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Use Geist Sans locally to avoid remote font downloads */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 
   /* Color System - Professional with customizable accents */
