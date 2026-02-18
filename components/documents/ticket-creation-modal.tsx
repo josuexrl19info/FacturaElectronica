@@ -734,10 +734,15 @@ export function TicketCreationModal({ onClose, onSubmit }: TicketCreationModalPr
                         <div className="col-span-6 md:col-span-1">
                           <Label className="text-xs">Total</Label>
                           <div className="h-8 flex items-center text-xs font-medium">
-                            {item.precioUnitario > 0 
-                              ? formatCurrency((item.cantidad * item.precioUnitario) + ((item.cantidad * item.precioUnitario) * item.tarifa / 100))
-                              : formatCurrency(0)
-                            }
+                            {item.precioUnitario > 0 ? (() => {
+                              const itemSubtotal = item.cantidad * item.precioUnitario
+                              const itemTax = (itemSubtotal * (item.tarifa || 0)) / 100
+                              // Si el cliente tiene exoneración, el total es solo el subtotal (sin IVA)
+                              const itemTotal = (selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption))
+                                ? itemSubtotal
+                                : itemSubtotal + itemTax
+                              return formatCurrency(itemTotal)
+                            })() : formatCurrency(0)}
                           </div>
                         </div>
                         <div className="col-span-12 md:col-span-1 flex justify-end">
@@ -876,7 +881,11 @@ export function TicketCreationModal({ onClose, onSubmit }: TicketCreationModalPr
                       {formData.items.map((item, index) => {
                         const itemSubtotal = item.cantidad * item.precioUnitario
                         const itemTax = (itemSubtotal * (item.tarifa || 0)) / 100
-                        const itemTotal = itemSubtotal + itemTax
+                        // Si el cliente tiene exoneración, el total es solo el subtotal (sin IVA)
+                        const itemTotal = (selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption))
+                          ? itemSubtotal
+                          : itemSubtotal + itemTax
+                        const clienteExonerado = selectedClient && (selectedClient.tieneExoneracion || selectedClient.hasExemption)
                         return (
                           <div key={index} className="p-2 bg-muted/30 rounded-lg border border-border/50">
                             <div className="flex items-start justify-between gap-2 mb-1">
@@ -889,7 +898,14 @@ export function TicketCreationModal({ onClose, onSubmit }: TicketCreationModalPr
                               {item.tarifa && item.tarifa > 0 && (
                                 <>
                                   <span>•</span>
-                                  <span>{item.tarifa}% IVA</span>
+                                  {clienteExonerado ? (
+                                    <span className="text-purple-600 flex items-center gap-1">
+                                      <Shield className="w-3 h-3" />
+                                      {item.tarifa}% Exento
+                                    </span>
+                                  ) : (
+                                    <span>{item.tarifa}% IVA</span>
+                                  )}
                                 </>
                               )}
                             </div>

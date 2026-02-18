@@ -163,9 +163,14 @@ export async function POST(request: NextRequest) {
         
         if (exoXML.articulo !== undefined && exoXML.articulo !== '') {
           clientExoneracion.articulo = parseInt(exoXML.articulo)
-        }
-        
-        if (exoXML.inciso !== undefined && exoXML.inciso !== '') {
+          // Si hay artículo, incluir inciso (usar 0 si no está definido)
+          if (exoXML.inciso !== undefined && exoXML.inciso !== '') {
+            clientExoneracion.inciso = parseInt(exoXML.inciso)
+          } else {
+            clientExoneracion.inciso = 0
+          }
+        } else if (exoXML.inciso !== undefined && exoXML.inciso !== '') {
+          // Si solo hay inciso sin artículo, también incluirlo
           clientExoneracion.inciso = parseInt(exoXML.inciso)
         }
         
@@ -347,9 +352,14 @@ export async function POST(request: NextRequest) {
             
             if (exoneracionFuente.articulo !== undefined && exoneracionFuente.articulo !== '') {
               exoneracionLinea.articulo = exoneracionFuente.articulo
-            }
-            
-            if (exoneracionFuente.inciso !== undefined && exoneracionFuente.inciso !== '') {
+              // Si hay artículo, incluir inciso (usar 0 si no está definido)
+              if (exoneracionFuente.inciso !== undefined && exoneracionFuente.inciso !== '') {
+                exoneracionLinea.inciso = exoneracionFuente.inciso
+              } else {
+                exoneracionLinea.inciso = 0
+              }
+            } else if (exoneracionFuente.inciso !== undefined && exoneracionFuente.inciso !== '') {
+              // Si solo hay inciso sin artículo, también incluirlo
               exoneracionLinea.inciso = exoneracionFuente.inciso
             }
             

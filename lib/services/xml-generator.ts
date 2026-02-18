@@ -370,10 +370,14 @@ ${correoXML}
     }
     
     // Artículo e Inciso - opcionales
-    if (exoneracion.articulo) {
+    // Si hay artículo, siempre debe incluirse inciso (aunque sea 0)
+    if (exoneracion.articulo !== undefined && exoneracion.articulo !== null) {
       xml += `\n      <Articulo>${exoneracion.articulo}</Articulo>`
-    }
-    if (exoneracion.inciso) {
+      // Si hay artículo, incluir inciso (usar 0 si no está definido)
+      const incisoValue = exoneracion.inciso !== undefined && exoneracion.inciso !== null ? exoneracion.inciso : 0
+      xml += `\n      <Inciso>${incisoValue}</Inciso>`
+    } else if (exoneracion.inciso !== undefined && exoneracion.inciso !== null) {
+      // Si solo hay inciso sin artículo, también incluirlo
       xml += `\n      <Inciso>${exoneracion.inciso}</Inciso>`
     }
     

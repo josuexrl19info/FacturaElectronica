@@ -240,7 +240,10 @@ export async function POST(req: NextRequest) {
           numeroDocumento: clientData.exoneracion.numeroDocumento || '',
           nombreLey: clientData.exoneracion.nombreLey || undefined,
           articulo: clientData.exoneracion.articulo ? parseInt(clientData.exoneracion.articulo) : undefined,
-          inciso: clientData.exoneracion.inciso ? parseInt(clientData.exoneracion.inciso) : undefined,
+          // Si hay artículo, incluir inciso (usar 0 si no está definido)
+          inciso: clientData.exoneracion.articulo 
+            ? (clientData.exoneracion.inciso ? parseInt(clientData.exoneracion.inciso) : 0)
+            : (clientData.exoneracion.inciso ? parseInt(clientData.exoneracion.inciso) : undefined),
           porcentajeCompra: clientData.exoneracion.porcentajeCompra ? parseFloat(clientData.exoneracion.porcentajeCompra) : undefined,
           nombreInstitucion: clientData.exoneracion.nombreInstitucion || '',
           nombreInstitucionOtros: clientData.exoneracion.nombreInstitucionOtros || undefined,
@@ -256,7 +259,10 @@ export async function POST(req: NextRequest) {
           numeroDocumento: clientData.exemption.documentNumber || '',
           nombreLey: clientData.exemption.lawName || undefined,
           articulo: clientData.exemption.article ? parseInt(clientData.exemption.article) : undefined,
-          inciso: clientData.exemption.subsection ? parseInt(clientData.exemption.subsection) : undefined,
+          // Si hay artículo, incluir inciso (usar 0 si no está definido)
+          inciso: clientData.exemption.article
+            ? (clientData.exemption.subsection ? parseInt(clientData.exemption.subsection) : 0)
+            : (clientData.exemption.subsection ? parseInt(clientData.exemption.subsection) : undefined),
           porcentajeCompra: clientData.exemption.purchasePercentage ? parseFloat(clientData.exemption.purchasePercentage) : undefined,
           nombreInstitucion: clientData.exemption.institutionName || '',
           nombreInstitucionOtros: clientData.exemption.institutionNameOthers || undefined,
@@ -331,32 +337,46 @@ export async function POST(req: NextRequest) {
           const baseImponible = item.baseImponible || item.subTotal || (item.cantidad * item.precioUnitario)
           const montoTotalOriginal = item.montoTotalLinea || (baseImponible + montoImpuesto)
 
+          // Variables para ajustar montos cuando hay exoneración
+          let impuestoNeto = item.impuestoNeto || montoImpuesto
+          let montoTotalLinea = montoTotalOriginal
+          let montoImpuestoFinal = montoImpuesto
+
+          // Agregar exoneración si el cliente la tiene
+          if (clientExoneracion) {
+            // Cuando hay exoneración:
+            // - El monto del impuesto debe ser 0 (no se cobra)
+            // - El montoExoneracion debe tener el valor teórico del impuesto
+            // - El impuesto neto debe ser 0
+            // - El total de línea debe ser solo la base imponible
+            montoImpuestoFinal = 0
+            impuestoNeto = 0
+            montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
+            
+            // Crear copia de la exoneración con el monto teórico del impuesto exonerado
+            const exoneracionLinea = {
+              ...clientExoneracion,
+              montoExoneracion: montoImpuesto // El monto teórico del impuesto que se está exonerando
+            }
+            
+            console.log(`🛡️ Agregando exoneración a línea ${index + 1}:`, {
+              montoTeorico: montoImpuesto,
+              montoFinal: montoImpuestoFinal,
+              impuestoNeto,
+              montoTotalLinea
+            })
+          }
+
           // Crear objeto de impuesto con exoneración si el cliente la tiene
           const impuestoData = {
             codigo: item.impuesto[0]?.codigo || '01',
             codigoTarifaIVA: item.impuesto[0]?.codigoTarifaIVA || '08',
             tarifa: item.impuesto[0]?.tarifa || 13,
-            monto: montoImpuesto
-          }
-
-          // Variables para ajustar montos cuando hay exoneración
-          let impuestoNeto = item.impuestoNeto || montoImpuesto
-          let montoTotalLinea = montoTotalOriginal
-
-          // Agregar exoneración si el cliente la tiene
-          if (clientExoneracion) {
-            // Crear copia de la exoneración con el monto específico de esta línea
-            const exoneracionLinea = {
+            monto: montoImpuestoFinal, // 0 si hay exoneración, valor original si no
+            ...(clientExoneracion ? { exoneracion: {
               ...clientExoneracion,
-              montoExoneracion: montoImpuesto // El monto del impuesto de esta línea
-            }
-            impuestoData.exoneracion = exoneracionLinea
-            
-            // Cuando hay exoneración, el impuesto neto debe ser 0 y el total sin impuesto
-            impuestoNeto = 0
-            montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
-            
-            console.log(`🛡️ Agregando exoneración a línea ${index + 1}:`, exoneracionLinea)
+              montoExoneracion: montoImpuesto // El monto teórico del impuesto exonerado
+            } } : {})
           }
 
           return {

@@ -8,8 +8,9 @@ import { DocumentTypeTabs, useDocumentTabs, DocumentType } from "@/components/do
 import { DocumentContent } from "@/components/documents/document-content"
 import { useAuth } from "@/lib/firebase-client"
 import { useToast } from "@/hooks/use-toast"
-import { InvoiceFormData, Invoice } from "@/lib/invoice-types"
+import { InvoiceFormData, Invoice, calculateInvoiceTotals } from "@/lib/invoice-types"
 import { Loader2 } from "lucide-react"
+import { useClients } from "@/hooks/use-clients"
 
 export default function DocumentsPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -18,6 +19,7 @@ export default function DocumentsPage() {
   const { toast } = useToast()
   const { activeType, changeType } = useDocumentTabs()
   const searchParams = useSearchParams()
+  const { clients } = useClients() // Obtener lista de clientes para verificar exoneración
   
   // Obtener el ID de la compañía seleccionada desde localStorage
   const selectedCompanyId = typeof window !== 'undefined' ? localStorage.getItem('selectedCompanyId') : null
@@ -35,11 +37,17 @@ export default function DocumentsPage() {
 
   const handleCreateDocument = async (invoiceData: InvoiceFormData) => {
     try {
-      // Calcular totales
-      const subtotal = invoiceData.items.reduce((sum, item) => sum + (item.cantidad * item.precioUnitario), 0)
-      const totalImpuesto = invoiceData.items.reduce((sum, item) => sum + ((item.cantidad * item.precioUnitario) * (item.tarifa || 0)) / 100, 0)
+      // Obtener el cliente seleccionado para verificar exoneración
+      const selectedClient = invoiceData.clientId && invoiceData.clientId !== 'none' 
+        ? clients.find(c => c.id === invoiceData.clientId)
+        : null
+      
+      // Calcular totales usando la función que maneja correctamente la exoneración
+      const totals = calculateInvoiceTotals(invoiceData.items, selectedClient)
+      const subtotal = totals.subtotal
+      const totalImpuesto = totals.totalImpuesto
       const totalDescuento = 0 // Por ahora sin descuentos
-      const total = subtotal + totalImpuesto - totalDescuento
+      const total = totals.total
 
       // NO generar consecutivo en el frontend - la API lo generará automáticamente
       // La API generará el consecutivo usando el servicio de consecutivos (consecutive, consecutiveTK, consecutiveNT)

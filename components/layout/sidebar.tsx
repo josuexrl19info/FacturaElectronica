@@ -18,6 +18,7 @@ import {
   Building2,
   LogOut,
   MessageSquare,
+  Shield,
 } from "lucide-react"
 
 const menuItems = [
@@ -54,7 +55,7 @@ const menuItems = [
 ]
 
 interface SidebarProps {
-  company: {
+  company?: {
     id: string
     name: string // Razón Social
     nombreComercial: string // Nombre Comercial
@@ -70,8 +71,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ company }: SidebarProps) {
+  // Valores por defecto si no hay empresa (para panel de admin)
+  const companyData = company || {
+    id: 'admin',
+    name: 'Super Administrador',
+    nombreComercial: 'Admin Panel',
+    brandColor: '#6366f1'
+  }
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  
+  // Detectar si estamos en rutas de admin
+  const isAdminRoute = pathname?.startsWith('/admin')
 
   return (
     <aside
@@ -92,15 +103,15 @@ export function Sidebar({ company }: SidebarProps) {
           whileHover={{ scale: 1.05, rotate: 2 }}
           transition={{ duration: 0.2 }}
         >
-          {company.logoUrl ? (
+          {companyData.logoUrl ? (
             <img 
-              src={company.logoUrl} 
-              alt={company.nombreComercial} 
+              src={companyData.logoUrl} 
+              alt={companyData.nombreComercial} 
               className="w-full h-full object-contain p-1"
             />
           ) : (
             <span className="text-xl font-bold text-primary">
-              {company.nombreComercial.charAt(0)}
+              {companyData.nombreComercial.charAt(0)}
             </span>
           )}
         </motion.div>
@@ -112,7 +123,7 @@ export function Sidebar({ company }: SidebarProps) {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <h2 className="font-bold text-lg truncate text-gradient leading-tight">
-              {company.nombreComercial}
+              {companyData.nombreComercial}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               InvoSell por InnovaSellCR
@@ -128,6 +139,44 @@ export function Sidebar({ company }: SidebarProps) {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
+          {/* Admin Menu Item - Solo mostrar si estamos en rutas de admin */}
+          {isAdminRoute && (
+            <motion.li
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+            >
+              <motion.div
+                whileHover={{ x: 5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link
+                  href="/admin"
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden",
+                    pathname === "/admin" || pathname?.startsWith("/admin/")
+                      ? "gradient-primary text-white shadow-lg shadow-primary/20 scale-[1.02]"
+                      : "hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 text-muted-foreground hover:text-foreground hover:scale-[1.02]",
+                    collapsed && "justify-center",
+                  )}
+                >
+                  <Shield
+                    className={cn(
+                      "w-5 h-5 flex-shrink-0 transition-transform duration-300",
+                      (pathname === "/admin" || pathname?.startsWith("/admin/")) && "scale-110",
+                    )}
+                  />
+                  {!collapsed && <span className="flex-1 font-medium">Super Admin</span>}
+                  {collapsed && (
+                    <div className="absolute left-full ml-3 px-3 py-2 bg-popover text-popover-foreground rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 shadow-xl border scale-95 group-hover:scale-100">
+                      Super Admin
+                    </div>
+                  )}
+                </Link>
+              </motion.div>
+            </motion.li>
+          )}
+          
           {menuItems.map((item, index) => {
             const Icon = item.icon
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
