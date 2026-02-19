@@ -149,16 +149,14 @@ export class CompanyService {
           fileData: (personalInfo as any).logoBase64
         } : undefined,
         
-        // Actividad económica (desde la selección del usuario)
+        // Actividad económica (OBLIGATORIA para empresas - sin valores por defecto)
         economicActivity: personalInfo.economicActivity ? {
           codigo: personalInfo.economicActivity.codigo,
           descripcion: personalInfo.economicActivity.descripcion,
-          estado: personalInfo.economicActivity.estado
-        } : {
-          codigo: '620100', // Código por defecto para servicios de software
-          descripcion: 'DESARROLLO DE SOFTWARE',
-          estado: 'A'
-        },
+          estado: personalInfo.economicActivity.estado || 'A'
+        } : (() => {
+          throw new Error('La actividad económica es obligatoria para empresas. Por favor, seleccione o ingrese manualmente un código de actividad económica.')
+        })(),
         
         // Credenciales ATV encriptadas
         atvCredentials: {

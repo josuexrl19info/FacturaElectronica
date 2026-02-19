@@ -154,6 +154,7 @@ export interface InvoiceItemFormData {
   // Producto seleccionado
   productId?: string
   codigoCABYS: string
+  tipo?: 'servicio' | 'mercancia' // Tipo: Servicio o Mercancía
   detalle: string
   unidadMedida: string
   

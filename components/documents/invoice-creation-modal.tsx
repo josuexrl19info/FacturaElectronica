@@ -93,6 +93,7 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
     const newItem: InvoiceItemFormData = {
       productId: product.id,
       codigoCABYS: product.codigoCABYS,
+      tipo: product.tipo || 'servicio', // Usar tipo del producto o 'servicio' por defecto
       detalle: product.detalle,
       unidadMedida: product.unidadMedida,
       cantidad: 1,
@@ -112,6 +113,7 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
   const handleAddManualItem = () => {
     const newItem: InvoiceItemFormData = {
       codigoCABYS: '',
+      tipo: 'servicio', // Por defecto Servicio
       detalle: '',
       unidadMedida: 'Sp',
       cantidad: 1,
@@ -740,14 +742,33 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                           </Button>
                         </div>
                       </div>
-                      <div className="mt-2">
-                        <Label className="text-xs">Código CABYS</Label>
-                        <Input
-                          value={item.codigoCABYS}
-                          onChange={(e) => handleUpdateItem(index, 'codigoCABYS', e.target.value)}
-                          placeholder="8399000000000"
-                          className="h-8 text-xs"
-                        />
+                      <div className="mt-2 grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-12 md:col-span-4">
+                          <Label className="text-xs">Código CABYS</Label>
+                          <Input
+                            value={item.codigoCABYS || ''}
+                            onChange={(e) => handleUpdateItem(index, 'codigoCABYS', e.target.value)}
+                            placeholder="8399000000000"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="col-span-12 md:col-span-2">
+                          <Label className="text-xs">Tipo</Label>
+                          <Select
+                            value={item.tipo || 'servicio'}
+                            onValueChange={(value) => handleUpdateItem(index, 'tipo', value)}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue>
+                                {item.tipo === 'mercancia' ? 'Mercancía' : 'Servicio'}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="servicio">Servicio</SelectItem>
+                              <SelectItem value="mercancia">Mercancía</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </motion.div>
                   ))}

@@ -89,6 +89,9 @@ export default function DocumentsPage() {
           return {
             numeroLinea: index + 1,
             codigoCABYS: item.codigoCABYS || '8399000000000', // Código por defecto
+            // Tipo de línea según selección del usuario en el modal ("servicio" | "mercancia").
+            // Si no viene definido, se asume "servicio" para mantener compatibilidad.
+            tipo: item.tipo || 'servicio',
             cantidad: item.cantidad,
             unidadMedida: item.unidadMedida || 'Sp', // Unidad por defecto (corregido)
             detalle: item.detalle,

@@ -273,20 +273,30 @@ export async function POST(req: NextRequest) {
 
           // Agregar exoneración si el cliente la tiene
           if (clientExoneracion) {
-            // Cuando hay exoneración:
-            // - El monto del impuesto debe ser 0 (no se cobra)
-            // - El montoExoneracion debe tener el valor teórico del impuesto
-            // - El impuesto neto debe ser 0
-            // - El total de línea debe ser solo la base imponible
-            montoImpuestoFinal = 0
+            // Cuando hay exoneración en servicios:
+            // - El monto del impuesto debe reflejar el IVA total ANTES de la exoneración (monto teórico)
+            // - El montoExoneracion debe tener el valor teórico del impuesto exonerado
+            // - El impuesto neto debe ser 0 (el cliente no paga IVA)
+            // - El total de línea debe ser SubTotal + ImpuestoNeto (que es SubTotal + 0 = SubTotal)
+            
+            // Calcular el monto teórico del impuesto si no viene en el item
+            const montoTeoricoImpuesto = montoImpuesto > 0 
+              ? montoImpuesto 
+              : baseImponible * ((item.impuesto[0]?.tarifa || 13) / 100)
+            
+            // El monto del impuesto debe ser el teórico (antes de exoneración)
+            montoImpuestoFinal = montoTeoricoImpuesto
+            // El impuesto neto es 0 porque el cliente está exonerado
             impuestoNeto = 0
-            montoTotalLinea = baseImponible // Solo la base imponible, sin impuesto
+            // MontoTotalLinea = SubTotal + ImpuestoNeto = SubTotal + 0 = SubTotal
+            montoTotalLinea = baseImponible
             
             console.log(`🛡️ Agregando exoneración a línea ${index + 1}:`, {
-              montoTeorico: montoImpuesto,
+              montoTeorico: montoTeoricoImpuesto,
               montoFinal: montoImpuestoFinal,
               impuestoNeto,
-              montoTotalLinea
+              montoTotalLinea,
+              baseImponible
             })
           }
 
@@ -295,10 +305,10 @@ export async function POST(req: NextRequest) {
             codigo: item.impuesto[0]?.codigo || '01',
             codigoTarifaIVA: item.impuesto[0]?.codigoTarifaIVA || '08',
             tarifa: item.impuesto[0]?.tarifa || 13,
-            monto: montoImpuestoFinal, // 0 si hay exoneración, valor original si no
+            monto: montoImpuestoFinal, // Monto teórico del impuesto (antes de exoneración) si hay exoneración, valor original si no
             ...(clientExoneracion ? { exoneracion: {
               ...clientExoneracion,
-              montoExoneracion: montoImpuesto // El monto teórico del impuesto exonerado
+              montoExoneracion: montoImpuestoFinal // El monto teórico del impuesto exonerado (igual al monto)
             } } : {})
           }
 
@@ -315,7 +325,9 @@ export async function POST(req: NextRequest) {
             impuesto: impuestoData,
             impuestoAsumidoEmisorFabrica: item.impuestoAsumidoEmisorFabrica || 0,
             impuestoNeto: impuestoNeto,
-            montoTotalLinea: montoTotalLinea
+            montoTotalLinea: montoTotalLinea,
+            // Propiedad auxiliar para el resumen: Servicio vs Mercancía
+            tipo: item.tipo || 'servicio'
           }
         }),
         codigoMoneda: String(currency || 'CRC'),

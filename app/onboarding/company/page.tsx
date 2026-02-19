@@ -278,6 +278,11 @@ export default function CompanyOnboardingPage() {
     const { personalInfo } = formData
     return !!(
       personalInfo.legalName &&
+      personalInfo.economicActivity && 
+      personalInfo.economicActivity.codigo && 
+      personalInfo.economicActivity.codigo.trim() !== '' &&
+      personalInfo.economicActivity.descripcion && 
+      personalInfo.economicActivity.descripcion.trim() !== '' &&
       personalInfo.name &&
       personalInfo.taxId &&
       personalInfo.email &&
@@ -686,6 +691,7 @@ export default function CompanyOnboardingPage() {
                     value={formData.personalInfo.economicActivity}
                     onChange={handleEconomicActivityChange}
                     onCompanyInfo={setHaciendaCompanyInfo}
+                    context="company"
                   />
                   <p className="text-sm text-muted-foreground">
                     Se consultará automáticamente la información desde Hacienda basada en la cédula ingresada

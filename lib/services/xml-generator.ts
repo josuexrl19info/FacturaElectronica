@@ -65,6 +65,12 @@ export interface LineaDetalle {
   impuestoAsumidoEmisorFabrica: number
   impuestoNeto: number
   montoTotalLinea: number
+  /**
+   * Tipo de línea según selección del usuario en el UI.
+   * No se serializa directamente en el XML de detalle,
+   * pero se utiliza para distribuir los totales entre servicios y mercancías.
+   */
+  tipo?: 'servicio' | 'mercancia'
 }
 
 export interface FacturaData {
@@ -452,6 +458,9 @@ ${correoXML}
   private static generateResumenFacturaXML(facturaData: FacturaData): string {
     // Detectar si hay exoneraciones en alguna línea
     const tieneExoneraciones = facturaData.lineasDetalle.some(linea => linea.impuesto?.exoneracion)
+    // Detectar si todas las líneas están marcadas como mercancía
+    const allMercancia = facturaData.lineasDetalle.length > 0 &&
+      facturaData.lineasDetalle.every((linea: any) => linea.tipo === 'mercancia')
     
     let resumen = `<ResumenFactura>
     <CodigoTipoMoneda>
@@ -460,30 +469,67 @@ ${correoXML}
     </CodigoTipoMoneda>`
     
     if (tieneExoneraciones) {
-      // Cuando hay exoneraciones:
-      // - TotalServExonerado: suma de líneas exoneradas
-      // - TotalServGravados: 0 (no hay servicios gravados)
-      // - TotalExonerado: suma de base imponible de líneas exoneradas
-      // - TotalGravado: 0
-      // - TotalImpuesto: 0 (no se cobra impuesto)
-      // - No incluir TotalDesgloseImpuesto
-      const totalServExonerado = facturaData.lineasDetalle
+      // Mantener la lógica de impuestos, solo redistribuir exonerado entre servicios y mercancías
+      const totalExoneradoBase = facturaData.lineasDetalle
         .filter(linea => linea.impuesto?.exoneracion)
         .reduce((sum, linea) => sum + linea.baseImponible, 0)
       
-      const totalExonerado = totalServExonerado
+      const totalServExonerado = allMercancia ? 0 : totalExoneradoBase
+      const totalMercExonerada = allMercancia ? totalExoneradoBase : 0
+      const totalExonerado = totalExoneradoBase
       
-      resumen += `\n    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
+      // Detectar si todas las líneas son servicios (no mercancías)
+      const allServicios = !allMercancia && facturaData.lineasDetalle.length > 0 &&
+        facturaData.lineasDetalle.every((linea: any) => !linea.tipo || linea.tipo === 'servicio')
+      
+      // Para servicios exonerados, usar formato simplificado con solo los nodos requeridos
+      if (allServicios) {
+        resumen += `
+    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
     <TotalServExonerado>${this.formatAmount(totalServExonerado)}</TotalServExonerado>
     <TotalGravado>${this.formatAmount(0)}</TotalGravado>
     <TotalExonerado>${this.formatAmount(totalExonerado)}</TotalExonerado>
     <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
     <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>
     <TotalImpuesto>${this.formatAmount(0)}</TotalImpuesto>`
+      } else {
+        // Para mercancías exoneradas o mezcla, usar formato completo
+        resumen += `
+    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
+    <TotalServExentos>${this.formatAmount(0)}</TotalServExentos>
+    <TotalServExonerado>${this.formatAmount(totalServExonerado)}</TotalServExonerado>
+    <TotalServNoSujeto>${this.formatAmount(0)}</TotalServNoSujeto>
+    <TotalMercanciasGravadas>${this.formatAmount(0)}</TotalMercanciasGravadas>
+    <TotalMercanciasExentas>${this.formatAmount(0)}</TotalMercanciasExentas>
+    <TotalMercExonerada>${this.formatAmount(totalMercExonerada)}</TotalMercExonerada>
+    <TotalMercNoSujeta>${this.formatAmount(0)}</TotalMercNoSujeta>
+    <TotalGravado>${this.formatAmount(0)}</TotalGravado>
+    <TotalExento>${this.formatAmount(0)}</TotalExento>
+    <TotalExonerado>${this.formatAmount(totalExonerado)}</TotalExonerado>
+    <TotalNoSujeto>${this.formatAmount(0)}</TotalNoSujeto>
+    <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>
+    <TotalImpuesto>${this.formatAmount(0)}</TotalImpuesto>`
+      }
     } else {
-      // Cuando NO hay exoneraciones, usar los valores normales
-      resumen += `\n    <TotalServGravados>${this.formatAmount(facturaData.totalServGravados || 0)}</TotalServGravados>
+      // Cuando NO hay exoneraciones, redistribuir entre servicios y mercancías
+      const totalGravado = facturaData.totalGravado || 0
+      const totalServGravados = allMercancia ? 0 : (facturaData.totalServGravados || totalGravado)
+      const totalMercanciasGravadas = allMercancia ? totalGravado : 0
+      
+      resumen += `
+    <TotalServGravados>${this.formatAmount(totalServGravados)}</TotalServGravados>
+    <TotalServExentos>${this.formatAmount(0)}</TotalServExentos>
+    <TotalServExonerado>${this.formatAmount(facturaData.totalServExonerado || 0)}</TotalServExonerado>
+    <TotalServNoSujeto>${this.formatAmount(0)}</TotalServNoSujeto>
+    <TotalMercanciasGravadas>${this.formatAmount(totalMercanciasGravadas)}</TotalMercanciasGravadas>
+    <TotalMercanciasExentas>${this.formatAmount(0)}</TotalMercanciasExentas>
+    <TotalMercExonerada>${this.formatAmount(0)}</TotalMercExonerada>
+    <TotalMercNoSujeta>${this.formatAmount(0)}</TotalMercNoSujeta>
     <TotalGravado>${this.formatAmount(facturaData.totalGravado || 0)}</TotalGravado>
+    <TotalExento>${this.formatAmount(0)}</TotalExento>
+    <TotalExonerado>${this.formatAmount(facturaData.totalExonerado || 0)}</TotalExonerado>
+    <TotalNoSujeto>${this.formatAmount(0)}</TotalNoSujeto>
     <TotalVenta>${this.formatAmount(facturaData.totalVenta)}</TotalVenta>
     <TotalVentaNeta>${this.formatAmount(facturaData.totalVentaNeta)}</TotalVentaNeta>`
       
@@ -515,6 +561,9 @@ ${correoXML}
   private static generateResumenTiqueteXML(tiqueteData: FacturaData): string {
     // Verificar si hay exoneraciones en las líneas
     const tieneExoneraciones = tiqueteData.lineasDetalle.some(linea => linea.impuesto?.exoneracion)
+    // Detectar si todas las líneas están marcadas como mercancía
+    const allMercancia = tiqueteData.lineasDetalle.length > 0 &&
+      tiqueteData.lineasDetalle.every((linea: any) => linea.tipo === 'mercancia')
     
     let resumen = `<ResumenFactura>
     <CodigoTipoMoneda>
@@ -523,22 +572,65 @@ ${correoXML}
     </CodigoTipoMoneda>`
     
     if (tieneExoneraciones) {
-      const totalServExonerado = tiqueteData.lineasDetalle
+      const totalExoneradoBase = tiqueteData.lineasDetalle
         .filter(linea => linea.impuesto?.exoneracion)
         .reduce((sum, linea) => sum + linea.baseImponible, 0)
       
-      const totalExonerado = totalServExonerado
+      const totalServExonerado = allMercancia ? 0 : totalExoneradoBase
+      const totalMercExonerada = allMercancia ? totalExoneradoBase : 0
+      const totalExonerado = totalExoneradoBase
       
-      resumen += `\n    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
+      // Detectar si todas las líneas son servicios (no mercancías)
+      const allServicios = !allMercancia && tiqueteData.lineasDetalle.length > 0 &&
+        tiqueteData.lineasDetalle.every((linea: any) => !linea.tipo || linea.tipo === 'servicio')
+      
+      // Para servicios exonerados, usar formato simplificado con solo los nodos requeridos
+      if (allServicios) {
+        resumen += `
+    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
     <TotalServExonerado>${this.formatAmount(totalServExonerado)}</TotalServExonerado>
     <TotalGravado>${this.formatAmount(0)}</TotalGravado>
     <TotalExonerado>${this.formatAmount(totalExonerado)}</TotalExonerado>
     <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
     <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>
     <TotalImpuesto>${this.formatAmount(0)}</TotalImpuesto>`
+      } else {
+        // Para mercancías exoneradas o mezcla, usar formato completo
+        resumen += `
+    <TotalServGravados>${this.formatAmount(0)}</TotalServGravados>
+    <TotalServExentos>${this.formatAmount(0)}</TotalServExentos>
+    <TotalServExonerado>${this.formatAmount(totalServExonerado)}</TotalServExonerado>
+    <TotalServNoSujeto>${this.formatAmount(0)}</TotalServNoSujeto>
+    <TotalMercanciasGravadas>${this.formatAmount(0)}</TotalMercanciasGravadas>
+    <TotalMercanciasExentas>${this.formatAmount(0)}</TotalMercanciasExentas>
+    <TotalMercExonerada>${this.formatAmount(totalMercExonerada)}</TotalMercExonerada>
+    <TotalMercNoSujeta>${this.formatAmount(0)}</TotalMercNoSujeta>
+    <TotalGravado>${this.formatAmount(0)}</TotalGravado>
+    <TotalExento>${this.formatAmount(0)}</TotalExento>
+    <TotalExonerado>${this.formatAmount(totalExonerado)}</TotalExonerado>
+    <TotalNoSujeto>${this.formatAmount(0)}</TotalNoSujeto>
+    <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
+    <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>
+    <TotalImpuesto>${this.formatAmount(0)}</TotalImpuesto>`
+      }
     } else {
-      resumen += `\n    <TotalServGravados>${this.formatAmount(tiqueteData.totalServGravados || 0)}</TotalServGravados>
+      const totalGravado = tiqueteData.totalGravado || 0
+      const totalServGravados = allMercancia ? 0 : (tiqueteData.totalServGravados || totalGravado)
+      const totalMercanciasGravadas = allMercancia ? totalGravado : 0
+
+      resumen += `
+    <TotalServGravados>${this.formatAmount(totalServGravados)}</TotalServGravados>
+    <TotalServExentos>${this.formatAmount(0)}</TotalServExentos>
+    <TotalServExonerado>${this.formatAmount(tiqueteData.totalServExonerado || 0)}</TotalServExonerado>
+    <TotalServNoSujeto>${this.formatAmount(0)}</TotalServNoSujeto>
+    <TotalMercanciasGravadas>${this.formatAmount(totalMercanciasGravadas)}</TotalMercanciasGravadas>
+    <TotalMercanciasExentas>${this.formatAmount(0)}</TotalMercanciasExentas>
+    <TotalMercExonerada>${this.formatAmount(0)}</TotalMercExonerada>
+    <TotalMercNoSujeta>${this.formatAmount(0)}</TotalMercNoSujeta>
     <TotalGravado>${this.formatAmount(tiqueteData.totalGravado || 0)}</TotalGravado>
+    <TotalExento>${this.formatAmount(0)}</TotalExento>
+    <TotalExonerado>${this.formatAmount(tiqueteData.totalExonerado || 0)}</TotalExonerado>
+    <TotalNoSujeto>${this.formatAmount(0)}</TotalNoSujeto>
     <TotalVenta>${this.formatAmount(tiqueteData.totalVenta)}</TotalVenta>
     <TotalVentaNeta>${this.formatAmount(tiqueteData.totalVentaNeta)}</TotalVentaNeta>`
       

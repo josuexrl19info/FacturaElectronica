@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Loader2, Building2, CheckCircle, AlertCircle, Star, X } from 'lucide-react'
 import { EconomicActivity, HaciendaCompanyInfo } from '@/lib/company-wizard-types'
 
@@ -18,6 +19,12 @@ interface EconomicActivitySelectorProps {
   onChange: (activity: EconomicActivity | undefined) => void
   onCompanyInfo?: (info: HaciendaCompanyInfo) => void
   className?: string
+  /**
+   * Contexto de uso:
+   * - "client": para clientes (puede omitirse actividad y solo permite tiquetes)
+   * - "company": para empresas (se puede ingresar manualmente la actividad si Hacienda no la devuelve)
+   */
+  context?: 'client' | 'company'
 }
 
 export function EconomicActivitySelector({
@@ -25,7 +32,8 @@ export function EconomicActivitySelector({
   value,
   onChange,
   onCompanyInfo,
-  className
+  className,
+  context = 'client'
 }: EconomicActivitySelectorProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,22 +44,22 @@ export function EconomicActivitySelector({
   // Estabilizar la función onChange para evitar bucles infinitos
   const stableOnChange = useCallback(onChange, [onChange])
 
+  const taxIdClean = taxId?.replace(/[-\s]/g, '') || ''
+  const hasValidTaxId = /^\d{9,10}$/.test(taxIdClean)
+
   // Buscar automáticamente cuando cambie el taxId, pero no si ya tenemos una actividad seleccionada
   useEffect(() => {
-    if (taxId && taxId.length >= 9) {
-      const cleanTaxId = taxId.replace(/[-\s]/g, '')
-      if (/^\d{9,10}$/.test(cleanTaxId)) {
-        // Solo hacer consulta si no tenemos una actividad económica ya seleccionada y no está marcado como "omitir"
-        if (!value || !value.codigo) {
-          if (!skipEconomicActivity) {
-            searchCompanyInfo(cleanTaxId)
-          } else {
-            // Si está marcado como "omitir", limpiar datos y asegurar que onChange se llama con undefined
-            setCompanyInfo(null)
-            setActivities([])
-            setError(null)
-            stableOnChange(undefined)
-          }
+    if (hasValidTaxId) {
+      // Solo hacer consulta si no tenemos una actividad económica ya seleccionada y no está marcado como "omitir"
+      if (!value || !value.codigo) {
+        if (!skipEconomicActivity) {
+          searchCompanyInfo(taxIdClean)
+        } else {
+          // Si está marcado como "omitir", limpiar datos y asegurar que onChange se llama con undefined
+          setCompanyInfo(null)
+          setActivities([])
+          setError(null)
+          stableOnChange(undefined)
         }
       }
     } else {
@@ -64,7 +72,7 @@ export function EconomicActivitySelector({
         stableOnChange(undefined)
       }
     }
-  }, [taxId, stableOnChange, value, skipEconomicActivity])
+  }, [taxIdClean, hasValidTaxId, stableOnChange, value, skipEconomicActivity])
   
   // Resetear skipEconomicActivity cuando se selecciona una actividad
   useEffect(() => {
@@ -116,6 +124,24 @@ export function EconomicActivitySelector({
     stableOnChange(activity)
   }
 
+  const handleManualActivityChange = (field: 'codigo' | 'descripcion') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const current: EconomicActivity = value || {
+      codigo: '',
+      descripcion: '',
+      estado: 'A',
+      tipo: 'P'
+    }
+
+    const updated: EconomicActivity = {
+      ...current,
+      [field]: e.target.value,
+      estado: current.estado || 'A',
+      tipo: current.tipo || 'P'
+    }
+
+    stableOnChange(updated)
+  }
+
 
   return (
     <div className={className}>
@@ -128,10 +154,44 @@ export function EconomicActivitySelector({
         )}
 
         {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div className="space-y-3">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            
+            {/* Mostrar formulario manual para empresas cuando hay error */}
+            {context === 'company' && taxId && taxId.replace(/[-\s]/g, '').length >= 9 && (
+              <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-dashed">
+                <p className="text-xs text-muted-foreground">
+                  Puedes ingresar un código y descripción de actividad económica manualmente para continuar con la creación de la empresa.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Código actividad *</Label>
+                    <Input
+                      value={value?.codigo || ''}
+                      onChange={handleManualActivityChange('codigo')}
+                      placeholder="Ej: 620100"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label className="text-xs">Descripción *</Label>
+                    <Input
+                      value={value?.descripcion || ''}
+                      onChange={handleManualActivityChange('descripcion')}
+                      placeholder="Ej: DESARROLLO DE SOFTWARE"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-destructive font-medium">
+                  ⚠️ La actividad económica es obligatoria para empresas. Debes ingresar código y descripción.
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Mostrar actividad económica previamente seleccionada si no se ha hecho consulta a API */}
@@ -245,44 +305,80 @@ export function EconomicActivitySelector({
                   <Alert className="py-2">
                     <AlertCircle className="h-3 w-3" />
                     <AlertDescription className="text-xs">
-                      Esta empresa no tiene códigos de actividad económica registrados actualmente en Hacienda.
+                      {context === 'company'
+                        ? 'Esta empresa no tiene códigos de actividad económica registrados actualmente en Hacienda o no se devolvieron actividades.'
+                        : 'Esta empresa no tiene códigos de actividad económica registrados actualmente en Hacienda.'}
                     </AlertDescription>
                   </Alert>
                   
-                  {/* Opción para omitir actividad económica */}
-                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border border-dashed">
-                    <Checkbox
-                      id="skip-economic-activity"
-                      checked={skipEconomicActivity}
-                      onCheckedChange={(checked) => {
-                        const newSkipValue = checked === true
-                        setSkipEconomicActivity(newSkipValue)
-                        if (newSkipValue) {
-                          // Limpiar actividad económica cuando se marca como "omitir"
-                          stableOnChange(undefined)
-                        }
-                      }}
-                    />
-                    <Label 
-                      htmlFor="skip-economic-activity" 
-                      className="text-xs font-normal cursor-pointer flex-1"
-                    >
-                      <div className="space-y-1">
-                        <div className="font-medium">Omitir actividad económica</div>
-                        <div className="text-muted-foreground">
-                          Este cliente se podrá usar solo para generar tiquetes electrónicos (no facturas electrónicas)
+                  {context === 'client' ? (
+                    // Opción para omitir actividad económica (CLIENTE)
+                    <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border border-dashed">
+                      <Checkbox
+                        id="skip-economic-activity"
+                        checked={skipEconomicActivity}
+                        onCheckedChange={(checked) => {
+                          const newSkipValue = checked === true
+                          setSkipEconomicActivity(newSkipValue)
+                          if (newSkipValue) {
+                            // Limpiar actividad económica cuando se marca como "omitir"
+                            stableOnChange(undefined)
+                          }
+                        }}
+                      />
+                      <Label 
+                        htmlFor="skip-economic-activity" 
+                        className="text-xs font-normal cursor-pointer flex-1"
+                      >
+                        <div className="space-y-1">
+                          <div className="font-medium">Omitir actividad económica</div>
+                          <div className="text-muted-foreground">
+                            Este cliente se podrá usar solo para generar tiquetes electrónicos (no facturas electrónicas)
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+                  ) : (
+                    // Formulario manual de actividad económica (EMPRESA)
+                    <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-dashed">
+                      <p className="text-xs text-muted-foreground">
+                        Hacienda no devolvió códigos de actividad económica para esta empresa. Puedes ingresar un código y descripción manualmente para continuar con la creación de la empresa.
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Código actividad</Label>
+                          <Input
+                            value={value?.codigo || ''}
+                            onChange={handleManualActivityChange('codigo')}
+                            placeholder="Ej: 620100"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="md:col-span-2 space-y-1">
+                          <Label className="text-xs">Descripción</Label>
+                          <Input
+                            value={value?.descripcion || ''}
+                            onChange={handleManualActivityChange('descripcion')}
+                            placeholder="Ej: DESARROLLO DE SOFTWARE"
+                            className="h-8 text-xs"
+                          />
                         </div>
                       </div>
-                    </Label>
-                  </div>
+                      {context === 'company' && (
+                        <p className="text-[11px] text-destructive font-medium">
+                          ⚠️ La actividad económica es obligatoria para empresas. Debes ingresar código y descripción.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
         )}
         
-        {/* Mostrar opción para omitir también cuando no hay companyInfo pero hay taxId válido */}
-        {!companyInfo && !isLoading && !error && taxId && taxId.replace(/[-\s]/g, '').length >= 9 && !value && (
+        {/* Mostrar opción para omitir también cuando no hay companyInfo pero hay taxId válido (solo CLIENTES) */}
+        {context === 'client' && !companyInfo && !isLoading && !error && hasValidTaxId && !value && (
           <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-dashed">
             <div className="flex items-center space-x-2">
               <Checkbox
