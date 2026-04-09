@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TenantService, CreateTenantRequest } from '@/lib/services/tenant-service'
+import { assertTenantAdminAccess } from '@/lib/server/tenant-admin-guard'
 
 /**
  * GET /api/admin/tenants
@@ -8,13 +9,10 @@ import { TenantService, CreateTenantRequest } from '@/lib/services/tenant-servic
  * TODO: Agregar verificación de rol super-admin
  */
 export async function GET(request: NextRequest) {
-  try {
-    // TODO: Verificar que el usuario sea super-admin
-    // const user = await verifySuperAdmin(request)
-    // if (!user) {
-    //   return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-    // }
+  const unauthorized = assertTenantAdminAccess(request)
+  if (unauthorized) return unauthorized
 
+  try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || undefined
 
@@ -43,18 +41,13 @@ export async function GET(request: NextRequest) {
  * TODO: Agregar verificación de rol super-admin
  */
 export async function POST(request: NextRequest) {
-  try {
-    // TODO: Verificar que el usuario sea super-admin
-    // const user = await verifySuperAdmin(request)
-    // if (!user) {
-    //   return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-    // }
+  const unauthorized = assertTenantAdminAccess(request)
+  if (unauthorized) return unauthorized
 
+  try {
     const body = await request.json()
     
-    // Obtener el ID del usuario que crea el tenant (del token de autenticación)
-    // TODO: Obtener del token de autenticación
-    const createdBy = 'super-admin-user-id' // Temporal
+    const createdBy = request.headers.get('x-tenant-admin-email') || 'tenant-admin'
 
     const createRequest: CreateTenantRequest = {
       ...body,

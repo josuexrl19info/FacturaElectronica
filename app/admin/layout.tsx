@@ -1,12 +1,25 @@
 "use client"
 
 import { Sidebar } from "@/components/layout/sidebar"
-import { useAuthGuard } from "@/hooks/use-auth-redirect"
+import { useAuth } from "@/lib/firebase-client"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { isTenantAdminEmail } from "@/lib/tenant-admin-access"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  // TODO: Agregar verificación de rol super-admin
-  // Por ahora, permitir acceso a todos para pruebas
-  const { user, loading } = useAuthGuard()
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (loading) return
+    if (!user) {
+      router.push("/")
+      return
+    }
+    if (!isTenantAdminEmail(user.email)) {
+      router.push("/dashboard")
+    }
+  }, [loading, user, router])
 
   if (loading) {
     return (
@@ -17,6 +30,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     )
+  }
+
+  if (!user || !isTenantAdminEmail(user.email)) {
+    return null
   }
 
   return (

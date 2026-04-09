@@ -55,6 +55,7 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
   const [selectedClient, setSelectedClient] = useState<any>(null)
   const toast = useToastNotification()
   const [showProductSelector, setShowProductSelector] = useState(false)
+  const [precioInputs, setPrecioInputs] = useState<Record<number, string>>({})
 
   // Hooks para obtener datos
   const { clients, loading: clientsLoading } = useClients()
@@ -134,6 +135,11 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
     }))
+    setPrecioInputs((prev) => {
+      const next = { ...prev }
+      delete next[index]
+      return next
+    })
   }
 
   const handleUpdateItem = (index: number, field: keyof InvoiceItemFormData, value: any) => {
@@ -227,6 +233,8 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                     formData.items.length > 0 && 
                     todosLosPreciosValidos &&
                     clienteTieneActividadEconomica
+
+  const isValidDecimalInput = (value: string) => /^\d*(\.\d*)?$/.test(value)
 
   return (
     <motion.div
@@ -672,20 +680,41 @@ export function InvoiceCreationModal({ onClose, onSubmit }: InvoiceCreationModal
                           <Label className="text-xs">Precio Unit.</Label>
                           <Input
                             type="text"
-                            value={item.precioUnitario === 0 ? '' : item.precioUnitario.toString()}
+                            inputMode="decimal"
+                            value={precioInputs[index] ?? (item.precioUnitario === 0 ? '' : item.precioUnitario.toString())}
                             onChange={(e) => {
-                              const value = e.target.value
-                              // Permitir vacío o solo números con decimales
-                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                const numValue = value === '' ? 0 : parseFloat(value)
-                                handleUpdateItem(index, 'precioUnitario', isNaN(numValue) ? 0 : numValue)
+                              const raw = e.target.value
+                              if (!isValidDecimalInput(raw)) return
+
+                              setPrecioInputs((prev) => ({ ...prev, [index]: raw }))
+
+                              if (raw === '') {
+                                handleUpdateItem(index, 'precioUnitario', 0)
+                                return
                               }
+
+                              if (raw.endsWith('.')) return
+                              const numValue = parseFloat(raw)
+                              handleUpdateItem(index, 'precioUnitario', isNaN(numValue) ? 0 : numValue)
                             }}
                             onBlur={(e) => {
-                              // Si está vacío al perder el foco, mantenerlo como 0 internamente pero mostrar vacío
-                              if (e.target.value === '') {
+                              const raw = e.target.value.trim()
+                              if (raw === '') {
                                 handleUpdateItem(index, 'precioUnitario', 0)
+                                setPrecioInputs((prev) => {
+                                  const next = { ...prev }
+                                  delete next[index]
+                                  return next
+                                })
+                                return
                               }
+
+                              const numValue = parseFloat(raw)
+                              handleUpdateItem(index, 'precioUnitario', isNaN(numValue) ? 0 : numValue)
+                              setPrecioInputs((prev) => ({
+                                ...prev,
+                                [index]: isNaN(numValue) ? '' : numValue.toString(),
+                              }))
                             }}
                             placeholder="0.00"
                             className="h-8 text-xs"

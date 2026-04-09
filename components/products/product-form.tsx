@@ -36,6 +36,7 @@ export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormPr
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [precioUnitarioInput, setPrecioUnitarioInput] = useState<string>("")
 
   useEffect(() => {
     if (editingProduct) {
@@ -57,8 +58,15 @@ export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormPr
         montoExoneracion: editingProduct.montoExoneracion || 0
       }
       setFormData(productData)
+      setPrecioUnitarioInput(productData.precioUnitario > 0 ? productData.precioUnitario.toString() : "")
     }
   }, [editingProduct])
+
+  useEffect(() => {
+    if (!editingProduct) {
+      setPrecioUnitarioInput(formData.precioUnitario > 0 ? formData.precioUnitario.toString() : "")
+    }
+  }, [editingProduct, formData.precioUnitario])
 
   const handleInputChange = (field: keyof ProductFormData, value: any) => {
     setFormData(prev => ({
@@ -99,6 +107,8 @@ export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormPr
       minimumFractionDigits: 0
     }).format(amount)
   }
+
+  const isValidDecimalInput = (value: string) => /^\d*(\.\d*)?$/.test(value)
 
   return (
     <motion.div
@@ -201,16 +211,47 @@ export function ProductForm({ onClose, onSubmit, editingProduct }: ProductFormPr
                 <Label htmlFor="precioUnitario">Precio Unitario (₡) *</Label>
                 <Input
                   id="precioUnitario"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   min="0"
-                  step="1"
-                  placeholder="0"
-                  value={formData.precioUnitario || ''}
-                  onChange={(e) => handleInputChange('precioUnitario', Number(e.target.value) || 0)}
+                  placeholder="0.00"
+                  value={precioUnitarioInput}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    if (!isValidDecimalInput(raw)) return
+                    setPrecioUnitarioInput(raw)
+
+                    if (raw === '') {
+                      handleInputChange('precioUnitario', 0)
+                      return
+                    }
+
+                    if (raw.endsWith('.')) return
+                    const numValue = parseFloat(raw)
+                    handleInputChange('precioUnitario', Number.isNaN(numValue) ? 0 : numValue)
+                  }}
+                  onBlur={() => {
+                    const raw = precioUnitarioInput.trim()
+                    if (raw === '') {
+                      handleInputChange('precioUnitario', 0)
+                      setPrecioUnitarioInput('')
+                      return
+                    }
+
+                    const parsed = parseFloat(raw)
+                    if (Number.isNaN(parsed)) {
+                      handleInputChange('precioUnitario', 0)
+                      setPrecioUnitarioInput('')
+                      return
+                    }
+
+                    handleInputChange('precioUnitario', parsed)
+                    setPrecioUnitarioInput(parsed.toString())
+                  }}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Precio en colones costarricenses
+                  Usa punto (.) para decimales. Ejemplo: 1250.75
                 </p>
               </div>
 

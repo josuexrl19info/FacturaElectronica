@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TenantService, UpdateTenantRequest } from '@/lib/services/tenant-service'
+import { assertTenantAdminAccess } from '@/lib/server/tenant-admin-guard'
 
 /**
  * GET /api/admin/tenants/[id]
@@ -9,8 +10,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = assertTenantAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   try {
-    // TODO: Verificar que el usuario sea super-admin
     const { id } = params
 
     if (!id) {
@@ -52,8 +55,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = assertTenantAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   try {
-    // TODO: Verificar que el usuario sea super-admin
     const { id } = params
     const body = await request.json()
 

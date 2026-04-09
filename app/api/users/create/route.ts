@@ -15,7 +15,11 @@ import {
   doc, 
   setDoc, 
   Timestamp,
-  getFirestore 
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore'
 import { initializeApp, getApps } from 'firebase/app'
 
@@ -67,9 +71,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { name, email, password, roleId, tenantId, status = 'active', profile } = body
+    const normalizedEmail = (email || '').trim().toLowerCase()
 
     // Validaciones básicas
-    if (!name || !email || !password || !roleId || !tenantId) {
+    if (!name || !normalizedEmail || !password || !roleId || !tenantId) {
       return NextResponse.json(
         { error: 'Faltan campos requeridos: name, email, password, roleId, tenantId' },
         { status: 400 }
@@ -78,10 +83,20 @@ export async function POST(request: NextRequest) {
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json(
         { error: 'El formato del correo electrónico no es válido' },
         { status: 400 }
+      )
+    }
+
+    // Validación explícita de unicidad entre tenants
+    const usersRef = collection(db, 'users')
+    const existingUsers = await getDocs(query(usersRef, where('email', '==', normalizedEmail)))
+    if (!existingUsers.empty) {
+      return NextResponse.json(
+        { error: 'El correo ya existe como usuario en otra organización del sistema' },
+        { status: 409 }
       )
     }
 
@@ -94,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Crear usuario en Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password)
     const firebaseUser = userCredential.user
 
     // 2. Actualizar el perfil en Firebase Auth con el nombre
@@ -105,7 +120,7 @@ export async function POST(request: NextRequest) {
     // 3. Crear documento en Firestore
     const userData = {
       name,
-      email,
+      email: normalizedEmail,
       status,
       roleId,
       tenantId,

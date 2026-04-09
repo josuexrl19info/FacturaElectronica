@@ -1,21 +1,31 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useAuth } from "@/lib/firebase-client"
 import { NetflixCompanyCard } from "@/components/company/netflix-company-card"
 import { AddCompanyCard } from "@/components/company/add-company-card"
 import { CompanyLoadingAnimation } from "@/components/ui/company-loading-animation"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { LogOut, Plus, TrendingUp, Users, Calendar } from "lucide-react"
+import { LogOut, Plus, TrendingUp, Users, Calendar, Shield } from "lucide-react"
 import { useCompanies } from "@/hooks/use-companies"
 import { useCompanySelection } from "@/hooks/use-company-selection"
 import { motion } from "framer-motion"
+import { isTenantAdminEmail } from "@/lib/tenant-admin-access"
 
 export default function SelectCompanyPage() {
   const { user, signOut } = useAuth()
   const { companies, loading, error } = useCompanies()
   const { isLoading, selectedCompany, selectCompany } = useCompanySelection()
   const router = useRouter()
+  const canAccessTenantAdmin = isTenantAdminEmail(user?.email)
+  const [openingTenantAdmin, setOpeningTenantAdmin] = useState(false)
+
+  useEffect(() => {
+    if (user?.mustChangePassword) {
+      router.push("/force-password-change")
+    }
+  }, [user?.mustChangePassword, router])
 
   const handleCompanySelect = async (company: any) => {
     console.log('🎯 handleCompanySelect called with:', company)
@@ -34,6 +44,14 @@ export default function SelectCompanyPage() {
   const handleSignOut = async () => {
     await signOut()
     router.push("/")
+  }
+
+  const handleOpenTenantAdmin = () => {
+    if (openingTenantAdmin) return
+    setOpeningTenantAdmin(true)
+    setTimeout(() => {
+      router.push("/tenant-admin")
+    }, 420)
   }
 
   // Mostrar animación de carga si se está seleccionando una empresa
@@ -115,6 +133,39 @@ export default function SelectCompanyPage() {
           </div>
         </div>
       </div>
+
+      {canAccessTenantAdmin ? (
+        <div className="max-w-7xl mx-auto mb-10">
+          <motion.button
+            type="button"
+            onClick={handleOpenTenantAdmin}
+            className="w-full text-left"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.985 }}
+            animate={
+              openingTenantAdmin
+                ? { scale: [1, 1.02, 0.98, 1.01], opacity: [1, 0.95, 0.9, 1] }
+                : { scale: 1, opacity: 1 }
+            }
+            transition={{ duration: 0.4 }}
+          >
+            <div className="rounded-2xl border border-primary/35 bg-gradient-to-r from-primary/10 via-card to-card p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Acceso administrativo</p>
+                  <h3 className="text-2xl font-bold mt-1">Entrar al Módulo de Tenants</h3>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Gestión global de tenants, usuarios, empresas y productos sin entrar a una empresa.
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+            </div>
+          </motion.button>
+        </div>
+      ) : null}
 
       {/* Company grid - Netflix Style */}
       <div className="max-w-7xl mx-auto">

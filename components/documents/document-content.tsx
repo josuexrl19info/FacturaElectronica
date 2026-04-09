@@ -140,12 +140,18 @@ export function DocumentContent({
     setSelectedInvoice(null)
   }
 
-  // Filtrar documentos aceptados por Hacienda Y con status aceptado
-  const acceptedDocuments = filteredDocuments.filter(document => 
-    document.status === 'aceptado' &&
-    document.haciendaSubmission && 
-    document.haciendaSubmission['ind-estado'] === 'aceptado'
-  )
+  // Determinar si un documento está aceptado (compatible con facturas, tiquetes y notas de crédito)
+  // Status puede venir como 'aceptado', 'Aceptado', 'accepted' según el tipo de documento
+  const isDocumentAccepted = (doc: any) => {
+    const statusLower = (doc.status || '').toString().toLowerCase()
+    if (statusLower === 'aceptado' || statusLower === 'accepted') return true
+    const hs = doc.haciendaSubmission
+    if (!hs) return false
+    const estado = (hs['ind-estado'] ?? hs.estado ?? hs.state ?? hs.status ?? '').toString().toLowerCase()
+    return estado === 'aceptado' || estado === 'accepted'
+  }
+
+  const acceptedDocuments = filteredDocuments.filter(isDocumentAccepted)
 
   // Calcular totales separados por moneda (solo documentos aceptados)
   const getCurrencyCode = (currency?: string) => (currency || 'CRC').toUpperCase()

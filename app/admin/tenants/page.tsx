@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/firebase-client"
+import { getTenantAdminHeaderValue } from "@/lib/tenant-admin-access"
 import Link from "next/link"
 import { 
   Building2, 
@@ -35,21 +37,27 @@ interface Tenant {
 
 export default function TenantsListPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
+    if (!user?.email) return
     fetchTenants()
-  }, [])
+  }, [user?.email])
 
   const fetchTenants = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/admin/tenants')
+      const response = await fetch('/api/admin/tenants', {
+        headers: {
+          "x-tenant-admin-email": getTenantAdminHeaderValue(user?.email)
+        }
+      })
       if (!response.ok) {
         throw new Error('Error al cargar tenants')
       }

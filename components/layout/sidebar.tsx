@@ -11,7 +11,9 @@ import {
   FileText,
   Users,
   Package,
+  ReceiptText,
   BarChart3,
+  MailCheck,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +43,16 @@ const menuItems = [
     title: "Productos",
     icon: Package,
     href: "/dashboard/products",
+  },
+  {
+    title: "Cotizaciones",
+    icon: ReceiptText,
+    href: "/dashboard/cotizaciones",
+  },
+  {
+    title: "Aceptación Facturas",
+    icon: MailCheck,
+    href: "/dashboard/acceptance-invoices",
   },
   {
     title: "Reportes",

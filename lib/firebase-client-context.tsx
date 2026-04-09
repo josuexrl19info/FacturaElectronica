@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  changeTemporaryPassword: (temporaryPassword: string, newPassword: string) => Promise<void>
   loading: boolean
 }
 
@@ -51,8 +52,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }
 
+  const changeTemporaryPassword = async (temporaryPassword: string, newPassword: string) => {
+    setLoading(true)
+    try {
+      await authService.changeTemporaryPassword(temporaryPassword, newPassword)
+      const refreshedUser = authService.getCurrentUser()
+      setUser(refreshedUser)
+    } catch (error) {
+      setLoading(false)
+      throw error
+    }
+    setLoading(false)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ user, signIn, signOut, changeTemporaryPassword, loading }}>
       {children}
     </AuthContext.Provider>
   )

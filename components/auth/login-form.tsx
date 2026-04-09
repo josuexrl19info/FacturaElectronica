@@ -47,7 +47,13 @@ export function LoginForm() {
 
     try {
       await signIn(email, password)
-      router.push("/select-company")
+      const cachedUser = typeof window !== "undefined" ? localStorage.getItem("user") : null
+      const parsedUser = cachedUser ? JSON.parse(cachedUser) : null
+      if (parsedUser?.mustChangePassword) {
+        router.push("/force-password-change")
+      } else {
+        router.push("/select-company")
+      }
     } catch (error: any) {
       console.error("Login error:", error)
       

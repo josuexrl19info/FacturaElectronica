@@ -108,7 +108,8 @@ export default function DashboardPage() {
         const parsedCreditNotes = creditNotes.map((doc) => normalizeDocument(doc, "Nota de Crédito", "notas-credito"))
 
         const allDocs = [...parsedInvoices, ...parsedTickets, ...parsedCreditNotes]
-        const ivaDocs = [...parsedInvoices, ...parsedTickets]
+        const ivaDocsRaw = [...parsedInvoices, ...parsedTickets]
+        const ivaDocsAccepted = ivaDocsRaw.filter((doc) => normalizeStatus(doc.status) === "Aceptado")
         const allDocsThisMonth = allDocs.filter((doc) => isSameMonth(doc.dateRaw))
 
         setDocumentsThisMonth(allDocsThisMonth.length)
@@ -117,19 +118,19 @@ export default function DashboardPage() {
 
         const getCode = (currency?: string) => (currency || "CRC").toUpperCase()
 
-        const ivaMonthlyCRCVal = ivaDocs
+        const ivaMonthlyCRCVal = ivaDocsAccepted
           .filter((doc) => isSameMonth(doc.dateRaw) && getCode(doc.currency) === "CRC")
           .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
 
-        const ivaMonthlyUSDVal = ivaDocs
+        const ivaMonthlyUSDVal = ivaDocsAccepted
           .filter((doc) => isSameMonth(doc.dateRaw) && getCode(doc.currency) === "USD")
           .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
 
-        const ivaAnnualCRCVal = ivaDocs
+        const ivaAnnualCRCVal = ivaDocsAccepted
           .filter((doc) => isSameYear(doc.dateRaw) && getCode(doc.currency) === "CRC")
           .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
 
-        const ivaAnnualUSDVal = ivaDocs
+        const ivaAnnualUSDVal = ivaDocsAccepted
           .filter((doc) => isSameYear(doc.dateRaw) && getCode(doc.currency) === "USD")
           .reduce((sum, doc) => sum + (doc.totalImpuesto || 0), 0)
 
@@ -212,7 +213,7 @@ export default function DashboardPage() {
                 ? "—"
                 : `${formattedIvaMonthlyCRC} / ${formattedIvaMonthlyUSD}`
             }
-            change="CRC / USD (Facturas + Tiquetes)"
+            change="CRC / USD (solo aceptados)"
             changeType="neutral"
             icon={TrendingUp}
             color="#ec4899"
@@ -265,6 +266,7 @@ export default function DashboardPage() {
 
             <div>
               <h3 className="font-bold mb-3">IVA Acumulado</h3>
+              <p className="text-xs text-muted-foreground mb-2">Solo documentos aceptados</p>
               <div className="space-y-3">
                 <div className="w-full p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors flex items-center justify-between">
                   <div>

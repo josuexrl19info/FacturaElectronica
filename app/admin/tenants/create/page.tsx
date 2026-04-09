@@ -13,9 +13,12 @@ import Link from "next/link"
 import { ArrowLeft, Building2, Save, Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
 import { useToastNotification } from "@/components/providers/toast-provider"
+import { useAuth } from "@/lib/firebase-client"
+import { getTenantAdminHeaderValue } from "@/lib/tenant-admin-access"
 
 export default function CreateTenantPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const toast = useToastNotification()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -69,6 +72,7 @@ export default function CreateTenantPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-tenant-admin-email': getTenantAdminHeaderValue(user?.email)
         },
         body: JSON.stringify(payload),
       })

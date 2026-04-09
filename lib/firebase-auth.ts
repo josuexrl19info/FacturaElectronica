@@ -12,7 +12,10 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
-  User as FirebaseUser
+  User as FirebaseUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword
 } from 'firebase/auth'
 import { 
   getFirestore, 
@@ -86,6 +89,9 @@ onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
           status: userData.status || 'active',
           roleId: userData.roleId || '',
           tenantId: userData.tenantId || '',
+          mustChangePassword: userData.mustChangePassword === true,
+          temporaryPasswordGeneratedAt: userData.temporaryPasswordGeneratedAt?.toDate?.(),
+          passwordChangedAt: userData.passwordChangedAt?.toDate?.(),
           lastLoginAt: userData.lastLoginAt?.toDate(),
           createdAt: userData.createdAt?.toDate() || new Date(),
           updatedAt: userData.updatedAt?.toDate() || new Date(),
@@ -193,6 +199,9 @@ export const authService = {
         status: userData.status || 'active',
         roleId: userData.roleId || '',
         tenantId: userData.tenantId || '',
+        mustChangePassword: userData.mustChangePassword === true,
+        temporaryPasswordGeneratedAt: userData.temporaryPasswordGeneratedAt?.toDate?.(),
+        passwordChangedAt: userData.passwordChangedAt?.toDate?.(),
         lastLoginAt: userData.lastLoginAt?.toDate(),
         createdAt: userData.createdAt?.toDate() || new Date(),
         updatedAt: userData.updatedAt?.toDate() || new Date(),
@@ -253,6 +262,39 @@ export const authService = {
     } catch (error) {
       console.error('Sign out error:', error)
       throw new Error('Error al cerrar sesión')
+    }
+  },
+
+  async changeTemporaryPassword(temporaryPassword: string, newPassword: string): Promise<void> {
+    const authUser = auth.currentUser
+    if (!authUser || !authUser.email) {
+      throw new Error('No hay una sesión activa para actualizar contraseña')
+    }
+
+    if (!temporaryPassword || !newPassword) {
+      throw new Error('Debes ingresar contraseña temporal y nueva contraseña')
+    }
+
+    const credential = EmailAuthProvider.credential(authUser.email, temporaryPassword)
+    await reauthenticateWithCredential(authUser, credential)
+    await updatePassword(authUser, newPassword)
+
+    await updateDoc(doc(db, 'users', authUser.uid), {
+      mustChangePassword: false,
+      passwordChangedAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    })
+
+    if (currentUser) {
+      currentUser = {
+        ...currentUser,
+        mustChangePassword: false,
+        passwordChangedAt: new Date()
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(currentUser))
+      }
+      authStateListeners.forEach(listener => listener(currentUser))
     }
   },
 

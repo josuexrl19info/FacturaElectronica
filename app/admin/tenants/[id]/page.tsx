@@ -20,6 +20,8 @@ import {
   BarChart3
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { useAuth } from "@/lib/firebase-client"
+import { getTenantAdminHeaderValue } from "@/lib/tenant-admin-access"
 
 interface Tenant {
   id: string
@@ -44,23 +46,28 @@ interface Tenant {
 export default function TenantDetailsPage() {
   const params = useParams()
   const router = useRouter()
+  const { user } = useAuth()
   const tenantId = params.id as string
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tenant, setTenant] = useState<Tenant | null>(null)
 
   useEffect(() => {
-    if (tenantId) {
+    if (tenantId && user?.email) {
       fetchTenant()
     }
-  }, [tenantId])
+  }, [tenantId, user?.email])
 
   const fetchTenant = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const response = await fetch(`/api/admin/tenants/${tenantId}`)
+      const response = await fetch(`/api/admin/tenants/${tenantId}`, {
+        headers: {
+          "x-tenant-admin-email": getTenantAdminHeaderValue(user?.email)
+        }
+      })
       if (!response.ok) {
         throw new Error('Error al cargar tenant')
       }

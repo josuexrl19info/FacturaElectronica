@@ -17,6 +17,9 @@ export interface User {
   status: 'active' | 'inactive' | 'suspended'
   roleId: string
   tenantId: string
+  mustChangePassword?: boolean
+  temporaryPasswordGeneratedAt?: Date
+  passwordChangedAt?: Date
   lastLoginAt?: Date
   createdAt: Date
   updatedAt: Date

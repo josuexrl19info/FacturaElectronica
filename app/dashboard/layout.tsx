@@ -16,6 +16,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     // Solo ejecutar si el usuario está autenticado
     if (!loading && user) {
+      if ((user as any).mustChangePassword) {
+        router.push("/force-password-change")
+        return
+      }
       // Get selected company from localStorage
       const companyId = localStorage.getItem("selectedCompanyId")
       const companyData = localStorage.getItem("selectedCompanyData")

@@ -32,8 +32,9 @@ const db = getFirestore(app)
 export interface Tenant {
   id: string
   name: string  // Nombre de la licencia/tenant
+  description?: string
   status: 'active' | 'inactive' | 'suspended' | 'trial'
-  plan?: 'basic' | 'premium' | 'enterprise'
+  plan?: string
   
   // Información del propietario
   ownerName?: string
@@ -64,10 +65,11 @@ export interface Tenant {
 
 export interface CreateTenantRequest {
   name: string
+  description?: string
   ownerName: string
   ownerEmail: string
   ownerPhone?: string
-  plan?: 'basic' | 'premium' | 'enterprise'
+  plan?: string
   status?: 'active' | 'inactive' | 'suspended' | 'trial'
   maxCompanies?: number
   maxUsers?: number
@@ -137,6 +139,7 @@ export class TenantService {
     try {
       const {
         name,
+        description,
         ownerName,
         ownerEmail,
         ownerPhone,
@@ -156,15 +159,26 @@ export class TenantService {
       }
 
       // Validar email
+      const normalizedOwnerEmail = ownerEmail.trim().toLowerCase()
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(ownerEmail)) {
+      if (!emailRegex.test(normalizedOwnerEmail)) {
         throw new Error('El formato del correo electrónico no es válido')
+      }
+
+      // Validación de unicidad: el correo del propietario no puede existir como usuario en otro tenant
+      const usersRef = collection(db, 'users')
+      const existingUsersByEmail = await getDocs(
+        query(usersRef, where('email', '==', normalizedOwnerEmail))
+      )
+      if (!existingUsersByEmail.empty) {
+        throw new Error('El correo del propietario ya existe como usuario en otra organización del sistema')
       }
 
       const tenantData = {
         name,
+        description: description || null,
         ownerName,
-        ownerEmail,
+        ownerEmail: normalizedOwnerEmail,
         ownerPhone: ownerPhone || null,
         plan,
         status,
@@ -209,10 +223,29 @@ export class TenantService {
 
       // Validar email si se está actualizando
       if (updates.ownerEmail) {
+        const normalizedOwnerEmail = updates.ownerEmail.trim().toLowerCase()
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(updates.ownerEmail)) {
+        if (!emailRegex.test(normalizedOwnerEmail)) {
           throw new Error('El formato del correo electrónico no es válido')
         }
+
+        // Permitir si el correo ya existe pero pertenece al mismo tenant.
+        // Bloquear únicamente cuando el correo exista como usuario de otro tenant.
+        const usersRef = collection(db, 'users')
+        const existingUsersByEmail = await getDocs(
+          query(usersRef, where('email', '==', normalizedOwnerEmail))
+        )
+
+        const belongsToOtherTenant = existingUsersByEmail.docs.some((userDoc) => {
+          const userData = userDoc.data()
+          return (userData.tenantId || '') !== id
+        })
+
+        if (belongsToOtherTenant) {
+          throw new Error('El correo del propietario ya existe como usuario en otra organización del sistema')
+        }
+
+        updates.ownerEmail = normalizedOwnerEmail
       }
 
       // Preparar actualización
@@ -287,6 +320,7 @@ export class TenantService {
     return {
       id,
       name: data.name || '',
+      description: data.description || null,
       status: data.status || 'active',
       plan: data.plan || 'basic',
       ownerName: data.ownerName || null,
@@ -306,7 +340,7 @@ export class TenantService {
       tags: data.tags || [],
       // Incluir campos adicionales que puedan existir
       ...Object.keys(data).reduce((acc, key) => {
-        if (!['name', 'status', 'plan', 'ownerName', 'ownerEmail', 'ownerPhone', 
+        if (!['name', 'description', 'status', 'plan', 'ownerName', 'ownerEmail', 'ownerPhone', 
               'maxCompanies', 'maxUsers', 'maxDocumentsPerMonth', 
               'documentsThisMonth', 'documentsLastMonth', 'totalDocuments', 
               'lastDocumentDate', 'createdAt', 'updatedAt', 'createdBy', 

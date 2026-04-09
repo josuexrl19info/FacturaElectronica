@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
+import { getTenantAdminHeaderValue } from "@/lib/tenant-admin-access"
 
 interface TenantStats {
   total: number
@@ -43,17 +44,20 @@ export default function AdminDashboardPage() {
   })
 
   useEffect(() => {
-    // TODO: Verificar que el usuario sea super-admin
-    // Por ahora, permitir acceso a todos para pruebas
+    if (!user?.email) return
     fetchStats()
-  }, [])
+  }, [user?.email])
 
   const fetchStats = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/admin/tenants')
+      const response = await fetch('/api/admin/tenants', {
+        headers: {
+          "x-tenant-admin-email": getTenantAdminHeaderValue(user?.email)
+        }
+      })
       if (!response.ok) {
         throw new Error('Error al cargar tenants')
       }
