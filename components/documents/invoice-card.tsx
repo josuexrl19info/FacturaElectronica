@@ -21,6 +21,12 @@ import {
 } from "lucide-react"
 import { Invoice } from '@/lib/invoice-types'
 import { useRouter } from 'next/navigation'
+import {
+  buildInvoicePdfApiPayload,
+  downloadPdfBlob,
+  fetchInvoicePdfFromApi,
+  getPdfFilenameFromInvoice,
+} from '@/lib/services/invoice-pdf-client'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -151,54 +157,27 @@ export function InvoiceCard({ invoice, onEdit, onDelete, onView, onViewHaciendaS
         }
       }
 
-      console.log('📤 Enviando a PDF:', {
-        hasCompany: !!companyData,
-        companyName: companyData?.name || companyData?.nombreComercial,
-        hasClient: !!clientData,
-        clientName: clientData?.name || clientData?.nombre
-      })
-
-      // Usar el mismo servicio que se usa para el email
-      const response = await fetch('/api/generate-pdf-optimized', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          invoice: invoice,
-          company: companyData,
-          client: clientData,
-          haciendaResponse: invoice.haciendaSubmission
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error generando PDF: ${response.status}`)
+      if (!companyData?.personalization) {
+        try {
+          const stored = localStorage.getItem("selectedCompanyData")
+          if (stored) {
+            const storedCompany = JSON.parse(stored)
+            if (storedCompany?.personalization) {
+              companyData = { ...companyData, personalization: storedCompany.personalization }
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
 
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Error generando PDF')
-      }
-
-      // Descargar el PDF
-      const pdfData = atob(result.pdf_base64)
-      const pdfBytes = new Uint8Array(pdfData.length)
-      for (let i = 0; i < pdfData.length; i++) {
-        pdfBytes[i] = pdfData.charCodeAt(i)
-      }
-      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
-      const url = URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      // Usar la clave de Hacienda si está disponible, sino usar consecutivo o ID
-      const fileName = invoice.haciendaSubmission?.clave || invoice.consecutivo || invoice.id
-      link.download = `${fileName}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      const payload = buildInvoicePdfApiPayload(
+        invoice as unknown as Record<string, unknown>,
+        companyData as Record<string, unknown>,
+        (clientData || {}) as Record<string, unknown>
+      )
+      const { blob } = await fetchInvoicePdfFromApi(payload)
+      downloadPdfBlob(blob, getPdfFilenameFromInvoice(invoice as unknown as Record<string, unknown>))
 
     } catch (error) {
       console.error('Error descargando PDF:', error)

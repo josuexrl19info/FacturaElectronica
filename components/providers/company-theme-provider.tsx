@@ -14,10 +14,11 @@ import { applyCompanyTheme, themesAreEqual } from "@/lib/theme/company-theme.uti
 
 type CompanyThemeContextValue = {
   companyId: string
+  companyData: Record<string, unknown> | null
   theme: CompanyTheme
   personalization: CompanyPersonalization
   loading: boolean
-  refreshPersonalization: () => Promise<void>
+  refreshPersonalization: (forceRemote?: boolean) => Promise<void>
   applyTheme: (theme: CompanyTheme) => void
 }
 
@@ -47,6 +48,7 @@ async function fetchRemotePersonalization(companyId: string): Promise<CompanyPer
 
 export function CompanyThemeProvider({ children }: { children: React.ReactNode }) {
   const [companyId, setCompanyId] = useState("")
+  const [companyData, setCompanyData] = useState<Record<string, unknown> | null>(null)
   const [personalization, setPersonalization] = useState<CompanyPersonalization>(DEFAULT_COMPANY_PERSONALIZATION)
   const [loading, setLoading] = useState(true)
 
@@ -58,10 +60,11 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
     })
   }, [])
 
-  const refreshPersonalization = useCallback(async () => {
+  const refreshPersonalization = useCallback(async (forceRemote = false) => {
     const storedId = localStorage.getItem("selectedCompanyId") || ""
     setCompanyId(storedId)
     if (!storedId) {
+      setCompanyData(null)
       setPersonalization(DEFAULT_COMPANY_PERSONALIZATION)
       applyCompanyTheme(DEFAULT_COMPANY_THEME)
       setLoading(false)
@@ -72,20 +75,24 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
     try {
       const storedCompany = readStoredCompany()
       let nextPersonalization = personalizationFromCompanyRecord(storedCompany)
+      const needsRemote =
+        forceRemote || !storedCompany?.personalization || !storedCompany?.theme
 
-      if (!storedCompany?.personalization && !storedCompany?.theme) {
+      if (needsRemote) {
         const remote = await fetchRemotePersonalization(storedId)
         if (remote) nextPersonalization = remote
       }
 
+      const mergedCompany = storedCompany
+        ? mergePersonalizationIntoCompanyData(storedCompany, nextPersonalization)
+        : null
+
+      setCompanyData(mergedCompany)
       setPersonalization(nextPersonalization)
       applyCompanyTheme(nextPersonalization.system)
 
-      if (storedCompany) {
-        localStorage.setItem(
-          "selectedCompanyData",
-          JSON.stringify(mergePersonalizationIntoCompanyData(storedCompany, nextPersonalization))
-        )
+      if (mergedCompany) {
+        localStorage.setItem("selectedCompanyData", JSON.stringify(mergedCompany))
       }
     } finally {
       setLoading(false)
@@ -95,8 +102,9 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     void refreshPersonalization()
 
-    const onUpdated = () => {
-      void refreshPersonalization()
+    const onUpdated = (event: Event) => {
+      const forceRemote = (event as CustomEvent<{ forceRemote?: boolean }>)?.detail?.forceRemote === true
+      void refreshPersonalization(forceRemote)
     }
 
     window.addEventListener(COMPANY_PERSONALIZATION_UPDATED_EVENT, onUpdated)
@@ -112,13 +120,14 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
   const value = useMemo(
     () => ({
       companyId,
+      companyData,
       theme: personalization.system,
       personalization,
       loading,
       refreshPersonalization,
       applyTheme,
     }),
-    [companyId, personalization, loading, refreshPersonalization, applyTheme]
+    [companyId, companyData, personalization, loading, refreshPersonalization, applyTheme]
   )
 
   return <CompanyThemeContext.Provider value={value}>{children}</CompanyThemeContext.Provider>

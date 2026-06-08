@@ -11,6 +11,7 @@ import {
   mergePersonalizationIntoCompanyData,
   personalizationAreEqual,
   personalizationFromCompanyRecord,
+  preparePersonalizationForFirestore,
 } from "@/lib/theme/company-personalization.utils"
 import type { CompanyPersonalization } from "@/lib/theme/company-personalization.types"
 import { COMPANY_PERSONALIZATION_UPDATED_EVENT } from "@/lib/theme/company-personalization.types"
@@ -54,8 +55,10 @@ export function PersonalizationSettingsPanel() {
       return
     }
 
-    const normalized = personalizationFromCompanyRecord({ personalization: draft })
+    const normalized = preparePersonalizationForFirestore(draft)
+    const toastId = toast.loading("Guardando personalización en Firebase...")
     setSaving(true)
+
     try {
       const response = await fetch(`/api/companies/${encodeURIComponent(companyId)}/personalization/`, {
         method: "PUT",
@@ -63,7 +66,10 @@ export function PersonalizationSettingsPanel() {
         body: JSON.stringify({ personalization: normalized }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data?.error || "No se pudo guardar la personalización")
+
+      if (!response.ok || data?.success !== true || data?.saved !== true) {
+        throw new Error(data?.error || "Firebase no confirmó el guardado de la personalización")
+      }
 
       const persisted = personalizationFromCompanyRecord({
         personalization: data.personalization,
@@ -71,6 +77,7 @@ export function PersonalizationSettingsPanel() {
         brandColor: data.brandColor,
       })
 
+      savedRef.current = persisted
       setDraft(persisted)
       applyCompanyTheme(persisted.system)
 
@@ -87,11 +94,25 @@ export function PersonalizationSettingsPanel() {
         }
       }
 
-      window.dispatchEvent(new CustomEvent(COMPANY_PERSONALIZATION_UPDATED_EVENT))
-      toast.success("Personalización guardada en Firebase para esta empresa.")
-      await refreshPersonalization()
+      window.dispatchEvent(
+        new CustomEvent(COMPANY_PERSONALIZATION_UPDATED_EVENT, { detail: { forceRemote: true } })
+      )
+
+      const blocks = data.pdfTemplateBlocks ?? persisted.invoices.pdfTemplate.blocks.length
+      const savedAt = data.savedAt
+        ? new Date(data.savedAt).toLocaleString("es-CR")
+        : new Date().toLocaleString("es-CR")
+
+      toast.success(
+        `Personalización guardada correctamente en Firebase (${blocks} bloques PDF). ${savedAt}`,
+        { id: toastId, duration: 5000 }
+      )
+
+      await refreshPersonalization(true)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error guardando personalización.")
+      toast.error(error instanceof Error ? error.message : "Error guardando personalización.", {
+        id: toastId,
+      })
     } finally {
       setSaving(false)
     }

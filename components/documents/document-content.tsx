@@ -416,9 +416,7 @@ export function DocumentContent({
                   <InvoiceCard 
                     invoice={document as any}
                     onView={(document) => {
-                      if (documentType === 'facturas') {
-                        router.push(`/dashboard/documents/invoice/preview?id=${document.id}`)
-                      }
+                      router.push(`/dashboard/documents/invoice/preview?id=${document.id}`)
                     }}
                     onEdit={(document) => console.log('Editar documento:', document)}
                     onDelete={(documentId) => console.log('Eliminar documento:', documentId)}

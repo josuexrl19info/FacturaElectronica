@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { SidebarSettingsMenu } from "@/components/layout/sidebar-settings-menu"
+import { useSidebarLayout } from "@/components/layout/sidebar-context"
 import {
   LayoutDashboard,
   FileText,
@@ -84,7 +84,7 @@ export function Sidebar({ company }: SidebarProps) {
     nombreComercial: 'Admin Panel',
     brandColor: '#6366f1'
   }
-  const [collapsed, setCollapsed] = useState(false)
+  const { collapsed, toggleCollapsed } = useSidebarLayout()
   const pathname = usePathname()
   
   // Detectar si estamos en rutas de admin
@@ -138,7 +138,7 @@ export function Sidebar({ company }: SidebarProps) {
         )}
       </motion.div>
 
-      <nav className="flex-1 p-3 overflow-y-auto">
+      <nav className="flex-1 overflow-x-hidden overflow-y-auto p-3">
         <motion.ul 
           className="space-y-1"
           initial={{ opacity: 0 }}
@@ -284,7 +284,7 @@ export function Sidebar({ company }: SidebarProps) {
       </motion.div>
 
       <motion.button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={toggleCollapsed}
         className="absolute -right-3 top-20 w-7 h-7 gradient-primary text-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all duration-300 border-2 border-background"
         whileHover={{ scale: 1.1, rotate: 5 }}
         whileTap={{ scale: 0.95 }}

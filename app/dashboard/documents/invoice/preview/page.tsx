@@ -1,152 +1,102 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { InvoicePDFTemplate } from "@/components/pdf/invoice-pdf-template"
 import { Button } from "@/components/ui/button"
 import { Download, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { PDFGeneratorService, PDFInvoiceData } from "@/lib/services/pdf-generator"
 import { toast } from "@/hooks/use-toast"
-
-// Mock data for preview
-const mockInvoiceData = {
-  number: "FE-001-00000001",
-  key: "50601012025011512345678901234567890123456789012",
-  date: "15/01/2025",
-  dueDate: "15/02/2025",
-  company: {
-    name: "Tech Solutions CR",
-    id: "3-101-123456",
-    phone: "+506 2222-3333",
-    email: "info@techsolutions.cr",
-    address: "San José, Costa Rica, Avenida Central, Edificio 123",
-    logo: "/tech-company-logo.jpg",
-  },
-  client: {
-    name: "Empresa ABC S.A.",
-    id: "3-101-654321",
-    phone: "+506 2222-4444",
-    email: "contacto@empresaabc.cr",
-    address: "Heredia, Costa Rica, Calle 5",
-  },
-  items: [
-    {
-      description: "Desarrollo de Software Personalizado",
-      quantity: 1,
-      unitPrice: 500000,
-      discount: 0,
-      tax: 65000,
-      total: 565000,
-    },
-    {
-      description: "Soporte Técnico Mensual",
-      quantity: 3,
-      unitPrice: 50000,
-      discount: 15000,
-      tax: 19500,
-      total: 154500,
-    },
-    {
-      description: "Licencia de Software Anual",
-      quantity: 5,
-      unitPrice: 25000,
-      discount: 12500,
-      tax: 16250,
-      total: 128750,
-    },
-  ],
-  subtotal: 650000,
-  totalDiscount: 27500,
-  totalTax: 100750,
-  totalExempt: 0,
-  total: 723250,
-  notes:
-    "Pago a realizar mediante transferencia bancaria. Cuenta IBAN: CR12345678901234567890. Gracias por su preferencia.",
-}
+import {
+  buildInvoicePdfApiPayload,
+  detectDocumentTypeLabel,
+  downloadPdfBlob,
+  fetchInvoicePdfFromApi,
+  getPdfFilenameFromInvoice,
+} from "@/lib/services/invoice-pdf-client"
 
 export default function InvoicePreviewPage() {
-  const pdfRef = useRef<HTMLDivElement>(null)
   const searchParams = useSearchParams()
-  const [invoiceData, setInvoiceData] = useState<PDFInvoiceData | null>(null)
+  const invoiceId = searchParams.get("id")
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Obtener ID de la factura desde los parámetros de URL
-  const invoiceId = searchParams.get('id')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
+  const [documentLabel, setDocumentLabel] = useState("Documento")
+  const [consecutivo, setConsecutivo] = useState("")
+  const [invoiceRecord, setInvoiceRecord] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
-    if (invoiceId) {
-      loadInvoiceData(invoiceId)
-    } else {
-      // Usar datos mock si no hay ID
-      setInvoiceData(mockInvoiceData as PDFInvoiceData)
+    if (!invoiceId) {
+      setError("No se especificó un documento para previsualizar")
       setLoading(false)
+      return
+    }
+
+    let objectUrl: string | null = null
+
+    const loadPreview = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await fetch(`/api/invoices/get-by-id?id=${invoiceId}`)
+        if (!response.ok) throw new Error("Error al obtener datos del documento")
+
+        const data = await response.json()
+        if (!data.success) throw new Error(data.error || "Error al cargar datos")
+
+        const invoice = data.invoice as Record<string, unknown>
+        const company = data.company as Record<string, unknown> | null
+        const client = data.client as Record<string, unknown> | null
+
+        setInvoiceRecord(invoice)
+        setDocumentLabel(detectDocumentTypeLabel(invoice))
+        setConsecutivo(String(invoice.consecutivo || ""))
+
+        const payload = buildInvoicePdfApiPayload(invoice, company, client)
+        const { blob } = await fetchInvoicePdfFromApi(payload)
+
+        objectUrl = URL.createObjectURL(blob)
+        setPreviewUrl(objectUrl)
+        setPdfBlob(blob)
+        setLoading(false)
+      } catch (err) {
+        console.error("Error al generar vista previa:", err)
+        setError(err instanceof Error ? err.message : "Error al generar la vista previa")
+        setLoading(false)
+      }
+    }
+
+    loadPreview()
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [invoiceId])
 
-  const loadInvoiceData = async (id: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      // Obtener datos de la factura desde la API
-      const response = await fetch(`/api/invoices/get-by-id?id=${id}`)
-      
-      if (!response.ok) {
-        throw new Error('Error al obtener datos de la factura')
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Error al cargar datos')
-      }
-
-
-      // Convertir datos de Firestore a formato PDF
-      const pdfData = PDFGeneratorService.convertInvoiceToPDFData(
-        data.invoice,
-        data.company,
-        data.client
-      )
-
-
-      setInvoiceData(pdfData)
-      setLoading(false)
-    } catch (err) {
-      console.error('Error al cargar datos de la factura:', err)
-      setError('Error al cargar los datos de la factura')
-      setLoading(false)
-    }
-  }
-
   const handleDownloadPDF = async () => {
-    if (!invoiceData) {
+    if (!pdfBlob || !invoiceRecord) {
       toast({
         title: "Error",
-        description: "No hay datos de factura disponibles",
-        variant: "destructive"
+        description: "No hay PDF disponible para descargar",
+        variant: "destructive",
       })
       return
     }
 
     try {
-      await PDFGeneratorService.generateAndDownloadPDF(
-        invoiceData, 
-        `Factura_${invoiceData.number}.pdf`
-      )
-      
+      downloadPdfBlob(pdfBlob, getPdfFilenameFromInvoice(invoiceRecord))
       toast({
         title: "Éxito",
         description: "PDF descargado correctamente",
       })
-    } catch (error) {
-      console.error('Error al generar PDF:', error)
+    } catch (err) {
+      console.error("Error al descargar PDF:", err)
       toast({
         title: "Error",
-        description: "Error al generar el PDF",
-        variant: "destructive"
+        description: "Error al descargar el PDF",
+        variant: "destructive",
       })
     }
   }
@@ -155,18 +105,18 @@ export default function InvoicePreviewPage() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando datos de la factura...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4" />
+          <p className="text-gray-600">Generando vista previa del PDF...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !invoiceData) {
+  if (error || !previewUrl) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'No se encontraron datos de la factura'}</p>
+          <p className="text-red-600 mb-4">{error || "No se pudo generar la vista previa"}</p>
           <Button asChild>
             <Link href="/dashboard/documents">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -189,8 +139,10 @@ export default function InvoicePreviewPage() {
               </Link>
             </Button>
             <div>
-              <h1 className="text-xl font-bold">Vista Previa de Factura</h1>
-              <p className="text-sm text-muted-foreground">Factura No. {invoiceData.number}</p>
+              <h1 className="text-xl font-bold">Vista Previa — {documentLabel}</h1>
+              <p className="text-sm text-muted-foreground">
+                {consecutivo ? `No. ${consecutivo}` : "Documento electrónico"}
+              </p>
             </div>
           </div>
           <Button onClick={handleDownloadPDF} className="gap-2 gradient-primary text-white">
@@ -200,9 +152,14 @@ export default function InvoicePreviewPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <InvoicePDFTemplate ref={pdfRef} data={invoiceData} />
+      <div className="max-w-5xl mx-auto p-6">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden" style={{ minHeight: "80vh" }}>
+          <iframe
+            src={previewUrl}
+            title="Vista previa del PDF"
+            className="w-full border-0"
+            style={{ minHeight: "80vh" }}
+          />
         </div>
       </div>
     </div>

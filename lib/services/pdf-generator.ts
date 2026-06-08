@@ -43,60 +43,66 @@ export class PDFGeneratorService {
    * @param filename - Nombre del archivo (opcional)
    */
   static async generateAndDownloadPDF(
-    invoiceData: PDFInvoiceData, 
+    invoiceData: PDFInvoiceData,
     filename?: string
   ): Promise<void> {
     try {
-      // Crear un elemento temporal para renderizar el PDF
-      const tempDiv = document.createElement('div')
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
-      tempDiv.style.top = '-9999px'
-      tempDiv.style.width = '210mm' // A4 width
-      tempDiv.style.minHeight = '297mm' // A4 height
-      
-      document.body.appendChild(tempDiv)
+      const { buildInvoicePdfApiPayload, downloadPdfBlob, fetchInvoicePdfFromApi } = await import(
+        "./invoice-pdf-client"
+      )
 
-      // Importar dinámicamente el template
-      const { InvoicePDFTemplate } = await import('@/components/pdf/invoice-pdf-template')
-      
-      // Renderizar el template en el elemento temporal
-      const { createElement } = await import('react')
-      const { createRoot } = await import('react-dom/client')
-      
-      const root = createRoot(tempDiv)
-      root.render(createElement(InvoicePDFTemplate, { data: invoiceData }))
-
-      // Esperar un momento para que se renderice
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Configuración para html2pdf
-      const options = {
-        margin: 10,
-        filename: filename || `Factura_${invoiceData.number}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          letterRendering: true
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait' 
-        }
+      let company: Record<string, unknown> = {
+        name: invoiceData.company.name,
+        identification: invoiceData.company.id,
+        phone: invoiceData.company.phone,
+        email: invoiceData.company.email,
+        address: invoiceData.company.address,
+        logo: invoiceData.company.logo,
       }
 
-      // Generar y descargar el PDF
-      await html2pdf().set(options).from(tempDiv).save()
+      try {
+        const stored = localStorage.getItem("selectedCompanyData")
+        if (stored) {
+          const storedCompany = JSON.parse(stored) as Record<string, unknown>
+          company = { ...storedCompany, ...company }
+        }
+      } catch {
+        // ignore
+      }
 
-      // Limpiar el elemento temporal
-      root.unmount()
-      document.body.removeChild(tempDiv)
+      const invoice = {
+        consecutivo: invoiceData.number,
+        clave: invoiceData.key,
+        fechaEmision: invoiceData.date,
+        items: invoiceData.items.map((item) => ({
+          detalle: item.description,
+          cantidad: item.quantity,
+          precioUnitario: item.unitPrice,
+          descuento: item.discount,
+          montoTotalLinea: item.total,
+        })),
+        subtotal: invoiceData.subtotal,
+        totalDescuento: invoiceData.totalDiscount,
+        totalImpuesto: invoiceData.totalTax,
+        totalExento: invoiceData.totalExempt,
+        total: invoiceData.total,
+        notes: invoiceData.notes,
+      }
 
+      const client = {
+        name: invoiceData.client.name,
+        identification: invoiceData.client.id,
+        phone: invoiceData.client.phone,
+        email: invoiceData.client.email,
+        address: invoiceData.client.address,
+      }
+
+      const payload = buildInvoicePdfApiPayload(invoice, company, client)
+      const { blob } = await fetchInvoicePdfFromApi(payload)
+      downloadPdfBlob(blob, filename || `Factura_${invoiceData.number}`)
     } catch (error) {
-      console.error('Error al generar PDF:', error)
-      throw new Error('Error al generar el PDF de la factura')
+      console.error("Error al generar PDF:", error)
+      throw new Error("Error al generar el PDF de la factura")
     }
   }
 

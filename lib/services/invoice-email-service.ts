@@ -255,15 +255,18 @@ export class InvoiceEmailService {
       }
       
       // Preparar datos para el PDF optimizado
-      const pdfData = {
-        invoice: invoice,
-        company: companyData,
-        client: clientData,
-        haciendaResponse: invoice.haciendaSubmission,
-        // Asegurar que los campos de exoneración estén disponibles directamente
-        tieneExoneracion: invoice.tieneExoneracion,
-        exoneracion: invoice.exoneracion
-      }
+      const invPersonalization = (companyData as Record<string, unknown>)?.personalization as
+        | Record<string, unknown>
+        | undefined
+      const invoicesConfig = invPersonalization?.invoices as Record<string, unknown> | undefined
+
+      const { buildInvoicePdfApiPayload } = await import("./invoice-pdf-client")
+      const pdfData = buildInvoicePdfApiPayload(
+        invoice as unknown as Record<string, unknown>,
+        companyData as Record<string, unknown>,
+        clientData as Record<string, unknown>,
+        { pdfTemplateOverride: invoicesConfig?.pdfTemplate }
+      )
       
       console.log('📄 Datos para PDF:', {
         hasCompany: !!companyData,

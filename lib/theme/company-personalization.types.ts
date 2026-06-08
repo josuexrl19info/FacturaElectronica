@@ -1,9 +1,11 @@
 import type { CompanyTheme } from "@/lib/theme/company-theme.types"
+import type { InvoicePdfTemplate } from "@/lib/pdf-builder/types"
 
 export type InvoicePersonalization = {
   headerColor: string
   tableAccentColor: string
   showLogoOnPdf: boolean
+  pdfTemplate: InvoicePdfTemplate
 }
 
 export type CompanyPersonalization = {

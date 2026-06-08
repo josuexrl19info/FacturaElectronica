@@ -1,6 +1,7 @@
 "use client"
 
 import { Sidebar } from "@/components/layout/sidebar"
+import { SidebarMain, SidebarProvider } from "@/components/layout/sidebar-context"
 import { useAuth } from "@/lib/firebase-client"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -37,11 +38,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 ml-64">
-        {children}
-      </main>
-    </div>
+    <SidebarProvider>
+      <div className="min-h-screen">
+        <Sidebar />
+        <SidebarMain className="min-h-screen">{children}</SidebarMain>
+      </div>
+    </SidebarProvider>
   )
 }
