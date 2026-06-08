@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { mergePersonalizationIntoCompanyData, personalizationFromCompanyRecord } from '@/lib/theme/company-personalization.utils'
 
 interface Company {
   id: string
@@ -14,6 +15,7 @@ interface Company {
     fileData: string
   }
   brandColor?: string
+  theme?: Record<string, unknown>
 }
 
 export function useCompanySelection() {
@@ -28,14 +30,19 @@ export function useCompanySelection() {
       setSelectedCompany(company)
       
       // Guardar en localStorage
+      const personalization = personalizationFromCompanyRecord(company as Record<string, unknown>)
       localStorage.setItem("selectedCompanyId", company.id)
-      localStorage.setItem("selectedCompanyData", JSON.stringify({
-        id: company.id,
-        name: company.name,
-        nombreComercial: company.nombreComercial,
-        logo: company.logo,
-        brandColor: company.brandColor
-      }))
+      localStorage.setItem("selectedCompanyData", JSON.stringify(
+        mergePersonalizationIntoCompanyData(
+          {
+            id: company.id,
+            name: company.name,
+            nombreComercial: company.nombreComercial,
+            logo: company.logo,
+          },
+          personalization
+        )
+      ))
 
       // Simular tiempo de carga para mostrar la animación
       await new Promise(resolve => setTimeout(resolve, 5000))

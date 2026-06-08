@@ -144,22 +144,32 @@
   @apply scale-105 shadow-2xl;
 }
 
-/* Added gradient utilities for turquoise theme */
+/* Added gradient utilities for company theme */
 .gradient-primary {
-  background: linear-gradient(135deg, oklch(0.65 0.15 190) 0%, oklch(0.6 0.18 180) 50%, oklch(0.7 0.12 200) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-gradient-from, var(--primary)) 0%,
+    var(--theme-gradient-via, var(--accent)) 50%,
+    var(--theme-gradient-to, var(--primary)) 100%
+  );
 }
 
 .gradient-primary-subtle {
   background: linear-gradient(
     135deg,
-    oklch(0.65 0.15 190 / 0.1) 0%,
-    oklch(0.6 0.18 180 / 0.1) 50%,
-    oklch(0.7 0.12 200 / 0.1) 100%
+    color-mix(in oklch, var(--primary) 12%, transparent) 0%,
+    color-mix(in oklch, var(--accent) 12%, transparent) 50%,
+    color-mix(in oklch, var(--primary) 8%, transparent) 100%
   );
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, oklch(0.65 0.15 190) 0%, oklch(0.6 0.18 180) 50%, oklch(0.7 0.12 200) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-gradient-from, var(--primary)) 0%,
+    var(--theme-gradient-via, var(--accent)) 50%,
+    var(--theme-gradient-to, var(--primary)) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

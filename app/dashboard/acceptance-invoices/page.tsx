@@ -37,7 +37,10 @@ type ConfigResponse = {
   success: boolean
   config: {
     email: string
-    provider: "google" | "microsoft"
+    provider: string
+    providerType?: string
+    providerLabel?: string
+    providerDetected?: boolean
     nylas?: {
       connected: boolean
       grantId?: string
@@ -142,7 +145,10 @@ export default function AcceptanceInvoicesPage() {
   const [savingConfig, setSavingConfig] = useState(false)
   const [isEditingConfig, setIsEditingConfig] = useState(false)
   const [email, setEmail] = useState("")
-  const [provider, setProvider] = useState<"google" | "microsoft" | "">("")
+  const [provider, setProvider] = useState("")
+  const [providerLabel, setProviderLabel] = useState("")
+  const [providerDetected, setProviderDetected] = useState<boolean | null>(null)
+  const [detectingProvider, setDetectingProvider] = useState(false)
   const [connected, setConnected] = useState(false)
   const [oauthConnecting, setOauthConnecting] = useState(false)
 
@@ -176,6 +182,7 @@ export default function AcceptanceInvoicesPage() {
   const [detailSummary, setDetailSummary] = useState<CandidateMessage["invoiceSummary"] | null>(null)
   const oauthWatcherRef = useRef<number | null>(null)
   const resultsRequestIdRef = useRef(0)
+  const providerDetectRequestRef = useRef(0)
 
   function sanitizeFiscalChunk(value?: string): string {
     return String(value || "")
@@ -442,6 +449,49 @@ export default function AcceptanceInvoicesPage() {
   }, [companyId])
 
   useEffect(() => {
+    if (!isEditingConfig) return
+    const normalized = email.trim().toLowerCase()
+    if (!normalized.includes("@")) {
+      setProvider("")
+      setProviderLabel("")
+      setProviderDetected(null)
+      return
+    }
+
+    const requestId = ++providerDetectRequestRef.current
+    setDetectingProvider(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/nylas/provider", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalized }),
+        })
+        const data = await response.json()
+        if (requestId !== providerDetectRequestRef.current) return
+        if (!response.ok) throw new Error(data?.error || "No se pudo detectar proveedor")
+
+        setProvider(String(data.provider || ""))
+        setProviderLabel(String(data.providerLabel || data.provider || ""))
+        setProviderDetected(Boolean(data.detected))
+      } catch {
+        if (requestId !== providerDetectRequestRef.current) return
+        setProvider("generic")
+        setProviderLabel("Correo personalizado (IMAP)")
+        setProviderDetected(false)
+      } finally {
+        if (requestId === providerDetectRequestRef.current) {
+          setDetectingProvider(false)
+        }
+      }
+    }, 450)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [email, isEditingConfig])
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const oauthStatus = params.get("oauth")
     if (!oauthStatus || !companyId) return
@@ -508,11 +558,17 @@ export default function AcceptanceInvoicesPage() {
       if (data?.config) {
         setEmail(data.config.email || "")
         setProvider(data.config.provider || "")
+        setProviderLabel(data.config.providerLabel || data.config.provider || "")
+        setProviderDetected(
+          typeof data.config.providerDetected === "boolean" ? data.config.providerDetected : null
+        )
         setConnected(Boolean(data.config.nylas?.connected))
         setIsEditingConfig(false)
       } else {
         setEmail("")
         setProvider("")
+        setProviderLabel("")
+        setProviderDetected(null)
         setConnected(false)
         setIsEditingConfig(true)
       }
@@ -528,6 +584,10 @@ export default function AcceptanceInvoicesPage() {
       toast.error("Ingrese un correo valido.")
       return
     }
+    if (detectingProvider) {
+      toast.error("Espere a que termine la deteccion del proveedor.")
+      return
+    }
     setSavingConfig(true)
     try {
       const response = await fetch("/api/nylas/config", {
@@ -539,8 +599,14 @@ export default function AcceptanceInvoicesPage() {
       if (!response.ok) throw new Error(data?.error || "No se pudo guardar.")
 
       setProvider(data.provider)
+      setProviderLabel(data.providerLabel || data.provider)
+      setProviderDetected(Boolean(data.detected))
       setIsEditingConfig(false)
-      toast.success("Configuracion guardada correctamente.")
+      toast.success(
+        data.detected
+          ? `Proveedor detectado: ${data.providerLabel || data.provider}. Conectando...`
+          : "Proveedor no identificado automaticamente. Se abrira selector IMAP de Nylas."
+      )
       await loadConfig(companyId)
       await startOAuthPopupFlow(companyId)
     } catch (error) {
@@ -1244,13 +1310,28 @@ export default function AcceptanceInvoicesPage() {
                 </div>
             <div className="md:col-span-3">
                   <Label>Proveedor detectado</Label>
-                  <div className="h-10 border rounded-md px-3 flex items-center bg-background/60">
-                    {provider ? (
-                      <Badge variant="secondary">{provider === "google" ? "Google" : "Microsoft"}</Badge>
+                  <div className="h-10 border rounded-md px-3 flex items-center gap-2 bg-background/60">
+                    {detectingProvider ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Detectando...</span>
+                      </>
+                    ) : providerLabel || provider ? (
+                      <>
+                        <Badge variant={providerDetected === false ? "outline" : "secondary"}>
+                          {providerLabel || provider}
+                        </Badge>
+                        {providerDetected === false ? (
+                          <span className="text-[11px] text-muted-foreground">IMAP manual en OAuth</span>
+                        ) : null}
+                      </>
                     ) : (
-                      <span className="text-sm text-muted-foreground">Sin detectar</span>
+                      <span className="text-sm text-muted-foreground">Ingrese un correo valido</span>
                     )}
                   </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Deteccion automatica via Nylas (Google, Microsoft, IMAP y dominios corporativos).
+                  </p>
                 </div>
             <div className="md:col-span-4">
               <Label className="opacity-0">Acciones</Label>
@@ -1277,6 +1358,11 @@ export default function AcceptanceInvoicesPage() {
                     {email ? (
                       <Button variant="outline" className="hover:border-primary/40" onClick={() => setIsEditingConfig(true)}>
                         Cambiar configuración
+                      </Button>
+                    ) : null}
+                    {email && !connected && !isEditingConfig && !oauthConnecting ? (
+                      <Button className="shadow-sm" onClick={() => void startOAuthPopupFlow(companyId)}>
+                        Conectar correo
                       </Button>
                     ) : null}
                     {oauthConnecting ? (

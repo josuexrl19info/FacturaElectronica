@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/firebase-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { defaultSettingsPath } from "@/components/settings/settings-nav-config"
 
 interface UserMenuProps {
   currentCompany?: {
@@ -35,7 +36,7 @@ export function UserMenu({ currentCompany }: UserMenuProps) {
   }
 
   const handleProfile = () => {
-    router.push("/dashboard/settings?tab=profile")
+    router.push(defaultSettingsPath)
   }
 
   const handleLogout = async () => {

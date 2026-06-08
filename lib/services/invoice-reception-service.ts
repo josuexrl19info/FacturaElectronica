@@ -39,6 +39,9 @@ function costaRicaDayEndUtcMillis(year: number, month: number, day: number): num
 export type InvoiceReceptionConfig = {
   email: string
   provider: DetectedProvider
+  providerType?: string
+  providerLabel?: string
+  providerDetected?: boolean
   nylas?: {
     connected: boolean
     grantId?: string
@@ -67,6 +70,9 @@ export class InvoiceReceptionService {
       ...existing,
       email: config.email,
       provider: config.provider,
+      providerType: config.providerType,
+      providerLabel: config.providerLabel,
+      providerDetected: config.providerDetected,
       nylas: {
         ...(existing?.nylas || {}),
         ...(config.nylas || {}),
@@ -89,7 +95,7 @@ export class InvoiceReceptionService {
     const nowIso = new Date().toISOString()
     const current = await InvoiceReceptionService.getConfig(companyId)
     const baseEmail = current?.email || fallback?.email || ""
-    const baseProvider = current?.provider || fallback?.provider || "google"
+    const baseProvider = current?.provider || fallback?.provider || "generic"
 
     const next = sanitizeUndefined({
       ...(current || {}),

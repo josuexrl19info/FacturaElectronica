@@ -26,17 +26,22 @@ async function handleStart(request: NextRequest) {
       )
     }
 
+    const detection = await NylasService.detectReceptionProvider(config.email)
+    const oauthProvider = detection.provider || config.provider || "generic"
+    const needsProviderSelection = !detection.detected || oauthProvider === "generic"
+
     const state = encodeOAuthState({
       companyId,
       receptionEmail: config.email,
-      provider: config.provider,
+      provider: oauthProvider,
       popup: true,
     })
 
     const oauthUrl = NylasService.buildOAuthUrl({
-      provider: config.provider,
+      provider: oauthProvider,
       state,
       loginHint: config.email,
+      prompt: needsProviderSelection ? "detect,select_provider" : "detect",
     })
 
     if (request.method === "GET") {

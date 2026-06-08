@@ -7,12 +7,7 @@ import { firebaseConfig } from '@/lib/firebase-config'
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 const db = getFirestore(app)
 
-// Función requerida por Next.js para rutas dinámicas
-export async function generateStaticParams() {
-  // Para desarrollo, devolvemos un array vacío
-  // En producción con output: export, necesitarías devolver todos los IDs posibles
-  return []
-}
+export const dynamic = "force-dynamic"
 
 /**
  * GET /api/companies/[id]

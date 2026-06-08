@@ -1,5 +1,19 @@
 import Nylas from "nylas"
-import { DetectedProvider } from "@/lib/services/nylas-utils"
+import {
+  DetectedProvider,
+  ProviderDetectionResult,
+  detectEmailProviderAdvanced,
+  getProviderLabel,
+} from "@/lib/services/nylas-utils"
+
+type NylasProviderDetectResponse = {
+  data?: {
+    provider?: string
+    type?: string
+    email_address?: string
+    detected?: boolean
+  }
+}
 
 type NylasMessage = {
   id: string
@@ -113,20 +127,87 @@ export class NylasService {
     throw new Error(`No fue posible comunicarse con Nylas. ${lastError?.message || ""}`.trim())
   }
 
+  static async detectProviderByEmail(email: string): Promise<{
+    provider: string
+    providerType?: string
+    emailAddress: string
+    detected: boolean
+  }> {
+    NylasService.ensureConfigured()
+    const normalizedEmail = String(email || "").trim().toLowerCase()
+    const url = new URL(`${NylasService.apiUri}/v3/providers/detect`)
+    url.searchParams.set("email", normalizedEmail)
+    url.searchParams.set("all_provider_types", "true")
+
+    const payload = await NylasService.withRetries(async () => {
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: NylasService.getAuthHeaders(),
+      })
+      const bodyText = await response.text()
+      if (!response.ok) {
+        throw new Error(`Nylas detect (${response.status}): ${bodyText}`)
+      }
+      return JSON.parse(bodyText) as NylasProviderDetectResponse
+    }, 2)
+
+    const data = payload?.data || {}
+    const detected = Boolean(data.detected)
+    const provider = String(data.provider || "").trim().toLowerCase()
+    const providerType = String(data.type || "").trim().toLowerCase() || undefined
+
+    return {
+      provider: detected && provider ? provider : provider || "generic",
+      providerType,
+      emailAddress: String(data.email_address || normalizedEmail),
+      detected,
+    }
+  }
+
+  /** Detección robusta: API oficial de Nylas + respaldo MX/heurístico local. */
+  static async detectReceptionProvider(email: string): Promise<ProviderDetectionResult> {
+    const normalizedEmail = String(email || "").trim().toLowerCase()
+    if (!normalizedEmail.includes("@")) {
+      return detectEmailProviderAdvanced(normalizedEmail)
+    }
+
+    try {
+      const nylasResult = await NylasService.detectProviderByEmail(normalizedEmail)
+      if (nylasResult.detected && nylasResult.provider) {
+        return {
+          provider: nylasResult.provider,
+          providerType: nylasResult.providerType,
+          providerLabel: getProviderLabel(nylasResult.provider, nylasResult.providerType),
+          confidence: 0.99,
+          source: "nylas",
+          detected: true,
+          mxHosts: [],
+        }
+      }
+    } catch (error) {
+      console.warn("Nylas detectProvider falló, usando respaldo local:", error)
+    }
+
+    return detectEmailProviderAdvanced(normalizedEmail)
+  }
+
   static buildOAuthUrl(params: {
     provider: DetectedProvider
     state: string
     loginHint?: string
+    prompt?: string
   }): string {
     NylasService.ensureConfigured()
+    const oauthProvider = String(params.provider || "generic").trim() || "generic"
     return NylasService.client.auth.urlForOAuth2({
       clientId: NylasService.clientId,
       redirectUri: NylasService.callbackUri,
-      provider: params.provider,
+      provider: oauthProvider,
       accessType: "offline",
       state: params.state,
       loginHint: params.loginHint,
-    })
+      ...(params.prompt ? { prompt: params.prompt } : {}),
+    } as any)
   }
 
   static async exchangeCodeForGrant(code: string): Promise<{ grantId: string; raw: any }> {

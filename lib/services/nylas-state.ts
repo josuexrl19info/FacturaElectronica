@@ -1,7 +1,7 @@
 export type NylasOAuthState = {
   companyId: string
   receptionEmail: string
-  provider: "google" | "microsoft"
+  provider: string
   popup?: boolean
 }
 

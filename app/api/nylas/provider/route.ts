@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import { detectEmailProviderAdvanced } from "@/lib/services/nylas-utils"
+import { NylasService } from "@/lib/services/nylas-service"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const email = String(body?.email || "").trim()
+    const email = String(body?.email || "").trim().toLowerCase()
     if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Email invalido" }, { status: 400 })
     }
 
-    const result = await detectEmailProviderAdvanced(email)
+    const result = await NylasService.detectReceptionProvider(email)
     return NextResponse.json(result)
   } catch (error) {
     return NextResponse.json(

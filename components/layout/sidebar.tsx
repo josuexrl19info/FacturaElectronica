@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
+import { SidebarSettingsMenu } from "@/components/layout/sidebar-settings-menu"
 import {
   LayoutDashboard,
   FileText,
@@ -14,12 +15,10 @@ import {
   ReceiptText,
   BarChart3,
   MailCheck,
-  Settings,
   ChevronLeft,
   ChevronRight,
   Building2,
   LogOut,
-  MessageSquare,
   Shield,
 } from "lucide-react"
 
@@ -58,11 +57,6 @@ const menuItems = [
     title: "Reportes",
     icon: BarChart3,
     href: "/dashboard/reports",
-  },
-  {
-    title: "Configuración",
-    icon: Settings,
-    href: "/dashboard/settings",
   },
 ]
 
@@ -191,19 +185,17 @@ export function Sidebar({ company }: SidebarProps) {
           
           {menuItems.map((item, index) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
+            const isActive =
+              pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
 
             return (
-              <motion.li 
+              <motion.li
                 key={item.href}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.4 + (index * 0.05) }}
+                transition={{ duration: 0.3, delay: 0.4 + index * 0.05 }}
               >
-                <motion.div
-                  whileHover={{ x: 5 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <motion.div whileHover={{ x: 5 }} transition={{ duration: 0.2 }}>
                   <Link
                     href={item.href}
                     className={cn(
@@ -211,14 +203,14 @@ export function Sidebar({ company }: SidebarProps) {
                       isActive
                         ? "gradient-primary text-white shadow-lg shadow-primary/20 scale-[1.02]"
                         : "hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 text-muted-foreground hover:text-foreground hover:scale-[1.02]",
-                      collapsed && "justify-center",
+                      collapsed && "justify-center"
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-5 h-5 flex-shrink-0 transition-transform duration-300",
                         isActive && "scale-110",
-                        !isActive && "group-hover:scale-110",
+                        !isActive && "group-hover:scale-110"
                       )}
                     />
                     {!collapsed && <span className="flex-1 font-medium">{item.title}</span>}
@@ -232,6 +224,16 @@ export function Sidebar({ company }: SidebarProps) {
               </motion.li>
             )
           })}
+
+          <motion.li
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.4 + menuItems.length * 0.05 }}
+          >
+            <motion.div whileHover={{ x: collapsed ? 0 : 5 }} transition={{ duration: 0.2 }}>
+              <SidebarSettingsMenu pathname={pathname} collapsed={collapsed} />
+            </motion.div>
+          </motion.li>
         </motion.ul>
       </nav>
 
