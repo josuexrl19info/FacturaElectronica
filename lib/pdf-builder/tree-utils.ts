@@ -1,5 +1,5 @@
 import { defaultPropsForType } from "@/lib/pdf-builder/block-defaults"
-import type { ContainerColumns, PdfBlock, PdfBlockType, PdfColumnSlot } from "@/lib/pdf-builder/types"
+import type { ContainerColumns, InvoicePdfTemplate, PdfBlock, PdfBlockType, PdfColumnSlot } from "@/lib/pdf-builder/types"
 import { isContainerBlock } from "@/lib/pdf-builder/types"
 
 export const CANVAS_DROP_ID = "pdf-canvas"
@@ -456,6 +456,41 @@ export function getSectionDropId(id: string) {
 export function parseSectionDropId(id: string) {
   const p = parseColumnDropId(id)
   return p?.containerId || null
+}
+
+function mapLogoBlocks(blocks: PdfBlock[], width: number, height: number): PdfBlock[] {
+  return blocks.map((block) => {
+    const next: PdfBlock =
+      block.type === "logo"
+        ? { ...block, props: { ...block.props, logoWidth: width, logoHeight: height } }
+        : block
+    if (isContainerBlock(next.type) && next.columnSlots) {
+      return {
+        ...next,
+        columnSlots: next.columnSlots.map((slot) => ({
+          ...slot,
+          blocks: mapLogoBlocks(slot.blocks, width, height),
+        })),
+      }
+    }
+    return next
+  })
+}
+
+/** Sincroniza ancho/alto del logo a nivel plantilla y en todos los bloques logo. */
+export function applyLogoDimensionsToTemplate(
+  template: InvoicePdfTemplate,
+  width: number,
+  height: number
+): InvoicePdfTemplate {
+  const logoWidth = Math.min(Math.max(Math.round(width), 16), 480)
+  const logoHeight = Math.min(Math.max(Math.round(height), 16), 480)
+  return {
+    ...template,
+    logoWidth,
+    logoHeight,
+    blocks: mapLogoBlocks(template.blocks, logoWidth, logoHeight),
+  }
 }
 export function parseColumnSlotId(id: string) {
   const p = parseColumnDropId(id)

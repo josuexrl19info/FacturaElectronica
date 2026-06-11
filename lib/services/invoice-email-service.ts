@@ -2,7 +2,8 @@ import { Invoice } from '@/lib/invoice-types'
 import { getFirestore, doc, getDoc } from 'firebase/firestore'
 import { initializeApp, getApps } from 'firebase/app'
 import { firebaseConfig } from '@/lib/firebase-config'
-import { PDFGeneratorService } from '@/lib/services/pdf-generator'
+import { detectDocumentTypeLabel } from '@/lib/services/invoice-pdf-client'
+import { enrichCompanyWithPersonalization, generateInvoicePdfBase64 } from '@/lib/services/invoice-pdf-server'
 
 // Inicializar Firebase si no está ya inicializado
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
@@ -211,96 +212,57 @@ export class InvoiceEmailService {
       console.warn('⚠️ No se encontró XML de respuesta de Hacienda')
     }
     
-    // PDF: Generar PDF de la factura
-    // Declarar fuera del try para usarlos después (ej. BCC)
-    let companyData: any = invoice.companyData
-    let clientData: any = invoice.cliente
+    // PDF: Generar con plantilla personalizada de la empresa (Firebase)
+    let companyData: Record<string, unknown> | undefined = invoice.companyData as Record<string, unknown> | undefined
+    let clientData: Record<string, unknown> | undefined = (invoice.cliente || undefined) as Record<string, unknown> | undefined
     try {
-      console.log('📄 Generando PDF de la factura...')
-      
-      // Obtener datos de la empresa si no existen
-      if ((!companyData || Object.keys(companyData || {}).length === 0) && invoice.companyId) {
-        console.log('🔍 Obteniendo datos de empresa para PDF...')
-        try {
-          const companyRef = doc(db, 'companies', invoice.companyId)
-          const companySnap = await getDoc(companyRef)
-          if (companySnap.exists()) {
-            companyData = companySnap.data()
-            console.log('✅ Datos de empresa obtenidos para PDF')
-          }
-        } catch (error) {
-          console.error('❌ Error obteniendo datos de empresa:', error)
-        }
-      }
-      
-      // Obtener datos del cliente si no existen
-      if ((!clientData || Object.keys(clientData || {}).length === 0) && invoice.clientId) {
-        console.log('🔍 Obteniendo datos de cliente para PDF...')
-        try {
-          const clientRef = doc(db, 'clients', invoice.clientId)
-          const clientSnap = await getDoc(clientRef)
-          if (clientSnap.exists()) {
-            clientData = clientSnap.data()
-            console.log('✅ Datos de cliente obtenidos para PDF:', clientData?.name || clientData?.nombre)
-            console.log('📞 Debug client fields from Firestore:', {
-              keys: Object.keys(clientData || {}),
-              phone: clientData?.phone,
-              telefono: clientData?.telefono,
-              hasPhone: 'phone' in (clientData || {})
-            })
-          }
-        } catch (error) {
-          console.error('❌ Error obteniendo datos de cliente:', error)
-        }
-      }
-      
-      // Preparar datos para el PDF optimizado
-      const invPersonalization = (companyData as Record<string, unknown>)?.personalization as
-        | Record<string, unknown>
-        | undefined
-      const invoicesConfig = invPersonalization?.invoices as Record<string, unknown> | undefined
+      console.log('📄 Generando PDF con plantilla de personalización...')
 
-      const { buildInvoicePdfApiPayload } = await import("./invoice-pdf-client")
-      const pdfData = buildInvoicePdfApiPayload(
-        invoice as unknown as Record<string, unknown>,
-        companyData as Record<string, unknown>,
-        clientData as Record<string, unknown>,
-        { pdfTemplateOverride: invoicesConfig?.pdfTemplate }
-      )
-      
-      console.log('📄 Datos para PDF:', {
-        hasCompany: !!companyData,
-        companyName: companyData?.name || companyData?.nombreComercial,
-        hasClient: !!clientData,
-        clientName: clientData?.name || clientData?.nombre,
-        hasNotes: !!(invoice.notes || invoice.notas),
-        notes: invoice.notes || invoice.notas || 'Sin notas',
-        tieneExoneracion: invoice.tieneExoneracion,
-        hasExoneracion: !!invoice.exoneracion
-      })
-      
-      // Generar PDF en base64 usando el endpoint optimizado
-      const { getBaseUrl } = await import('../utils')
-      const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(pdfData)
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Error en endpoint de PDF optimizado: ${response.status}`)
+      const companyId = invoice.companyId || (invoice as Record<string, unknown>).companyId
+      if (companyId) {
+        try {
+          const companySnap = await getDoc(doc(db, 'companies', String(companyId)))
+          if (companySnap.exists()) {
+            companyData = enrichCompanyWithPersonalization(companySnap.data() as Record<string, unknown>)
+            console.log('✅ Empresa cargada con personalización PDF desde Firebase')
+          }
+        } catch (error) {
+          console.error('❌ Error obteniendo empresa para PDF:', error)
+        }
+      } else if (companyData) {
+        companyData = enrichCompanyWithPersonalization(companyData)
       }
-      
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Error generando PDF optimizado')
+
+      if ((!clientData || Object.keys(clientData).length === 0) && invoice.clientId) {
+        try {
+          const clientSnap = await getDoc(doc(db, 'clients', invoice.clientId))
+          if (clientSnap.exists()) {
+            clientData = clientSnap.data() as Record<string, unknown>
+            console.log('✅ Cliente cargado para PDF:', clientData?.name || clientData?.nombre)
+          }
+        } catch (error) {
+          console.error('❌ Error obteniendo cliente para PDF:', error)
+        }
       }
-      
-      pdf_base64 = result.pdf_base64
-      console.log('✅ PDF generado en base64:', pdf_base64.length, 'caracteres')
+
+      const invoiceRecord = {
+        ...(invoice as unknown as Record<string, unknown>),
+        documentType:
+          (invoice as Record<string, unknown>).documentType ||
+          ((isTiquete ? 'tiquetes' : 'facturas') as string),
+      }
+
+      const { base64, blockCount } = await generateInvoicePdfBase64(invoiceRecord, {
+        company: companyData,
+        client: clientData,
+      })
+
+      pdf_base64 = base64
+      console.log('✅ PDF generado con plantilla personalizada:', {
+        blockCount,
+        documentType: detectDocumentTypeLabel(invoiceRecord),
+        base64Length: pdf_base64.length,
+      })
       
       // Validar formato del PDF antes de usarlo
       if (pdf_base64) {

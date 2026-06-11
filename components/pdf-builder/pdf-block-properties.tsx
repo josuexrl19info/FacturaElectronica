@@ -9,6 +9,8 @@ import { Trash2 } from "lucide-react"
 import type { ContainerColumns, InvoicePdfTemplate, PdfBlock } from "@/lib/pdf-builder/types"
 import { isContainerBlock } from "@/lib/pdf-builder/types"
 import { getPaletteItem } from "@/lib/pdf-builder/block-catalog"
+import { DEFAULT_LOGO_HEIGHT_PX, DEFAULT_LOGO_WIDTH_PX } from "@/lib/pdf-builder/block-defaults"
+import { applyLogoDimensionsToTemplate } from "@/lib/pdf-builder/tree-utils"
 import { isValidHexColor } from "@/lib/theme/company-theme.utils"
 
 type PdfBlockPropertiesProps = {
@@ -35,6 +37,13 @@ export function PdfBlockProperties({
 
   const patchProps = (partial: NonNullable<PdfBlock["props"]>) => {
     patch((b) => ({ ...b, props: { ...b.props, ...partial } }))
+  }
+
+  const templateLogoW = template.logoWidth ?? DEFAULT_LOGO_WIDTH_PX
+  const templateLogoH = template.logoHeight ?? DEFAULT_LOGO_HEIGHT_PX
+
+  const setLogoDimensions = (width: number, height: number) => {
+    onTemplateChange(applyLogoDimensionsToTemplate(template, width, height))
   }
 
   return (
@@ -67,6 +76,26 @@ export function PdfBlockProperties({
         <ColorField label="Color principal" value={template.primaryColor} onChange={(v) => onTemplateChange({ ...template, primaryColor: v })} />
         <ColorField label="Color acento" value={template.accentColor} onChange={(v) => onTemplateChange({ ...template, accentColor: v })} />
         <InlineSwitch label="Logo global" checked={template.showLogo} onChange={(c) => onTemplateChange({ ...template, showLogo: c })} />
+        <Field label="Ancho logo (px)" className="w-[100px]">
+          <Input
+            type="number"
+            min={16}
+            max={480}
+            className="h-8 text-xs"
+            value={templateLogoW}
+            onChange={(e) => setLogoDimensions(Number(e.target.value), templateLogoH)}
+          />
+        </Field>
+        <Field label="Alto logo (px)" className="w-[100px]">
+          <Input
+            type="number"
+            min={16}
+            max={480}
+            className="h-8 text-xs"
+            value={templateLogoH}
+            onChange={(e) => setLogoDimensions(templateLogoW, Number(e.target.value))}
+          />
+        </Field>
         <Field label="Página" className="w-[100px]">
           <Select value={template.pageSize} onValueChange={(v) => onTemplateChange({ ...template, pageSize: v as "a4" | "letter" })}>
             <SelectTrigger className="h-8 text-xs">
@@ -190,10 +219,24 @@ export function PdfBlockProperties({
           {selectedBlock.type === "logo" && (
             <>
               <Field label="Ancho (px)" className="w-[88px]">
-                <Input type="number" className="h-8 text-xs" value={selectedBlock.props?.logoWidth ?? 88} onChange={(e) => patchProps({ logoWidth: Number(e.target.value) })} />
+                <Input
+                  type="number"
+                  min={16}
+                  max={480}
+                  className="h-8 text-xs"
+                  value={selectedBlock.props?.logoWidth ?? templateLogoW}
+                  onChange={(e) => setLogoDimensions(Number(e.target.value), selectedBlock.props?.logoHeight ?? templateLogoH)}
+                />
               </Field>
               <Field label="Alto (px)" className="w-[88px]">
-                <Input type="number" className="h-8 text-xs" value={selectedBlock.props?.logoHeight ?? 56} onChange={(e) => patchProps({ logoHeight: Number(e.target.value) })} />
+                <Input
+                  type="number"
+                  min={16}
+                  max={480}
+                  className="h-8 text-xs"
+                  value={selectedBlock.props?.logoHeight ?? templateLogoH}
+                  onChange={(e) => setLogoDimensions(selectedBlock.props?.logoWidth ?? templateLogoW, Number(e.target.value))}
+                />
               </Field>
             </>
           )}

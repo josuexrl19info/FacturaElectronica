@@ -3,7 +3,8 @@
 import type { InvoicePdfTemplate, PdfBlock, PdfMockInvoiceData } from "@/lib/pdf-builder/types"
 import { isContainerBlock } from "@/lib/pdf-builder/types"
 import { formatMockCurrency } from "@/lib/pdf-builder/mock-invoice-data"
-import { buildCompanyNameLines, buildDocumentMetaEntries, buildPartyLines } from "@/lib/pdf-builder/block-render-helpers"
+import { buildCompanyNameLines, buildDocumentMetaEntries, buildPartyLines, resolveLogoDimensions } from "@/lib/pdf-builder/block-render-helpers"
+import { formatNotesDisplayText, PDF_PREVIEW_LAYOUT, resolveContainerColumnGap } from "@/lib/pdf-builder/pdf-layout"
 import { formatPdfTextValue } from "@/lib/pdf-builder/pdf-text-utils"
 import { companyLogoDataUrl } from "@/lib/pdf-builder/preview-invoice-data"
 import { containerBoxStyle } from "@/lib/pdf-builder/container-styles"
@@ -28,8 +29,7 @@ export function PdfBlockPreview({ block, data, template }: PdfBlockPreviewProps)
   switch (block.type) {
     case "logo": {
       if (!template.showLogo) return null
-      const w = props?.logoWidth ?? 88
-      const h = props?.logoHeight ?? 56
+      const { widthPx: w, heightPx: h } = resolveLogoDimensions(props, template)
       const logoSrc = companyLogoDataUrl(data.company.logo)
       if (logoSrc) {
         return (
@@ -91,7 +91,10 @@ export function PdfBlockPreview({ block, data, template }: PdfBlockPreviewProps)
           <p className="mb-1 font-semibold" style={{ color: accent }}>
             Información del documento
           </p>
-          <div className={metaCols === 2 ? "grid min-w-0 grid-cols-2 gap-3" : "min-w-0"}>
+          <div
+            className={metaCols === 2 ? "grid min-w-0 grid-cols-2" : "min-w-0"}
+            style={metaCols === 2 ? { columnGap: PDF_PREVIEW_LAYOUT.metaColumnGapPx } : undefined}
+          >
             {columns.map((colEntries, colIndex) => (
               <div key={colIndex} className="min-w-0 space-y-1">
                 {colEntries.map((entry) => (
@@ -158,15 +161,22 @@ export function PdfBlockPreview({ block, data, template }: PdfBlockPreviewProps)
           </div>
         </div>
       )
-    case "notes":
-      return data.notes ? (
-        <div className="min-w-0 overflow-hidden rounded-lg border p-2 text-[9px]">
-          <p className="mb-1 font-semibold" style={{ color: accent }}>
+    case "notes": {
+      const notesText = formatNotesDisplayText(data.notes)
+      return (
+        <div className="min-w-0 overflow-hidden rounded-lg border border-border/60 p-2 text-[9px]">
+          <p className="font-semibold" style={{ color: accent, marginBottom: PDF_PREVIEW_LAYOUT.notesTitleMbPx }}>
             Notas
           </p>
-          <p className="break-words text-muted-foreground">{data.notes}</p>
+          <p
+            className="break-words text-muted-foreground"
+            style={{ minHeight: notesText ? undefined : PDF_PREVIEW_LAYOUT.notesEmptyMinHeightPx }}
+          >
+            {notesText || "\u00A0"}
+          </p>
         </div>
-      ) : null
+      )
+    }
     case "legal-text":
       return (
         <p
@@ -229,8 +239,9 @@ function ContainerPreview({
 }) {
   const normalized = ensureContainerSlots(block)
   const props = normalized.props
+  const L = PDF_PREVIEW_LAYOUT
   const cols = props?.columns || 2
-  const gap = props?.gap ?? 8
+  const columnGap = resolveContainerColumnGap(props?.gap)
   const padding = props?.padding ?? 10
   const gridClass = cols === 3 ? "grid-cols-3" : cols === 1 ? "grid-cols-1" : "grid-cols-2"
 
@@ -238,16 +249,24 @@ function ContainerPreview({
     <div
       style={{
         ...containerBoxStyle(props),
-        gap,
         padding,
       }}
     >
       {props?.showTitle && props.title ? (
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-violet-700">{props.title}</p>
+        <p
+          className="text-[10px] font-semibold uppercase tracking-wide text-violet-700"
+          style={{ marginBottom: L.containerTitleMbPx }}
+        >
+          {props.title}
+        </p>
       ) : null}
-      <div className={`grid ${gridClass} min-w-0`} style={{ gap }}>
+      <div className={`grid ${gridClass} min-w-0`} style={{ columnGap, rowGap: 0 }}>
         {normalized.columnSlots!.map((slot) => (
-          <div key={slot.id} className="min-w-0 space-y-2 overflow-hidden">
+          <div
+            key={slot.id}
+            className="flex min-w-0 flex-col overflow-hidden"
+            style={{ gap: L.columnChildGapPx }}
+          >
             {slot.blocks.map((child) => (
               <PdfBlockPreview key={child.id} block={child} data={data} template={template} />
             ))}

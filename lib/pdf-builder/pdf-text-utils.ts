@@ -1,4 +1,4 @@
-/** Formato DD-MM-YYYY solo para el campo Fecha del documento. */
+/** Formato DD/MM/YYYY solo para el campo Fecha del documento. */
 
 function isLikelyDocumentIdentifier(value: string): boolean {
   const digits = value.replace(/\D/g, "")
@@ -39,13 +39,14 @@ export function tryParseDate(value: unknown): Date | null {
   if (value instanceof Date && !isNaN(value.getTime())) return value
 
   if (typeof value === "object" && value !== null) {
-    const maybe = value as { toDate?: () => Date; seconds?: number }
+    const maybe = value as { toDate?: () => Date; seconds?: number; _seconds?: number; nanoseconds?: number }
     if (typeof maybe.toDate === "function") {
       const d = maybe.toDate()
       if (d instanceof Date && !isNaN(d.getTime())) return d
     }
-    if (typeof maybe.seconds === "number") {
-      const d = new Date(maybe.seconds * 1000)
+    const sec = maybe.seconds ?? maybe._seconds
+    if (typeof sec === "number") {
+      const d = new Date(sec * 1000)
       if (!isNaN(d.getTime())) return d
     }
   }
@@ -60,7 +61,8 @@ export function tryParseDate(value: unknown): Date | null {
   if (/^0\d$/.test(s)) return null
 
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const d = new Date(s)
+    const normalized = s.includes("T") ? s : s.replace(" ", "T")
+    const d = new Date(normalized)
     if (!isNaN(d.getTime())) return d
   }
 
@@ -85,26 +87,27 @@ export function tryParseDate(value: unknown): Date | null {
   return null
 }
 
-/** Formatea a DD-MM-YYYY (o DD-MM-YYYY HH:mm). Usar únicamente en el campo Fecha. */
+/** Formatea a DD/MM/YYYY. Usar únicamente en el campo Fecha del bloque document-meta. */
 export function formatPdfDateField(value: unknown): string {
   const d = tryParseDate(value)
   if (!d) {
-    const raw = coerceRawScalar(value)
-    return raw || "—"
+    const raw = coerceRawScalar(value).trim()
+    if (!raw) return "—"
+    // Último intento: ISO u otros formatos parseables por Date
+    const fallback = new Date(raw.includes("T") ? raw : raw.replace(" ", "T"))
+    if (!isNaN(fallback.getTime())) {
+      const day = String(fallback.getDate()).padStart(2, "0")
+      const month = String(fallback.getMonth() + 1).padStart(2, "0")
+      const year = fallback.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+    return raw
   }
 
   const day = String(d.getDate()).padStart(2, "0")
   const month = String(d.getMonth() + 1).padStart(2, "0")
   const year = d.getFullYear()
-  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0
-
-  if (hasTime) {
-    const hours = String(d.getHours()).padStart(2, "0")
-    const minutes = String(d.getMinutes()).padStart(2, "0")
-    return `${day}-${month}-${year} ${hours}:${minutes}`
-  }
-
-  return `${day}-${month}-${year}`
+  return `${day}/${month}/${year}`
 }
 
 export function formatEconomicActivity(value: unknown): string {

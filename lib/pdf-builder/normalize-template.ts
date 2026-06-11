@@ -1,6 +1,6 @@
 import { DEFAULT_INVOICE_PDF_TEMPLATE } from "@/lib/pdf-builder/default-template"
 import { createBlockId } from "@/lib/pdf-builder/block-catalog"
-import { mergeBlockProps } from "@/lib/pdf-builder/block-defaults"
+import { DEFAULT_LOGO_HEIGHT_PX, DEFAULT_LOGO_WIDTH_PX, mergeBlockProps } from "@/lib/pdf-builder/block-defaults"
 import { ensureContainerSlots, normalizeBlockTree } from "@/lib/pdf-builder/tree-utils"
 import type { InvoicePdfTemplate, PdfBlock, PdfBlockType } from "@/lib/pdf-builder/types"
 import { isContainerBlock } from "@/lib/pdf-builder/types"
@@ -46,6 +46,27 @@ function cloneBlocks(blocks: PdfBlock[]): PdfBlock[] {
   return JSON.parse(JSON.stringify(blocks)) as PdfBlock[]
 }
 
+function clampLogoSize(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(Math.max(Math.round(n), 16), 480)
+}
+
+function findLogoSizeInBlocks(blocks: PdfBlock[]): { width?: number; height?: number } {
+  for (const block of blocks) {
+    if (block.type === "logo") {
+      return { width: block.props?.logoWidth, height: block.props?.logoHeight }
+    }
+    if (isContainerBlock(block.type) && block.columnSlots) {
+      for (const slot of block.columnSlots) {
+        const nested = findLogoSizeInBlocks(slot.blocks)
+        if (nested.width || nested.height) return nested
+      }
+    }
+  }
+  return {}
+}
+
 export function normalizeInvoicePdfTemplate(
   input: Partial<InvoicePdfTemplate> | undefined,
   fallbackColors?: { primary?: string; accent?: string }
@@ -59,6 +80,15 @@ export function normalizeInvoicePdfTemplate(
     : cloneBlocks(base.blocks)
 
   const blocks = normalizeBlockTree(sourceBlocks)
+  const logoFromBlocks = findLogoSizeInBlocks(blocks)
+  const logoWidth = clampLogoSize(
+    input?.logoWidth ?? logoFromBlocks.width,
+    base.logoWidth ?? DEFAULT_LOGO_WIDTH_PX
+  )
+  const logoHeight = clampLogoSize(
+    input?.logoHeight ?? logoFromBlocks.height,
+    base.logoHeight ?? DEFAULT_LOGO_HEIGHT_PX
+  )
 
   return {
     version: 2,
@@ -69,6 +99,8 @@ export function normalizeInvoicePdfTemplate(
     fontFamily:
       input?.fontFamily === "times" || input?.fontFamily === "courier" ? input.fontFamily : "helvetica",
     showLogo: typeof input?.showLogo === "boolean" ? input.showLogo : base.showLogo,
+    logoWidth,
+    logoHeight,
     blocks: blocks.length > 0 ? blocks : base.blocks,
   }
 }

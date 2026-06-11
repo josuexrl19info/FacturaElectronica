@@ -38,16 +38,8 @@ export async function POST(request: NextRequest) {
       tipo: invoiceData.invoice?.tipo
     })
     
-    // Generar PDF usando la implementación optimizada
-    const doc = await generateInvoicePDFOptimized(invoiceData)
-    
-    // Validar que el documento se haya generado correctamente
-    if (!doc) {
-      throw new Error('Error: El documento PDF no se generó correctamente')
-    }
-    
-    // Generar PDF como ArrayBuffer primero para validar el formato
-    const pdfArrayBuffer = doc.output('arraybuffer')
+    // Generar PDF usando HTML + Puppeteer (idéntico a vista previa)
+    const pdfArrayBuffer = await generateInvoicePDFOptimized(invoiceData)
     
     // Validar que el PDF tenga el formato correcto (debe empezar con %PDF)
     const pdfHeader = new Uint8Array(pdfArrayBuffer.slice(0, 4))
@@ -118,7 +110,7 @@ export async function POST(request: NextRequest) {
       pdf_size_kb: pdfSizeKB,
       pdf_size_mb: pdfSizeMB,
       pdf_size_bytes: pdfSizeBytes,
-      method: 'jsPDF-optimized-arraybuffer',
+      method: 'puppeteer-html',
       compressed: true,
       format_valid: true
     })

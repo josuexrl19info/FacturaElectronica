@@ -20,6 +20,8 @@ export const DEFAULT_INVOICE_PDF_TEMPLATE: InvoicePdfTemplate = {
   accentColor: DEFAULT_COMPANY_THEME.accentColor,
   fontFamily: "helvetica",
   showLogo: true,
+  logoWidth: 88,
+  logoHeight: 56,
   blocks: [
     containerWithBlocks(2, [{ id: createBlockId("logo"), type: "logo", props: { logoWidth: 88, logoHeight: 56 } }], [
       { id: createBlockId("document-badge"), type: "document-badge" },

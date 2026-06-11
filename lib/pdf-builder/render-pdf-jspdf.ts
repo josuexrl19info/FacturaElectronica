@@ -2,10 +2,20 @@ import jsPDF from "jspdf"
 import sharp from "sharp"
 import type { InvoicePdfTemplate, PdfBlock, PdfBlockProps, PdfMockInvoiceData } from "@/lib/pdf-builder/types"
 import { isContainerBlock } from "@/lib/pdf-builder/types"
-import { PDF_MOCK_INVOICE } from "@/lib/pdf-builder/mock-invoice-data"
-import { buildCompanyNameLines, buildDocumentMetaEntries, buildPartyLines, getCondicionVentaLabel, getPaymentMethodLabel } from "@/lib/pdf-builder/block-render-helpers"
+import { buildCompanyNameLines, buildDocumentMetaEntries, buildPartyLines, findMaxLogoDimensionsInTemplate, pxToMm, resolveLogoDrawSizeMm } from "@/lib/pdf-builder/block-render-helpers"
 import { hexToRgbSafe, resolveContainerStyles } from "@/lib/pdf-builder/container-styles"
-import { formatEconomicActivity, formatPdfDateField, formatPdfTextValue, rawPdfFieldValue, resolveConsecutivoDisplay } from "@/lib/pdf-builder/pdf-text-utils"
+import {
+  formatPdfCurrency,
+  formatPdfCurrencyPlain,
+  formatNotesDisplayText,
+  getLineItemsColumnWidthsMm,
+  PDF_CARD,
+  PDF_PREVIEW_LAYOUT,
+  resolveContainerColumnGap,
+  resolvePdfCurrencyCode,
+} from "@/lib/pdf-builder/pdf-layout"
+import { extractLogoData, mapInvoiceDataToPdfContext } from "@/lib/pdf-builder/map-invoice-pdf-context"
+import { formatPdfTextValue } from "@/lib/pdf-builder/pdf-text-utils"
 import { ensureContainerSlots, normalizeBlockTree } from "@/lib/pdf-builder/tree-utils"
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -16,119 +26,26 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
-function formatCurrency(amount: number, currency = "CRC"): string {
-  const formatted = Number(amount || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-  return currency === "USD" ? `USD ${formatted}` : `CRC ${formatted}`
+function getCurrencyCode(ctx: RenderCtx): string {
+  return resolvePdfCurrencyCode(ctx.data.moneda, "CRC")
 }
 
-function getPaymentName(code: string): string {
-  return getPaymentMethodLabel(code)
-}
-
-async function optimizeLogo(logoData: string): Promise<string | null> {
+async function optimizeLogo(
+  logoData: string,
+  targetWidthPx?: number,
+  targetHeightPx?: number
+): Promise<string | null> {
   try {
+    const maxW = targetWidthPx ? Math.min(800, Math.max(64, Math.round(targetWidthPx * 2))) : 400
+    const maxH = targetHeightPx ? Math.min(800, Math.max(64, Math.round(targetHeightPx * 2))) : 400
     const buffer = Buffer.from(logoData.replace(/^data:image\/\w+;base64,/, ""), "base64")
     const optimized = await sharp(buffer)
-      .resize(400, 400, { fit: "inside", withoutEnlargement: true })
+      .resize(maxW, maxH, { fit: "inside", withoutEnlargement: true })
       .png({ compressionLevel: 6 })
       .toBuffer()
     return optimized.toString("base64")
   } catch {
     return null
-  }
-}
-
-function extractLogoData(company: Record<string, unknown> | undefined): string | null {
-  if (!company?.logo) return null
-  const logo = company.logo
-  if (typeof logo === "string") return logo
-  if (typeof logo === "object" && logo !== null) {
-    const l = logo as Record<string, unknown>
-    return String(l.fileData || l.filedata || l.url || "")
-  }
-  return null
-}
-
-export function mapInvoiceDataToPdfContext(invoiceData: Record<string, unknown>): PdfMockInvoiceData {
-  const invoice = (invoiceData.invoice || {}) as Record<string, unknown>
-  const company = (invoiceData.company || {}) as Record<string, unknown>
-  const client = (invoiceData.client || {}) as Record<string, unknown>
-  const currency = String(invoice.currency || invoice.moneda || "CRC")
-  const cliente = invoice.cliente as Record<string, unknown> | undefined
-  const isNC =
-    invoiceData.tipo === "nota-credito" ||
-    invoice.tipo === "nota-credito" ||
-    Boolean(invoiceData.tipoNotaCredito) ||
-    Boolean(invoice.referenciaFactura)
-
-  const isTiquete =
-    invoice.documentType === "tiquetes" ||
-    invoice.tipo === "tiquete" ||
-    String(invoice.consecutivo || "").startsWith("TE-")
-
-  const documentType = isNC
-    ? "Nota de Crédito Electrónica"
-    : isTiquete
-      ? "Tiquete Electrónico"
-      : String(invoiceData.documentType || invoice.documentTypeLabel || "Factura Electrónica")
-
-  const itemsRaw = (invoice.items || invoice.lineas || []) as Array<Record<string, unknown>>
-  const items = itemsRaw.map((item, i) => ({
-    line: Number(item.numeroLinea || i + 1),
-    cabys: String(item.codigoCABYS || item.cabys || "—"),
-    description: String(item.detalle || item.description || "—"),
-    qty: Number(item.cantidad || item.quantity || 0),
-    unit: String(item.unidadMedida || item.unit || "Unid"),
-    unitPrice: Number(item.precioUnitario || item.unitPrice || 0),
-    discount: Number(item.descuento || item.discount || 0),
-    subtotal: Number(item.subTotal || item.subtotal || item.montoTotalLinea || 0),
-  }))
-
-  const hacienda = (invoiceData.haciendaResponse || invoiceData.haciendaSubmission) as
-    | Record<string, unknown>
-    | undefined
-
-  return {
-    documentType,
-    consecutivo: resolveConsecutivoDisplay(invoice, hacienda),
-    clave: String(invoice.clave || hacienda?.clave || "—"),
-    fecha: rawPdfFieldValue(invoice.fechaEmision || invoice.createdAt || new Date()),
-    moneda: currency === "USD" ? "Dólares (USD)" : "Colones (CRC)",
-    formaPago: getPaymentName(String(invoice.formaPago || invoice.paymentMethod || invoiceData.formaPago || "01")),
-    condicionVenta: getCondicionVentaLabel(String(invoice.condicionVenta || "01")),
-    company: {
-      name: String(company.name || company.nombre || "Empresa"),
-      commercialName: String(company.nombreComercial || company.commercialName || company.name || ""),
-      id: String(company.identification || company.cedula || company.numeroIdentificacion || "—"),
-      phone: String(company.phone || company.telefono || "—"),
-      email: String(company.email || company.correo || "—"),
-      address: String(company.address || company.direccion || company.otrasSenas || "—"),
-      logo: extractLogoData(company) || undefined,
-    },
-    client: {
-      name: String(client.name || client.nombre || cliente?.nombre || "Cliente"),
-      id: String(client.identification || client.identificacion || client.cedula || "—"),
-      phone: String(client.phone || client.telefono || "—"),
-      email: String(client.email || client.correo || "—"),
-      address: String(client.address || client.direccion || "—"),
-      economicActivity: formatEconomicActivity(
-        client.economicActivity ||
-          client.actividadEconomica ||
-          (cliente as Record<string, unknown> | undefined)?.actividadEconomica ||
-          (cliente as Record<string, unknown> | undefined)?.economicActivity
-      ),
-    },
-    items: items.length > 0 ? items : PDF_MOCK_INVOICE.items,
-    subtotal: Number(invoice.subtotal || invoice.totalVenta || 0),
-    totalDiscount: Number(invoice.totalDescuento || invoice.totalDiscount || 0),
-    totalTax: Number(invoice.totalImpuesto || invoice.totalTax || 0),
-    totalExempt: Number(invoice.totalExento || 0),
-    total: Number(invoice.total || 0),
-    notes: String(invoice.notes || invoice.notas || ""),
-    legalText: PDF_MOCK_INVOICE.legalText,
   }
 }
 
@@ -150,20 +67,52 @@ function ensureSpace(ctx: RenderCtx, needed: number): void {
   }
 }
 
-function drawSectionTitle(ctx: RenderCtx, title: string, x: number, width: number): number {
-  const [r, g, b] = hexToRgb(ctx.template.accentColor)
-  ctx.doc.setFillColor(r, g, b)
-  ctx.doc.roundedRect(x, ctx.y, width, 7, 1, 1, "F")
-  ctx.doc.setTextColor(255, 255, 255)
-  ctx.doc.setFontSize(9)
-  ctx.doc.setFont(ctx.template.fontFamily, "bold")
-  ctx.doc.text(title, x + 3, ctx.y + 5)
-  ctx.doc.setTextColor(0, 0, 0)
-  return ctx.y + 10
+function drawCardBorder(ctx: RenderCtx, x: number, y: number, w: number, h: number): void {
+  const [br, bg, bb] = PDF_CARD.borderRgb
+  ctx.doc.setDrawColor(br, bg, bb)
+  ctx.doc.setLineWidth(0.25)
+  ctx.doc.roundedRect(x, y, w, h, PDF_CARD.radiusMm, PDF_CARD.radiusMm, "S")
 }
 
-function pxToMm(px: number): number {
-  return px * 0.264583
+function drawAccentBadge(ctx: RenderCtx, title: string, x: number, y: number): { w: number; h: number } {
+  const [ar, ag, ab] = hexToRgb(ctx.template.accentColor)
+  ctx.doc.setFillColor(ar, ag, ab)
+  ctx.doc.setFontSize(6)
+  setFontStyle(ctx.doc, ctx.template.fontFamily, true)
+  const badgeW = ctx.doc.getTextWidth(title) + pxToMm(6)
+  const badgeH = pxToMm(14)
+  ctx.doc.roundedRect(x, y, badgeW, badgeH, 1, 1, "F")
+  ctx.doc.setTextColor(255, 255, 255)
+  ctx.doc.text(title, x + pxToMm(3), y + badgeH * 0.72)
+  ctx.doc.setTextColor(0, 0, 0)
+  return { w: badgeW, h: badgeH }
+}
+
+function drawAccentInlineTitle(ctx: RenderCtx, title: string, x: number): void {
+  const [ar, ag, ab] = hexToRgb(ctx.template.accentColor)
+  ctx.doc.setTextColor(ar, ag, ab)
+  ctx.doc.setFontSize(PDF_CARD.titleFontPt)
+  setFontStyle(ctx.doc, ctx.template.fontFamily, true)
+  ctx.doc.text(title, x, ctx.y)
+  ctx.doc.setTextColor(0, 0, 0)
+  ctx.y += PDF_CARD.lineHeightMm + 1
+}
+
+function drawPartyCard(ctx: RenderCtx, title: string, lines: string[], x: number, width: number): void {
+  const pad = PDF_CARD.paddingMm
+  const startY = ctx.y
+  ctx.y += pad
+  const innerX = x + pad
+  const innerW = Math.max(4, width - pad * 2)
+  const badge = drawAccentBadge(ctx, title, innerX, ctx.y)
+  ctx.y += badge.h + pxToMm(4)
+  ctx.doc.setTextColor(...PDF_CARD.mutedRgb)
+  for (const line of lines) {
+    writeWrappedText(ctx, line, innerX, innerW, PDF_CARD.bodyFontPt, PDF_CARD.bodyLineHeightMm)
+  }
+  ctx.doc.setTextColor(0, 0, 0)
+  ctx.y += pad
+  drawCardBorder(ctx, x, startY, width, ctx.y - startY)
 }
 
 function setFontStyle(doc: jsPDF, family: string, bold: boolean): void {
@@ -210,10 +159,7 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
   switch (block.type) {
     case "logo": {
       if (!ctx.template.showLogo) break
-      const logoW = pxToMm(props?.logoWidth ?? 88)
-      const logoH = pxToMm(props?.logoHeight ?? 56)
-      const drawW = Math.min(width, logoW)
-      const drawH = Math.min(logoH, drawW * (logoH / logoW))
+      const { drawW, drawH } = resolveLogoDrawSizeMm(props, ctx.template, width)
       if (ctx.logoBase64) {
         try {
           ctx.doc.addImage(ctx.logoBase64, "PNG", x, ctx.y, drawW, drawH)
@@ -236,17 +182,19 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
     case "document-badge": {
       const [r, g, b] = hexToRgb(ctx.template.primaryColor)
       ctx.doc.setFillColor(r, g, b)
-      const badgeW = Math.min(width, 70)
-      const badgeX = x + Math.max(0, width - badgeW)
       const fs = props?.badgeFontSize || 10
       ctx.doc.setFontSize(fs)
       setFontStyle(ctx.doc, ctx.template.fontFamily, props?.bold !== false)
-      const badgeLines = splitTextLines(ctx.doc, ctx.data.documentType, badgeW - 8)
-      const badgeH = Math.max(14, badgeLines.length * 5 + 6)
+      const maxBadgeW = width
+      const badgeLines = splitTextLines(ctx.doc, ctx.data.documentType, maxBadgeW - pxToMm(12))
+      const lineWidths = badgeLines.map((line) => ctx.doc.getTextWidth(line))
+      const badgeW = Math.min(maxBadgeW, Math.max(...lineWidths, 20) + pxToMm(12))
+      const badgeX = x + Math.max(0, width - badgeW)
+      const badgeH = Math.max(pxToMm(28), badgeLines.length * pxToMm(10) + pxToMm(8))
       ctx.doc.roundedRect(badgeX, ctx.y, badgeW, badgeH, 2, 2, "F")
       ctx.doc.setTextColor(255, 255, 255)
       badgeLines.forEach((line, idx) => {
-        ctx.doc.text(line, badgeX + 4, ctx.y + 7 + idx * 5, { maxWidth: badgeW - 8 })
+        ctx.doc.text(line, badgeX + pxToMm(6), ctx.y + pxToMm(10) + idx * pxToMm(10), { maxWidth: badgeW - pxToMm(12) })
       })
       ctx.doc.setTextColor(0, 0, 0)
       ctx.y += badgeH + 4
@@ -257,11 +205,12 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
       const fs = props?.nameFontSize || 14
       const innerW = Math.max(4, width - 2)
       if (lines.primary) {
-        ctx.y += 5
         writeWrappedText(ctx, lines.primary, x, innerW, fs, 4.5, { bold: props?.nameBold !== false })
       }
       if (lines.secondary) {
+        ctx.doc.setTextColor(...PDF_CARD.mutedRgb)
         writeWrappedText(ctx, lines.secondary, x, innerW, Math.max(8, fs * 0.65), 4, { bold: false })
+        ctx.doc.setTextColor(0, 0, 0)
       }
       ctx.y += 2
       break
@@ -270,20 +219,21 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
     case "receiver-info": {
       const isEmitter = block.type === "emitter-info"
       const title = isEmitter ? "Emisor" : "Receptor"
-      ctx.y = drawSectionTitle(ctx, title, x, width)
-      const innerW = Math.max(4, width - 4)
-      for (const line of buildPartyLines(ctx.data, isEmitter, props)) {
-        writeWrappedText(ctx, line, x + 2, innerW, 8, 4.5)
-      }
+      drawPartyCard(ctx, title, buildPartyLines(ctx.data, isEmitter, props), x, width)
       ctx.y += 4
       break
     }
     case "document-meta": {
-      ctx.y = drawSectionTitle(ctx, "Información del documento", x, width)
+      const pad = PDF_CARD.paddingMm
+      const startY = ctx.y
+      ctx.y += pad
+      const innerX = x + pad
+      const innerW = Math.max(4, width - pad * 2)
+      drawAccentInlineTitle(ctx, "Información del documento", innerX)
       const entries = buildDocumentMetaEntries(ctx.data, props)
       const metaCols = props?.documentMetaColumns === 2 ? 2 : 1
-      const gap = 3
-      const colW = metaCols === 2 ? (width - gap) / 2 : width
+      const gap = pxToMm(12)
+      const colW = metaCols === 2 ? (innerW - gap) / 2 : innerW
       const columns: typeof entries[] =
         metaCols === 2
           ? [entries.slice(0, Math.ceil(entries.length / 2)), entries.slice(Math.ceil(entries.length / 2))]
@@ -291,98 +241,134 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
 
       let maxY = ctx.y
       columns.forEach((colEntries, colIndex) => {
-        const colX = x + colIndex * (colW + gap)
-        const innerW = Math.max(4, colW - 4)
+        const colX = innerX + colIndex * (colW + gap)
+        const colInnerW = Math.max(4, colW - 2)
         let colY = ctx.y
         ctx.y = colY
         for (const entry of colEntries) {
-          writeWrappedText(ctx, `${entry.label}:`, colX + 2, innerW, 8, 4, { bold: true })
-          writeWrappedText(ctx, entry.value, colX + 2, innerW, 8, 4.5)
+          writeWrappedText(ctx, `${entry.label}:`, colX, colInnerW, PDF_CARD.labelFontPt, PDF_CARD.lineHeightMm, {
+            bold: true,
+          })
+          ctx.doc.setTextColor(0, 0, 0)
+          writeWrappedText(ctx, entry.value, colX, colInnerW, PDF_CARD.bodyFontPt, PDF_CARD.bodyLineHeightMm, {
+            bold: true,
+          })
           ctx.y += 1
         }
         maxY = Math.max(maxY, ctx.y)
       })
-      ctx.y = maxY + 2
+      ctx.y = maxY + pad
+      drawCardBorder(ctx, x, startY, width, ctx.y - startY)
+      ctx.y += 2
       break
     }
     case "line-items": {
       ensureSpace(ctx, 40)
-      ctx.y = drawSectionTitle(ctx, "Detalle", x, width)
+      const startY = ctx.y
+      const currency = getCurrencyCode(ctx)
       const [hr, hg, hb] = hexToRgb(ctx.template.primaryColor)
-      const numW = Math.max(8, width * 0.07)
-      const qtyW = Math.max(10, width * 0.1)
-      const unitW = Math.max(14, width * 0.16)
-      const totalW = Math.max(14, width * 0.16)
-      const descW = Math.max(12, width - numW - qtyW - unitW - totalW - 4)
-      const colX = [x + 1, x + numW + 1, x + numW + descW + 2, x + numW + descW + qtyW + 3, x + width - totalW]
+      const cols = getLineItemsColumnWidthsMm(width)
+      const colX = [
+        x + 1,
+        x + cols.num + 1,
+        x + cols.num + cols.desc + 2,
+        x + cols.num + cols.desc + cols.qty + 3,
+        x + width - cols.total,
+      ]
 
       ctx.doc.setFillColor(hr, hg, hb)
-      ctx.doc.rect(x, ctx.y, width, 7, "F")
+      ctx.doc.rect(x, ctx.y, width, pxToMm(18), "F")
       ctx.doc.setTextColor(255, 255, 255)
-      ctx.doc.setFontSize(7)
+      ctx.doc.setFontSize(6)
       ctx.doc.setFont(ctx.template.fontFamily, "bold")
       ;["#", "Descripción", "Cant.", "P.Unit.", "Total"].forEach((c, i) => {
-        const colWidths = [numW, descW, qtyW, unitW, totalW]
-        ctx.doc.text(c, colX[i], ctx.y + 5, { maxWidth: colWidths[i] - 1 })
+        const colWidths = [cols.num, cols.desc, cols.qty, cols.unit, cols.total]
+        const align = i === 4 ? "right" : "left"
+        ctx.doc.text(c, colX[i], ctx.y + pxToMm(11), { maxWidth: colWidths[i] - 1, align })
       })
       ctx.doc.setTextColor(0, 0, 0)
-      ctx.y += 9
+      ctx.y += pxToMm(20)
       ctx.doc.setFont(ctx.template.fontFamily, "normal")
-      ctx.doc.setFontSize(7)
+      ctx.doc.setFontSize(6)
 
       for (const item of ctx.data.items) {
-        const descLines = splitTextLines(ctx.doc, item.description, descW - 2)
-        const rowH = Math.max(7, descLines.length * 3.5 + 2)
+        const descLines = splitTextLines(ctx.doc, item.description, cols.desc - 2)
+        const rowH = Math.max(pxToMm(14), descLines.length * pxToMm(9) + pxToMm(4))
         ensureSpace(ctx, rowH)
         const rowY = ctx.y
         const bg = item.line % 2 === 0 ? 248 : 255
         ctx.doc.setFillColor(bg, bg, bg)
-        ctx.doc.rect(x, rowY - 3, width, rowH, "F")
-        ctx.doc.text(String(item.line), colX[0], rowY, { maxWidth: numW - 1 })
+        ctx.doc.rect(x, rowY - pxToMm(3), width, rowH, "F")
+        ctx.doc.text(String(item.line), colX[0], rowY, { maxWidth: cols.num - 1 })
         descLines.forEach((line, idx) => {
-          ctx.doc.text(line, colX[1], rowY + idx * 3.5, { maxWidth: descW - 2 })
+          ctx.doc.text(line, colX[1], rowY + idx * pxToMm(9), { maxWidth: cols.desc - 2 })
         })
-        ctx.doc.text(String(item.qty), colX[2], rowY, { maxWidth: qtyW - 1 })
-        ctx.doc.text(formatCurrency(item.unitPrice).replace("CRC ", ""), colX[3], rowY, { maxWidth: unitW - 1 })
-        ctx.doc.text(formatCurrency(item.subtotal).replace("CRC ", ""), colX[4], rowY, {
-          maxWidth: totalW - 1,
+        ctx.doc.text(String(item.qty), colX[2], rowY, { maxWidth: cols.qty - 1 })
+        ctx.doc.text(formatPdfCurrencyPlain(item.unitPrice, currency), colX[3], rowY, { maxWidth: cols.unit - 1 })
+        ctx.doc.text(formatPdfCurrencyPlain(item.subtotal, currency), colX[4], rowY, {
+          maxWidth: cols.total - 1,
           align: "right",
         })
         ctx.y += rowH
       }
+      drawCardBorder(ctx, x, startY, width, ctx.y - startY)
       ctx.y += 4
       break
     }
     case "totals": {
-      ctx.y = drawSectionTitle(ctx, "Resumen", x, width)
-      ctx.doc.setFontSize(9)
-      const labelW = Math.max(20, width * 0.45)
-      const valueW = Math.max(12, width - labelW - 4)
+      const pad = PDF_CARD.paddingMm
+      const startY = ctx.y
+      const currency = getCurrencyCode(ctx)
+      ctx.y += pad
+      const innerX = x + pad
+      const innerW = Math.max(4, width - pad * 2)
+      const labelW = Math.max(20, innerW * 0.45)
+      const valueW = Math.max(12, innerW - labelW - 4)
+      ctx.doc.setFontSize(7)
       for (const [label, val] of [
-        ["Subtotal", formatCurrency(ctx.data.subtotal)],
-        ["Descuento", formatCurrency(ctx.data.totalDiscount)],
-        ["IVA", formatCurrency(ctx.data.totalTax)],
+        ["Subtotal", formatPdfCurrency(ctx.data.subtotal, currency)],
+        ["Descuento", formatPdfCurrency(ctx.data.totalDiscount, currency)],
+        ["IVA", formatPdfCurrency(ctx.data.totalTax, currency)],
       ]) {
         ctx.doc.setFont(ctx.template.fontFamily, "normal")
-        ctx.doc.text(label, x + 2, ctx.y, { maxWidth: labelW })
-        ctx.doc.text(val, x + width - 2, ctx.y, { align: "right", maxWidth: valueW })
-        ctx.y += 5
+        ctx.doc.setTextColor(...PDF_CARD.mutedRgb)
+        ctx.doc.text(label, innerX, ctx.y, { maxWidth: labelW })
+        ctx.doc.setTextColor(0, 0, 0)
+        ctx.doc.text(val, innerX + innerW, ctx.y, { align: "right", maxWidth: valueW })
+        ctx.y += pxToMm(10)
       }
       const [pr, pg, pb] = hexToRgb(ctx.template.primaryColor)
       ctx.doc.setFillColor(pr, pg, pb)
-      ctx.doc.roundedRect(x, ctx.y, width, 10, 1, 1, "F")
+      ctx.doc.roundedRect(innerX, ctx.y, innerW, pxToMm(22), 2, 2, "F")
       ctx.doc.setTextColor(255, 255, 255)
       ctx.doc.setFont(ctx.template.fontFamily, "bold")
-      ctx.doc.text("TOTAL", x + 4, ctx.y + 7)
-      ctx.doc.text(formatCurrency(ctx.data.total), x + width - 4, ctx.y + 7, { align: "right" })
+      ctx.doc.text("TOTAL", innerX + pxToMm(4), ctx.y + pxToMm(14))
+      ctx.doc.text(formatPdfCurrency(ctx.data.total, currency), innerX + innerW - pxToMm(4), ctx.y + pxToMm(14), {
+        align: "right",
+      })
       ctx.doc.setTextColor(0, 0, 0)
-      ctx.y += 14
+      ctx.y += pxToMm(24) + pad
+      drawCardBorder(ctx, x, startY, width, ctx.y - startY)
+      ctx.y += 4
       break
     }
     case "notes": {
-      if (!ctx.data.notes) break
-      ctx.y = drawSectionTitle(ctx, "Notas", x, width)
-      writeWrappedText(ctx, ctx.data.notes, x + 2, Math.max(4, width - 4), 8, 4.5)
+      const notesText = formatNotesDisplayText(ctx.data.notes)
+      const pad = PDF_CARD.paddingMm
+      const startY = ctx.y
+      ctx.y += pad
+      const innerX = x + pad
+      const innerW = Math.max(4, width - pad * 2)
+      drawAccentInlineTitle(ctx, "Notas", innerX)
+      if (notesText) {
+        ctx.doc.setTextColor(...PDF_CARD.mutedRgb)
+        writeWrappedText(ctx, notesText, innerX, innerW, PDF_CARD.bodyFontPt, PDF_CARD.bodyLineHeightMm)
+        ctx.doc.setTextColor(0, 0, 0)
+      } else {
+        ctx.y += pxToMm(PDF_PREVIEW_LAYOUT.notesEmptyMinHeightPx)
+      }
+      ctx.y += pad
+      drawCardBorder(ctx, x, startY, width, ctx.y - startY)
       ctx.y += 4
       break
     }
@@ -402,15 +388,20 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
       break
     }
     case "custom-text": {
+      if (props?.color && /^#[0-9A-Fa-f]{6}$/.test(props.color)) {
+        const [cr, cg, cb] = hexToRgb(props.color)
+        ctx.doc.setTextColor(cr, cg, cb)
+      }
       writeWrappedText(
         ctx,
-        formatPdfTextValue(props?.text || ""),
+        formatPdfTextValue(props?.text || "Texto personalizado"),
         x,
         Math.max(4, width),
         props?.fontSize || 10,
         (props?.fontSize || 10) * 0.45 + 2,
         { bold: Boolean(props?.bold), align: props?.align || "left" }
       )
+      ctx.doc.setTextColor(0, 0, 0)
       ctx.y += 2
       break
     }
@@ -434,12 +425,13 @@ async function renderBlock(ctx: RenderCtx, block: PdfBlock, width: number, x: nu
     case "divider": {
       const [dr, dg, db] = hexToRgb(ctx.template.accentColor)
       ctx.doc.setDrawColor(dr, dg, db)
+      ctx.doc.setLineWidth(pxToMm(2))
       ctx.doc.line(x, ctx.y, x + width, ctx.y)
-      ctx.y += 6
+      ctx.y += pxToMm(8)
       break
     }
     case "spacer": {
-      ctx.y += pxToMm(props?.height || 10)
+      ctx.y += pxToMm(props?.height || 8)
       break
     }
     default:
@@ -465,68 +457,72 @@ function estimateBlockHeightMm(block: PdfBlock, ctx: RenderCtx, width: number): 
   }
   switch (block.type) {
     case "logo":
-      return pxToMm(props?.logoHeight ?? 56) + 4
+      return resolveLogoDrawSizeMm(props, ctx.template, width).drawH + 4
     case "document-badge": {
-      const badgeW = Math.min(width, 70)
       const fs = props?.badgeFontSize || 10
       doc.setFontSize(fs)
-      const lines = wrappedLineCount(doc, ctx.data.documentType, badgeW - 8, fs)
-      return Math.max(18, lines * 5 + 10)
+      const lines = wrappedLineCount(doc, ctx.data.documentType, width - pxToMm(12), fs)
+      return Math.max(pxToMm(28), lines * pxToMm(10) + pxToMm(12)) + 4
     }
     case "company-name": {
       const lines = buildCompanyNameLines(ctx.data, props?.nameDisplay)
       const fs = props?.nameFontSize || 14
       const innerW = Math.max(4, width - 2)
-      let h = 7
+      let h = 0
       if (lines.primary) h += wrappedLineCount(doc, lines.primary, innerW, fs) * 4.5
       if (lines.secondary) h += wrappedLineCount(doc, lines.secondary, innerW, Math.max(8, fs * 0.65)) * 4
       return h + 2
     }
     case "emitter-info":
     case "receiver-info": {
-      const innerW = Math.max(4, width - 4)
+      const pad = PDF_CARD.paddingMm
+      const innerW = Math.max(4, width - pad * 2)
       const partyLines = buildPartyLines(ctx.data, block.type === "emitter-info", props)
       const textH = partyLines.reduce(
-        (sum, line) => sum + wrappedLineCount(doc, line, innerW, 8) * 4.5,
+        (sum, line) => sum + wrappedLineCount(doc, line, innerW, PDF_CARD.bodyFontPt) * PDF_CARD.bodyLineHeightMm,
         0
       )
-      return 10 + textH + 4
+      return pad * 2 + pxToMm(14) + pxToMm(4) + textH + 4
     }
     case "document-meta": {
+      const pad = PDF_CARD.paddingMm
+      const innerW = Math.max(4, width - pad * 2)
       const metaCols = props?.documentMetaColumns === 2 ? 2 : 1
-      const colW = metaCols === 2 ? (width - 3) / 2 : width
-      const innerW = Math.max(4, colW - 4)
+      const gap = pxToMm(12)
+      const colW = metaCols === 2 ? (innerW - gap) / 2 : innerW
+      const colInnerW = Math.max(4, colW - 2)
       const entries = buildDocumentMetaEntries(ctx.data, props)
       const perCol = Math.ceil(entries.length / metaCols)
-      let h = 10
-      for (let i = 0; i < entries.length; i++) {
+      let colH = PDF_CARD.lineHeightMm + 1
+      for (let i = 0; i < perCol; i++) {
         const entry = entries[i]
-        h += 4 + wrappedLineCount(doc, entry.value, innerW, 8) * 4.5 + 1
-        if (metaCols === 2 && (i + 1) % perCol === 0 && i + 1 < entries.length) {
-          // parallel columns share height — handled by max column; approximate evenly
-        }
+        if (!entry) continue
+        colH +=
+          PDF_CARD.lineHeightMm +
+          wrappedLineCount(doc, entry.value, colInnerW, PDF_CARD.bodyFontPt) * PDF_CARD.bodyLineHeightMm +
+          1
       }
-      return h + 2
+      return pad * 2 + colH + 2
     }
     case "line-items": {
-      const numW = Math.max(8, width * 0.07)
-      const qtyW = Math.max(10, width * 0.1)
-      const unitW = Math.max(14, width * 0.16)
-      const totalW = Math.max(14, width * 0.16)
-      const descW = Math.max(12, width - numW - qtyW - unitW - totalW - 4)
-      doc.setFontSize(7)
+      const cols = getLineItemsColumnWidthsMm(width)
+      doc.setFontSize(6)
       const rowsH = ctx.data.items.reduce((sum, item) => {
-        const lines = wrappedLineCount(doc, item.description, descW - 2, 7)
-        return sum + Math.max(7, lines * 3.5 + 2)
+        const lines = wrappedLineCount(doc, item.description, cols.desc - 2, 6)
+        return sum + Math.max(pxToMm(14), lines * pxToMm(9) + pxToMm(4))
       }, 0)
-      return 10 + 9 + rowsH + 4
+      return pxToMm(20) + rowsH + 4
     }
     case "totals":
-      return 10 + 3 * 5 + 14
-    case "notes":
-      return ctx.data.notes
-        ? 10 + wrappedLineCount(doc, ctx.data.notes, Math.max(4, width - 4), 8) * 4.5 + 6
-        : 0
+      return PDF_CARD.paddingMm * 2 + pxToMm(10) * 3 + pxToMm(24) + 4
+    case "notes": {
+      const notesText = formatNotesDisplayText(ctx.data.notes)
+      const innerW = Math.max(4, width - PDF_CARD.paddingMm * 2)
+      const bodyH = notesText
+        ? wrappedLineCount(doc, notesText, innerW, PDF_CARD.bodyFontPt) * PDF_CARD.bodyLineHeightMm
+        : pxToMm(PDF_PREVIEW_LAYOUT.notesEmptyMinHeightPx)
+      return PDF_CARD.paddingMm * 2 + PDF_CARD.lineHeightMm + bodyH + 6
+    }
     case "legal-text":
       return wrappedLineCount(doc, props?.text || ctx.data.legalText, Math.max(4, width), props?.fontSize || 7) * 4 + 4
     case "custom-text": {
@@ -539,7 +535,7 @@ function estimateBlockHeightMm(block: PdfBlock, ctx: RenderCtx, width: number): 
     case "divider":
       return 6
     case "spacer":
-      return pxToMm(props?.height || 10)
+      return pxToMm(props?.height || 8)
     default:
       return 8
   }
@@ -549,7 +545,7 @@ function estimateContainerHeightMm(block: PdfBlock, ctx: RenderCtx, width: numbe
   const normalized = ensureContainerSlots(block)
   const props = normalized.props as PdfBlockProps
   const padding = pxToMm(props?.padding ?? 10)
-  const gap = pxToMm(props?.gap ?? 8)
+  const gap = pxToMm(resolveContainerColumnGap(props?.gap))
   const cols = props?.columns || 2
   const titleOffset = props?.showTitle && props.title ? 6 + padding : padding * 0.5
   const innerWidth = width - padding * 2
@@ -598,7 +594,7 @@ async function renderContainer(ctx: RenderCtx, block: PdfBlock, width: number, x
   const props = normalized.props as PdfBlockProps
   const styles = resolveContainerStyles(props)
   const cols = props?.columns || 2
-  const gap = pxToMm(props?.gap ?? 8)
+  const gap = pxToMm(resolveContainerColumnGap(props?.gap))
   const padding = pxToMm(props?.padding ?? 10)
   const startY = ctx.y
   const estimatedHeight = estimateContainerHeightMm(normalized, ctx, width)
@@ -649,6 +645,8 @@ async function renderContainer(ctx: RenderCtx, block: PdfBlock, width: number, x
   }
 }
 
+export { mapInvoiceDataToPdfContext } from "@/lib/pdf-builder/map-invoice-pdf-context"
+
 export async function generatePdfFromTemplate(
   template: InvoicePdfTemplate,
   invoiceData: Record<string, unknown>
@@ -662,7 +660,12 @@ export async function generatePdfFromTemplate(
 
   let logoBase64: string | null = null
   if (template.showLogo && data.company.logo) {
-    logoBase64 = await optimizeLogo(data.company.logo)
+    const normalizedBlocks = normalizeBlockTree(template.blocks)
+    const logoDims = findMaxLogoDimensionsInTemplate(template, normalizedBlocks)
+    const rawLogo = extractLogoData(data.company as Record<string, unknown>)
+    if (rawLogo) {
+      logoBase64 = await optimizeLogo(rawLogo, logoDims.widthPx, logoDims.heightPx)
+    }
   }
 
   const ctx: RenderCtx = {

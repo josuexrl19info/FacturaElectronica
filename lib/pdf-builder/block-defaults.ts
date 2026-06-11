@@ -1,5 +1,8 @@
 import type { ContainerColumns, DocumentMetaFieldsVisibility, InfoFieldsVisibility, PdfBlockProps, PdfBlockType } from "@/lib/pdf-builder/types"
 
+export const DEFAULT_LOGO_WIDTH_PX = 88
+export const DEFAULT_LOGO_HEIGHT_PX = 56
+
 export const DEFAULT_EMITTER_FIELDS: InfoFieldsVisibility = {
   id: true,
   phone: true,
@@ -45,7 +48,7 @@ export function defaultPropsForType(type: PdfBlockType): PdfBlockProps {
         borderRadius: 8,
       }
     case "logo":
-      return { logoWidth: 88, logoHeight: 56 }
+      return { logoWidth: DEFAULT_LOGO_WIDTH_PX, logoHeight: DEFAULT_LOGO_HEIGHT_PX }
     case "company-name":
       return { nameDisplay: "both", nameBold: true, nameFontSize: 14 }
     case "custom-text":

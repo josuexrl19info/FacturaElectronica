@@ -104,6 +104,9 @@ export type InvoicePdfTemplate = {
   accentColor: string
   fontFamily: "helvetica" | "times" | "courier"
   showLogo: boolean
+  /** Tamaño default del logo (px); se usa en PDF y se sincroniza con bloques logo. */
+  logoWidth?: number
+  logoHeight?: number
   blocks: PdfBlock[]
 }
 
@@ -130,7 +133,8 @@ export type PdfMockInvoiceData = {
   documentType: string
   consecutivo: string
   clave: string
-  fecha: string
+  /** Valor crudo; formatear solo con formatPdfDateField en el campo Fecha. */
+  fecha: unknown
   moneda: string
   formaPago: string
   condicionVenta: string

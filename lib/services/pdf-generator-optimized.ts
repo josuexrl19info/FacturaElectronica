@@ -1,8 +1,9 @@
-import jsPDF from "jspdf"
+import { normalizeInvoicePdfTemplate } from "@/lib/pdf-builder/normalize-template"
+import "server-only"
+import { renderInvoiceHtmlToPdfBuffer } from "@/lib/services/pdf-generator-puppeteer"
 
-export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsPDF> {
-  const { generatePdfFromTemplate } = await import("@/lib/pdf-builder/render-pdf-jspdf")
-  const { normalizeInvoicePdfTemplate } = await import("@/lib/pdf-builder/normalize-template")
+/** Genera bytes PDF desde la plantilla + datos (HTML → Puppeteer, idéntico a la vista previa). */
+export async function generateInvoicePDFOptimized(invoiceData: Record<string, unknown>): Promise<ArrayBuffer> {
   const { personalizationFromCompanyRecord } = await import("@/lib/theme/company-personalization.utils")
 
   const company = invoiceData.company as Record<string, unknown> | undefined
@@ -10,16 +11,16 @@ export async function generateInvoicePDFOptimized(invoiceData: any): Promise<jsP
   const invConfig = personalization.invoices
   const rawTemplate =
     invoiceData.pdfTemplate ||
-    (company?.personalization as Record<string, unknown> | undefined)?.invoices &&
-      ((company?.personalization as Record<string, unknown>).invoices as Record<string, unknown>)?.pdfTemplate
+    ((company?.personalization as Record<string, unknown> | undefined)?.invoices &&
+      ((company?.personalization as Record<string, unknown>).invoices as Record<string, unknown>)?.pdfTemplate)
 
   const normalized = normalizeInvoicePdfTemplate(rawTemplate, {
     primary: invConfig.headerColor,
     accent: invConfig.tableAccentColor,
   })
 
-  console.log("📄 [PDF] Generando con plantilla:", normalized.blocks.length, "bloques")
-  return generatePdfFromTemplate(normalized, invoiceData)
+  console.log("📄 [PDF] Generando con plantilla HTML:", normalized.blocks.length, "bloques")
+  return renderInvoiceHtmlToPdfBuffer(normalized, invoiceData)
 }
 
 export async function formatInvoiceDataForPDFOptimized(invoice: any, company: any, client: any) {

@@ -1,4 +1,5 @@
 import type { PdfMockInvoiceData } from "@/lib/pdf-builder/types"
+import { formatPdfCurrency } from "@/lib/pdf-builder/pdf-layout"
 
 export const PDF_MOCK_INVOICE: PdfMockInvoiceData = {
   documentType: "Factura Electrónica",
@@ -68,5 +69,5 @@ export const PDF_MOCK_INVOICE: PdfMockInvoiceData = {
 }
 
 export function formatMockCurrency(amount: number): string {
-  return `₡${amount.toLocaleString("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return formatPdfCurrency(amount, "CRC")
 }

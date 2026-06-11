@@ -198,7 +198,11 @@ export function InvoicePdfBuilder({ template, onChange }: InvoicePdfBuilderProps
         </div>
 
         <div className="xl:max-h-[calc(100vh-180px)] xl:overflow-y-auto">
-          <PdfBuilderPreview template={template} data={previewData} companyName={previewData.company.commercialName} />
+          <PdfBuilderPreview
+            template={template}
+            data={previewData}
+            companyName={previewData.company.commercialName}
+          />
         </div>
       </div>
 

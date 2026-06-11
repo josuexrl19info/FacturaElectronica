@@ -1,11 +1,14 @@
 import { CONDICIONES_VENTA } from "@/lib/invoice-types"
-import { DEFAULT_EMITTER_FIELDS, DEFAULT_RECEIVER_FIELDS, DEFAULT_DOCUMENT_META_FIELDS } from "@/lib/pdf-builder/block-defaults"
+import { DEFAULT_EMITTER_FIELDS, DEFAULT_RECEIVER_FIELDS, DEFAULT_DOCUMENT_META_FIELDS, DEFAULT_LOGO_HEIGHT_PX, DEFAULT_LOGO_WIDTH_PX } from "@/lib/pdf-builder/block-defaults"
 import type {
   DocumentMetaFieldsVisibility,
   InfoFieldsVisibility,
+  InvoicePdfTemplate,
+  PdfBlock,
   PdfBlockProps,
   PdfMockInvoiceData,
 } from "@/lib/pdf-builder/types"
+import { isContainerBlock } from "@/lib/pdf-builder/types"
 import { formatEconomicActivity, formatPdfDateField, formatPdfTextValue } from "@/lib/pdf-builder/pdf-text-utils"
 
 export type CompanyNameLines = { primary: string | null; secondary: string | null }
@@ -130,4 +133,57 @@ export function buildCompanyNameLines(
       }
       return { primary: commercial || legal || null, secondary: null }
   }
+}
+
+/** Convierte píxeles CSS (~96dpi) a milímetros para jsPDF. */
+export function pxToMm(px: number): number {
+  return px * 0.264583
+}
+
+export function resolveLogoDimensions(
+  blockProps: PdfBlockProps | undefined,
+  template: Pick<InvoicePdfTemplate, "logoWidth" | "logoHeight">
+): { widthPx: number; heightPx: number } {
+  return {
+    widthPx: blockProps?.logoWidth ?? template.logoWidth ?? DEFAULT_LOGO_WIDTH_PX,
+    heightPx: blockProps?.logoHeight ?? template.logoHeight ?? DEFAULT_LOGO_HEIGHT_PX,
+  }
+}
+
+/** Tamaño de dibujo en mm; reduce ancho si excede la columna manteniendo proporción. */
+export function resolveLogoDrawSizeMm(
+  blockProps: PdfBlockProps | undefined,
+  template: Pick<InvoicePdfTemplate, "logoWidth" | "logoHeight">,
+  maxWidthMm: number
+): { drawW: number; drawH: number } {
+  const { widthPx, heightPx } = resolveLogoDimensions(blockProps, template)
+  const logoW = pxToMm(widthPx)
+  const logoH = pxToMm(heightPx)
+  const drawW = Math.min(maxWidthMm, logoW)
+  const drawH = drawW * (logoH / logoW)
+  return { drawW, drawH }
+}
+
+export function findMaxLogoDimensionsInTemplate(
+  template: InvoicePdfTemplate,
+  blocks: PdfBlock[]
+): { widthPx: number; heightPx: number } {
+  let widthPx = template.logoWidth ?? DEFAULT_LOGO_WIDTH_PX
+  let heightPx = template.logoHeight ?? DEFAULT_LOGO_HEIGHT_PX
+
+  const walk = (list: PdfBlock[]) => {
+    for (const block of list) {
+      if (block.type === "logo") {
+        const dims = resolveLogoDimensions(block.props, template)
+        widthPx = Math.max(widthPx, dims.widthPx)
+        heightPx = Math.max(heightPx, dims.heightPx)
+      }
+      if (isContainerBlock(block.type) && block.columnSlots) {
+        for (const slot of block.columnSlots) walk(slot.blocks)
+      }
+    }
+  }
+
+  walk(blocks)
+  return { widthPx, heightPx }
 }

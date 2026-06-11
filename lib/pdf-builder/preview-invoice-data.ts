@@ -13,7 +13,7 @@ function extractLogoFromCompany(company: Record<string, unknown>): string | unde
   return undefined
 }
 
-function buildAddress(company: Record<string, unknown>): string {
+export function buildAddress(company: Record<string, unknown>): string {
   const parts = [
     company.provincia,
     company.canton,

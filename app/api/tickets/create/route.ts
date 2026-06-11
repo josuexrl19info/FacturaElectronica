@@ -10,6 +10,7 @@ import { HaciendaStatusService } from '@/lib/services/hacienda-status'
 import { InvoiceConsecutiveService } from '@/lib/services/invoice-consecutive'
 import { HaciendaKeyGenerator } from '@/lib/services/hacienda-key-generator'
 import { InvoiceEmailService } from '@/lib/services/invoice-email-service'
+import type { Invoice } from '@/lib/invoice-types'
 import { ExchangeRateService } from '@/lib/services/exchange-rate-service'
 
 // Inicializar Firebase si no está ya inicializado
@@ -584,9 +585,8 @@ export async function POST(req: NextRequest) {
                 
                 // Enviar email al cliente
                 await InvoiceEmailService.sendApprovalEmail(
-                  completeTicketData,
-                  clientData.email,
-                  companyData
+                  completeTicketData as Invoice,
+                  clientData.email
                 )
                 
                 console.log('✅ Email enviado exitosamente al cliente')
