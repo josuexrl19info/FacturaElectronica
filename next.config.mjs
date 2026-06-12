@@ -9,7 +9,7 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      const externalPackages = ["@sparticuz/chromium-min", "puppeteer-core"]
+      const externalPackages = ["@sparticuz/chromium-min", "puppeteer-core", "puppeteer"]
       if (Array.isArray(config.externals)) {
         config.externals.push(...externalPackages)
       } else if (config.externals) {

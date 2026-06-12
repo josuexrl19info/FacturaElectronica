@@ -65,19 +65,14 @@ export function buildInvoicePdfApiPayload(
 }
 
 /**
- * Vista previa / descarga: intenta Puppeteer en servidor (diseño elegante HTML).
- * Si falla (p. ej. Vercel sin Chromium), fallback a HTML + navegador.
+ * Vista previa / descarga en navegador: HTML + jsPDF (compatible con Vercel Hobby).
+ * En servidor (correos, etc.): intenta Puppeteer; en Vercel puede fallar por límites de memoria.
  */
 export async function fetchInvoicePdfFromApi(
   payload: InvoicePdfApiPayload
 ): Promise<{ blob: Blob; base64: string }> {
   if (typeof window !== "undefined") {
-    try {
-      return await fetchInvoicePdfFromServerApi(payload)
-    } catch (error) {
-      console.warn("[PDF] Servidor no disponible, generando en navegador:", error)
-      return fetchInvoicePdfInBrowser(payload)
-    }
+    return fetchInvoicePdfInBrowser(payload)
   }
   return fetchInvoicePdfFromServerApi(payload)
 }
