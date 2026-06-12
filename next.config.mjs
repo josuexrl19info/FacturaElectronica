@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["puppeteer", "sharp"],
+    serverComponentsExternalPackages: ["puppeteer-core", "@sparticuz/chromium", "sharp"],
   },
   eslint: {
     ignoreDuringBuilds: true,

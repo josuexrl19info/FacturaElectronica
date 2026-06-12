@@ -1,23 +1,19 @@
 import "server-only"
 
-import puppeteer from "puppeteer"
+import type { Browser } from "puppeteer-core"
 import type { InvoicePdfTemplate } from "@/lib/pdf-builder/types"
 import { buildInvoiceHtmlDocument } from "@/lib/pdf-builder/render-invoice-html"
-
-const LAUNCH_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+import { launchPuppeteerBrowser } from "@/lib/services/puppeteer-launch"
 
 export async function renderInvoiceHtmlToPdfBuffer(
   template: InvoicePdfTemplate,
   invoiceData: Record<string, unknown>
 ): Promise<ArrayBuffer> {
   const html = buildInvoiceHtmlDocument(template, invoiceData)
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null
+  let browser: Browser | null = null
 
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: LAUNCH_ARGS,
-    })
+    browser = await launchPuppeteerBrowser()
 
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 })

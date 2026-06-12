@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import puppeteer from 'puppeteer'
+import { launchPuppeteerBrowser } from '@/lib/services/puppeteer-launch'
+
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 export async function GET() {
-  let browser;
+  let browser
   try {
     console.log('🧪 Probando Puppeteer básico...')
     
-    // Lanzar Puppeteer con configuración mínima
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]
-    })
+    browser = await launchPuppeteerBrowser()
     
     const page = await browser.newPage()
     
