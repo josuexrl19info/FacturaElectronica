@@ -2,14 +2,9 @@ import "server-only"
 
 import type { Browser } from "puppeteer-core"
 
-const LAUNCH_ARGS = [
-  "--no-sandbox",
-  "--disable-setuid-sandbox",
-  "--disable-dev-shm-usage",
-  "--disable-gpu",
-  "--disable-software-rasterizer",
-  "--single-process",
-]
+const BASE_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+
+const SERVERLESS_EXTRA_ARGS = ["--disable-software-rasterizer", "--single-process"]
 
 const CHROMIUM_PACK_URL =
   process.env.CHROMIUM_PACK_URL ??
@@ -25,7 +20,7 @@ export async function launchPuppeteerBrowser(): Promise<Browser> {
     const puppeteer = await import("puppeteer-core")
 
     return puppeteer.default.launch({
-      args: [...chromium.args, ...LAUNCH_ARGS],
+      args: [...chromium.args, ...BASE_ARGS, ...SERVERLESS_EXTRA_ARGS],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
       headless: chromium.headless ?? true,
@@ -35,6 +30,6 @@ export async function launchPuppeteerBrowser(): Promise<Browser> {
   const puppeteer = await import("puppeteer")
   return puppeteer.default.launch({
     headless: true,
-    args: LAUNCH_ARGS,
+    args: BASE_ARGS,
   }) as Promise<Browser>
 }

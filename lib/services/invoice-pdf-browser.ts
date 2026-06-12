@@ -1,12 +1,21 @@
 import type { InvoicePdfTemplate } from "@/lib/pdf-builder/types"
 
-/** Convierte el HTML de la plantilla a PDF usando el motor del navegador (mismo diseño que Puppeteer). */
+const PAGE_MM = {
+  a4: { w: 210, h: 297 },
+  letter: { w: 216, h: 279 },
+} as const
+
+/** Fallback en navegador: html2canvas + jsPDF dentro de iframe aislado (sin estilos oklch de la app). */
 export async function convertInvoiceHtmlToPdfBlob(
   html: string,
   pageSize: InvoicePdfTemplate["pageSize"]
 ): Promise<Blob> {
-  const html2pdf = (await import("html2pdf.js")).default
-  const format = pageSize === "letter" ? "letter" : "a4"
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ])
+
+  const page = PAGE_MM[pageSize === "letter" ? "letter" : "a4"]
 
   const iframe = document.createElement("iframe")
   iframe.style.cssText =
@@ -23,18 +32,45 @@ export async function convertInvoiceHtmlToPdfBlob(
       }
     })
 
-    const body = iframe.contentDocument?.body
-    if (!body) throw new Error("No se pudo renderizar el HTML de la factura")
+    const doc = iframe.contentDocument
+    const root = doc?.documentElement
+    const body = doc?.body
+    if (!doc || !root || !body) throw new Error("No se pudo renderizar el HTML de la factura")
 
-    return (await html2pdf()
-      .set({
-        margin: 0,
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-        html2canvas: { scale: 2, useCORS: true, logging: false, allowTaint: true },
-        jsPDF: { unit: "mm", format, orientation: "portrait" },
-      })
-      .from(body)
-      .outputPdf("blob")) as Blob
+    const canvas = await html2canvas(body, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      allowTaint: true,
+      width: root.scrollWidth,
+      height: root.scrollHeight,
+      windowWidth: root.scrollWidth,
+      windowHeight: root.scrollHeight,
+      window: iframe.contentWindow ?? undefined,
+      onclone: (clonedDoc) => {
+        clonedDoc.querySelectorAll('link[rel="stylesheet"]').forEach((node) => node.remove())
+        clonedDoc.querySelectorAll("style").forEach((styleEl) => {
+          if (styleEl.textContent?.includes("oklch")) {
+            styleEl.textContent = styleEl.textContent.replace(/oklch\([^)]+\)/g, "#111827")
+          }
+        })
+      },
+    })
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: pageSize === "letter" ? "letter" : "a4",
+    })
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.98)
+    const imgWidth = page.w
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+    pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight, undefined, "FAST")
+
+    return pdf.output("blob")
   } finally {
     iframe.remove()
   }

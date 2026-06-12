@@ -423,6 +423,7 @@ export function buildInvoiceHtmlDocument(
       margin: 0;
       padding: ${template.margin}mm;
       color: #0f172a;
+      background-color: #ffffff;
       font-family: ${font};
       font-size: 10px;
       -webkit-print-color-adjust: exact;
