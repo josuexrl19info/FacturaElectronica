@@ -64,10 +64,48 @@ export function buildInvoicePdfApiPayload(
   }
 }
 
+/**
+ * Vista previa / descarga: HTML + Chrome del navegador (mismo diseño, funciona en Vercel).
+ * Correos / server-side: API Puppeteer.
+ */
 export async function fetchInvoicePdfFromApi(
   payload: InvoicePdfApiPayload
 ): Promise<{ blob: Blob; base64: string }> {
-  const response = await fetch("/api/generate-pdf-optimized", {
+  if (typeof window !== "undefined") {
+    return fetchInvoicePdfInBrowser(payload)
+  }
+  return fetchInvoicePdfFromServerApi(payload)
+}
+
+async function fetchInvoicePdfInBrowser(
+  payload: InvoicePdfApiPayload
+): Promise<{ blob: Blob; base64: string }> {
+  const response = await fetch("/api/generate-pdf-html", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Error generando HTML del PDF: ${response.status}`)
+  }
+
+  const result = await response.json()
+  if (!result.success || !result.html) {
+    throw new Error(result.error || "Error generando HTML del PDF")
+  }
+
+  const { convertInvoiceHtmlToPdfBlob, blobToBase64 } = await import("@/lib/services/invoice-pdf-browser")
+  const blob = await convertInvoiceHtmlToPdfBlob(result.html, payload.pdfTemplate.pageSize)
+  const base64 = await blobToBase64(blob)
+  return { blob, base64 }
+}
+
+async function fetchInvoicePdfFromServerApi(
+  payload: InvoicePdfApiPayload
+): Promise<{ blob: Blob; base64: string }> {
+  const { getBaseUrl } = await import("@/lib/utils")
+  const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

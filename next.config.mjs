@@ -1,7 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["sharp"],
+    serverComponentsExternalPackages: ["puppeteer", "puppeteer-core", "@sparticuz/chromium-min", "sharp"],
+    outputFileTracingIncludes: {
+      "/api/generate-pdf-optimized": ["./node_modules/@sparticuz/chromium-min/**"],
+      "/api/generate-pdf-optimized/": ["./node_modules/@sparticuz/chromium-min/**"],
+    },
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      const externalPackages = ["@sparticuz/chromium-min", "puppeteer-core"]
+      if (Array.isArray(config.externals)) {
+        config.externals.push(...externalPackages)
+      } else if (config.externals) {
+        config.externals = [config.externals, ...externalPackages]
+      } else {
+        config.externals = externalPackages
+      }
+    }
+    return config
   },
   eslint: {
     ignoreDuringBuilds: true,

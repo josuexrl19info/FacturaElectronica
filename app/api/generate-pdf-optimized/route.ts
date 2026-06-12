@@ -3,6 +3,7 @@ import { generateInvoicePDFOptimized } from '@/lib/services/pdf-generator-optimi
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       tipo: invoiceData.invoice?.tipo
     })
     
-    // Generar PDF con plantilla jsPDF (compatible con Vercel, sin Chromium)
+    // Generar PDF usando HTML + Puppeteer (idéntico a vista previa)
     const pdfArrayBuffer = await generateInvoicePDFOptimized(invoiceData)
     
     // Validar que el PDF tenga el formato correcto (debe empezar con %PDF)
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
       pdf_size_kb: pdfSizeKB,
       pdf_size_mb: pdfSizeMB,
       pdf_size_bytes: pdfSizeBytes,
-      method: 'jspdf-template',
+      method: 'puppeteer-html',
       compressed: true,
       format_valid: true
     })
