@@ -156,13 +156,17 @@ export class PDFGeneratorService {
       }
 
       const payload = buildInvoicePdfApiPayload(invoice, company, client)
-      const { base64 } = await generateInvoicePdfBase64(payload.invoice, {
+      const result = await generateInvoicePdfBase64(payload.invoice, {
         company: payload.company,
         client: payload.client,
       })
 
-      console.log("✅ PDF final optimizado generado en base64:", base64.length, "caracteres")
-      return base64
+      if (!result.base64) {
+        throw new Error(result.reason || "PDF no disponible en este entorno")
+      }
+
+      console.log("✅ PDF final optimizado generado en base64:", result.base64.length, "caracteres")
+      return result.base64
     } catch (error) {
       console.error("❌ Error al generar PDF final optimizado en base64:", error)
       throw new Error("Error al generar PDF final optimizado en base64")

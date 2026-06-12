@@ -14,6 +14,14 @@ function isServerlessRuntime(): boolean {
   return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
 }
 
+/** true en local; en Vercel solo si PDF_ENABLE_SERVERLESS=true (p. ej. plan Pro). */
+export function isServerPuppeteerEnabled(): boolean {
+  if (!isServerlessRuntime()) return true
+  return process.env.PDF_ENABLE_SERVERLESS === "true"
+}
+
+export { isServerlessRuntime }
+
 export async function launchPuppeteerBrowser(): Promise<Browser> {
   if (isServerlessRuntime()) {
     const chromium = (await import("@sparticuz/chromium-min")).default

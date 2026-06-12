@@ -252,17 +252,22 @@ export class InvoiceEmailService {
           ((isTiquete ? 'tiquetes' : 'facturas') as string),
       }
 
-      const { base64, blockCount } = await generateInvoicePdfBase64(invoiceRecord, {
+      const pdfResult = await generateInvoicePdfBase64(invoiceRecord, {
         company: companyData,
         client: clientData,
       })
 
-      pdf_base64 = base64
-      console.log('✅ PDF generado con plantilla personalizada:', {
-        blockCount,
-        documentType: detectDocumentTypeLabel(invoiceRecord),
-        base64Length: pdf_base64.length,
-      })
+      if (pdfResult.skipped || !pdfResult.base64) {
+        console.warn("⚠️ PDF no generado en servidor:", pdfResult.reason || "sin detalle")
+        pdf_base64 = undefined
+      } else {
+        pdf_base64 = pdfResult.base64
+        console.log("✅ PDF generado con plantilla personalizada:", {
+          blockCount: pdfResult.blockCount,
+          documentType: detectDocumentTypeLabel(invoiceRecord),
+          base64Length: pdf_base64.length,
+        })
+      }
       
       // Validar formato del PDF antes de usarlo
       if (pdf_base64) {

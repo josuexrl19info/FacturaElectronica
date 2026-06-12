@@ -112,11 +112,18 @@ async function fetchInvoicePdfFromServerApi(
     body: stringifyInvoicePdfPayload(payload),
   })
 
-  if (!response.ok) {
-    throw new Error(`Error generando PDF: ${response.status}`)
+  const result = await response.json().catch(() => ({}))
+
+  if (response.status === 503 && result.code === "serverless-puppeteer-disabled") {
+    throw new Error(
+      "PDF en servidor no disponible en Vercel Hobby. Use la vista previa en el navegador."
+    )
   }
 
-  const result = await response.json()
+  if (!response.ok) {
+    throw new Error(result.error || `Error generando PDF: ${response.status}`)
+  }
+
   if (!result.success || !result.pdf_base64) {
     throw new Error(result.error || "Error generando PDF")
   }

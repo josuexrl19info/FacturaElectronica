@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { InvalidJsonBodyError, parseRequestJsonBody } from '@/lib/api/parse-request-json'
 import { generateInvoicePDFOptimized } from '@/lib/services/pdf-generator-optimized'
+import { isServerPuppeteerEnabled } from '@/lib/services/puppeteer-launch'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,6 +10,18 @@ export const maxDuration = 60
 export async function POST(request: NextRequest) {
   try {
     const invoiceData = await parseRequestJsonBody(request)
+
+    if (!isServerPuppeteerEnabled()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Puppeteer no está habilitado en Vercel (plan Hobby). Use la vista previa en el navegador o configure PDF_ENABLE_SERVERLESS=true.",
+          code: "serverless-puppeteer-disabled",
+        },
+        { status: 503 }
+      )
+    }
     
     console.log('📄 Generando PDF optimizado para:', invoiceData.invoice?.consecutivo || 'N/A')
 
