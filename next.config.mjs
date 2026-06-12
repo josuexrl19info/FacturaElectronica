@@ -1,24 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["puppeteer-core", "@sparticuz/chromium-min"],
-    outputFileTracingIncludes: {
-      "/api/generate-pdf-optimized": ["./node_modules/@sparticuz/chromium-min/**"],
-      "/api/generate-pdf-optimized/": ["./node_modules/@sparticuz/chromium-min/**"],
-    },
-  },
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      const externalPackages = ["@sparticuz/chromium-min", "puppeteer-core"]
-      if (Array.isArray(config.externals)) {
-        config.externals.push(...externalPackages)
-      } else if (config.externals) {
-        config.externals = [config.externals, ...externalPackages]
-      } else {
-        config.externals = externalPackages
-      }
-    }
-    return config
+    serverComponentsExternalPackages: ["sharp"],
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -29,10 +12,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Configuración para Firebase Hosting
-  // output: 'export', // Comentado para desarrollo - permite API routes dinámicas
   trailingSlash: true,
-  // distDir: 'out', // Comentado para desarrollo
   async redirects() {
     return [
       {

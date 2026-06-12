@@ -1,8 +1,8 @@
 import { normalizeInvoicePdfTemplate } from "@/lib/pdf-builder/normalize-template"
 import "server-only"
-import { renderInvoiceHtmlToPdfBuffer } from "@/lib/services/pdf-generator-puppeteer"
+import { renderInvoiceTemplateToPdfBuffer } from "@/lib/services/pdf-generator-jspdf"
 
-/** Genera bytes PDF desde la plantilla + datos (HTML → Puppeteer, idéntico a la vista previa). */
+/** Genera bytes PDF desde la plantilla guardada (motor jsPDF, compatible con Vercel). */
 export async function generateInvoicePDFOptimized(invoiceData: Record<string, unknown>): Promise<ArrayBuffer> {
   const { personalizationFromCompanyRecord } = await import("@/lib/theme/company-personalization.utils")
 
@@ -19,8 +19,8 @@ export async function generateInvoicePDFOptimized(invoiceData: Record<string, un
     accent: invConfig.tableAccentColor,
   })
 
-  console.log("📄 [PDF] Generando con plantilla HTML:", normalized.blocks.length, "bloques")
-  return renderInvoiceHtmlToPdfBuffer(normalized, invoiceData)
+  console.log("📄 [PDF] Generando con plantilla jsPDF:", normalized.blocks.length, "bloques")
+  return renderInvoiceTemplateToPdfBuffer(normalized, invoiceData)
 }
 
 export async function formatInvoiceDataForPDFOptimized(invoice: any, company: any, client: any) {
