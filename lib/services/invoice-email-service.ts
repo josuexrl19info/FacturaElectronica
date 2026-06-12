@@ -257,17 +257,12 @@ export class InvoiceEmailService {
         client: clientData,
       })
 
-      if (pdfResult.skipped || !pdfResult.base64) {
-        console.warn("⚠️ PDF no generado en servidor:", pdfResult.reason || "sin detalle")
-        pdf_base64 = undefined
-      } else {
-        pdf_base64 = pdfResult.base64
-        console.log("✅ PDF generado con plantilla personalizada:", {
-          blockCount: pdfResult.blockCount,
-          documentType: detectDocumentTypeLabel(invoiceRecord),
-          base64Length: pdf_base64.length,
-        })
-      }
+      pdf_base64 = pdfResult.base64
+      console.log("✅ PDF generado con plantilla personalizada:", {
+        blockCount: pdfResult.blockCount,
+        documentType: detectDocumentTypeLabel(invoiceRecord),
+        base64Length: pdf_base64.length,
+      })
       
       // Validar formato del PDF antes de usarlo
       if (pdf_base64) {

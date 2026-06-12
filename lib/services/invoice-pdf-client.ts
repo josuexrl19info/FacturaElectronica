@@ -66,14 +66,19 @@ export function buildInvoicePdfApiPayload(
 }
 
 /**
- * Vista previa / descarga en navegador: HTML + jsPDF (compatible con Vercel Hobby).
- * En servidor (correos, etc.): intenta Puppeteer; en Vercel puede fallar por límites de memoria.
+ * Vista previa / descarga: Puppeteer en servidor (diseño HTML elegante).
+ * Si falla en el navegador, fallback a HTML + jsPDF.
  */
 export async function fetchInvoicePdfFromApi(
   payload: InvoicePdfApiPayload
 ): Promise<{ blob: Blob; base64: string }> {
   if (typeof window !== "undefined") {
-    return fetchInvoicePdfInBrowser(payload)
+    try {
+      return await fetchInvoicePdfFromServerApi(payload)
+    } catch (error) {
+      console.warn("[PDF] Servidor no disponible, generando en navegador:", error)
+      return fetchInvoicePdfInBrowser(payload)
+    }
   }
   return fetchInvoicePdfFromServerApi(payload)
 }
@@ -105,20 +110,19 @@ async function fetchInvoicePdfInBrowser(
 async function fetchInvoicePdfFromServerApi(
   payload: InvoicePdfApiPayload
 ): Promise<{ blob: Blob; base64: string }> {
-  const { getBaseUrl } = await import("@/lib/utils")
-  const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized/`, {
+  const apiPath = "/api/generate-pdf-optimized/"
+  const url =
+    typeof window !== "undefined"
+      ? apiPath
+      : `${(await import("@/lib/utils")).getBaseUrl()}${apiPath}`
+
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: stringifyInvoicePdfPayload(payload),
   })
 
   const result = await response.json().catch(() => ({}))
-
-  if (response.status === 503 && result.code === "serverless-puppeteer-disabled") {
-    throw new Error(
-      "PDF en servidor no disponible en Vercel Hobby. Use la vista previa en el navegador."
-    )
-  }
 
   if (!response.ok) {
     throw new Error(result.error || `Error generando PDF: ${response.status}`)
