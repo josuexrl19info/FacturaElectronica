@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { InvalidJsonBodyError, parseRequestJsonBody } from '@/lib/api/parse-request-json'
 import { generateInvoicePDFOptimized } from '@/lib/services/pdf-generator-optimized'
 
 export const runtime = 'nodejs'
@@ -7,7 +8,7 @@ export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   try {
-    const invoiceData = await request.json()
+    const invoiceData = await parseRequestJsonBody(request)
     
     console.log('📄 Generando PDF optimizado para:', invoiceData.invoice?.consecutivo || 'N/A')
 
@@ -120,6 +121,10 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
+    if (error instanceof InvalidJsonBodyError) {
+      console.warn('⚠️ PDF optimizado: solicitud con JSON inválido:', error.message)
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
     console.error('❌ Error generando PDF optimizado:', error)
     return NextResponse.json({
       success: false,

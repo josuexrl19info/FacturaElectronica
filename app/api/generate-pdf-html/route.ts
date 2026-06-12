@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { InvalidJsonBodyError, parseRequestJsonBody } from "@/lib/api/parse-request-json"
 import { normalizeInvoicePdfTemplate } from "@/lib/pdf-builder/normalize-template"
 import { buildInvoiceHtmlDocument } from "@/lib/pdf-builder/render-invoice-html"
 import { personalizationFromCompanyRecord } from "@/lib/theme/company-personalization.utils"
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function POST(request: NextRequest) {
   try {
-    const invoiceData = await request.json()
+    const invoiceData = await parseRequestJsonBody(request)
     const company = invoiceData.company as Record<string, unknown> | undefined
     const personalization = personalizationFromCompanyRecord(company)
     const invConfig = personalization.invoices
@@ -31,6 +32,10 @@ export async function POST(request: NextRequest) {
       pageSize: template.pageSize,
     })
   } catch (error) {
+    if (error instanceof InvalidJsonBodyError) {
+      console.warn("⚠️ PDF HTML: solicitud con JSON inválido:", error.message)
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
     console.error("❌ Error generando HTML de factura:", error)
     return NextResponse.json(
       {

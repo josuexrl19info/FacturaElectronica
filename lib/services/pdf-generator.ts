@@ -113,38 +113,59 @@ export class PDFGeneratorService {
    */
   static async generatePDFAsBase64(invoiceData: PDFInvoiceData): Promise<string> {
     try {
-      console.log('📄 Generando PDF final optimizado en base64 para:', invoiceData.number)
-      
-      // Llamar al endpoint API final optimizado para generar el PDF
-      // En server usamos base absoluta; en cliente sería relativo
-      const { getBaseUrl } = await import('../utils')
-      const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(invoiceData)
+      console.log("📄 Generando PDF final optimizado en base64 para:", invoiceData.number)
+
+      const { buildInvoicePdfApiPayload } = await import("./invoice-pdf-client")
+      const { generateInvoicePdfBase64 } = await import("./invoice-pdf-server")
+
+      const invoice = {
+        consecutivo: invoiceData.number,
+        clave: invoiceData.key,
+        fechaEmision: invoiceData.date,
+        items: invoiceData.items.map((item) => ({
+          detalle: item.description,
+          cantidad: item.quantity,
+          precioUnitario: item.unitPrice,
+          descuento: item.discount,
+          impuestoNeto: item.tax,
+          montoTotalLinea: item.total,
+        })),
+        subtotal: invoiceData.subtotal,
+        totalDescuento: invoiceData.totalDiscount,
+        totalImpuesto: invoiceData.totalTax,
+        totalExento: invoiceData.totalExempt,
+        total: invoiceData.total,
+        notes: invoiceData.notes,
+      }
+
+      const company = {
+        name: invoiceData.company.name,
+        identification: invoiceData.company.id,
+        phone: invoiceData.company.phone,
+        email: invoiceData.company.email,
+        address: invoiceData.company.address,
+        logo: invoiceData.company.logo,
+      }
+
+      const client = {
+        name: invoiceData.client.name,
+        identification: invoiceData.client.id,
+        phone: invoiceData.client.phone,
+        email: invoiceData.client.email,
+        address: invoiceData.client.address,
+      }
+
+      const payload = buildInvoicePdfApiPayload(invoice, company, client)
+      const { base64 } = await generateInvoicePdfBase64(payload.invoice, {
+        company: payload.company,
+        client: payload.client,
       })
-      
-      if (!response.ok) {
-        throw new Error(`Error en endpoint de PDF final optimizado: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Error generando PDF final optimizado')
-      }
-      
-      console.log('✅ PDF final optimizado generado en base64:', result.size, 'caracteres')
-      console.log('📊 Tamaño del PDF:', result.size_mb, 'MB')
-      console.log('🎯 Método utilizado:', result.method)
-      
-      return result.pdf_base64
-      
+
+      console.log("✅ PDF final optimizado generado en base64:", base64.length, "caracteres")
+      return base64
     } catch (error) {
-      console.error('❌ Error al generar PDF final optimizado en base64:', error)
-      throw new Error('Error al generar PDF final optimizado en base64')
+      console.error("❌ Error al generar PDF final optimizado en base64:", error)
+      throw new Error("Error al generar PDF final optimizado en base64")
     }
   }
 

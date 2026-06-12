@@ -1,5 +1,6 @@
 import { normalizeInvoicePdfTemplate } from "@/lib/pdf-builder/normalize-template"
 import type { InvoicePdfTemplate } from "@/lib/pdf-builder/types"
+import { stringifyInvoicePdfPayload } from "@/lib/services/invoice-pdf-json"
 import { personalizationFromCompanyRecord } from "@/lib/theme/company-personalization.utils"
 
 export type InvoicePdfApiPayload = {
@@ -80,10 +81,10 @@ export async function fetchInvoicePdfFromApi(
 async function fetchInvoicePdfInBrowser(
   payload: InvoicePdfApiPayload
 ): Promise<{ blob: Blob; base64: string }> {
-  const response = await fetch("/api/generate-pdf-html", {
+  const response = await fetch("/api/generate-pdf-html/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: stringifyInvoicePdfPayload(payload),
   })
 
   if (!response.ok) {
@@ -104,16 +105,11 @@ async function fetchInvoicePdfInBrowser(
 async function fetchInvoicePdfFromServerApi(
   payload: InvoicePdfApiPayload
 ): Promise<{ blob: Blob; base64: string }> {
-  const apiPath = "/api/generate-pdf-optimized"
-  const url =
-    typeof window !== "undefined"
-      ? apiPath
-      : `${(await import("@/lib/utils")).getBaseUrl()}${apiPath}`
-
-  const response = await fetch(url, {
+  const { getBaseUrl } = await import("@/lib/utils")
+  const response = await fetch(`${getBaseUrl()}/api/generate-pdf-optimized/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: stringifyInvoicePdfPayload(payload),
   })
 
   if (!response.ok) {
