@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { InvalidJsonBodyError, parseRequestJsonBody } from '@/lib/api/parse-request-json'
-import { generateInvoicePDFOptimized } from '@/lib/services/pdf-generator-optimized'
 import { isServerPuppeteerEnabled } from '@/lib/services/puppeteer-launch'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 10
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +21,8 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       )
     }
-    
+
+    const { generateInvoicePDFOptimized } = await import('@/lib/services/pdf-generator-optimized')
     console.log('📄 Generando PDF optimizado para:', invoiceData.invoice?.consecutivo || 'N/A')
 
     // Log de datos recibidos

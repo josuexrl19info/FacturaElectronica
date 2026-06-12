@@ -1,6 +1,5 @@
 import "server-only"
 
-import { generateInvoicePDFOptimized } from "@/lib/services/pdf-generator-optimized"
 import { buildInvoicePdfApiPayload } from "@/lib/services/invoice-pdf-client"
 import { isServerPuppeteerEnabled } from "@/lib/services/puppeteer-launch"
 import {
@@ -50,6 +49,7 @@ export async function generateInvoicePdfBase64(
   }
 
   try {
+    const { generateInvoicePDFOptimized } = await import("@/lib/services/pdf-generator-optimized")
     const arrayBuffer = await generateInvoicePDFOptimized(payload)
     const base64 = Buffer.from(arrayBuffer).toString("base64")
     return { base64, blockCount }

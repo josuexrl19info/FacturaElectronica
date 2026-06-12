@@ -2,10 +2,6 @@
 const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["puppeteer", "puppeteer-core", "@sparticuz/chromium-min", "sharp"],
-    outputFileTracingIncludes: {
-      "/api/generate-pdf-optimized": ["./node_modules/@sparticuz/chromium-min/**"],
-      "/api/generate-pdf-optimized/": ["./node_modules/@sparticuz/chromium-min/**"],
-    },
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
